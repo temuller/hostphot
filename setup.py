@@ -23,7 +23,7 @@ setuptools.setup(
     url="https://github.com/temuller/hostphot",
     package_dir={"": "src"},
     packages=setuptools.find_packages(where="src"),
-    scripts=["bin/hostphot"],
+    #scripts=["bin/hostphot"],
     python_requires=">=3.7",
     classifiers=[
         "Programming Language :: Python :: 3",

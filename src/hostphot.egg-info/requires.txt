@@ -6,5 +6,4 @@ photutils
 astroquery
 extinction
 piscola
-pyvo
 sep
