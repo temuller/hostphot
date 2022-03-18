@@ -1,3 +1,4 @@
+from photutils.utils import calc_total_error
 from astropy.stats import sigma_clipped_stats
 
 def calc_sky_unc(image, exptime):

@@ -38,13 +38,8 @@ import piscola
 from piscola.extinction_correction import extinction_filter
 
 from .phot_utils import calc_sky_unc
-from .utils import get_survey_filters
-from .validate import (check_survey_validity,
-                        check_filters_validity)
-
-H0 = 70
-Om0 = 0.3
-cosmo = FlatLambdaCDM(H0, Om0)
+from .utils import (get_survey_filters, check_survey_validity,
+                                        check_filters_validity)
 
 # Masking Stars
 #-------------------------------
@@ -407,3 +402,95 @@ def coadd_images(sn_name, filters='riz', resample=True, verbose=False, work_dir=
 
 # Photometry
 #-------------------------------
+def multi_global_photometry(name_list, filters = "grizy",
+                             coadd=True, mask_stars=True, coadd_filters='riz',
+                                threshold=3, bkg_sub=False, show_plots=False):
+    """Extract global photometry for multiple SNe.
+
+    Parameters
+    ==========
+    name_list: list-like
+        List of SN names.
+    filters: str, defaul `grizy`
+        Filters used to extract photometry.
+    coadd: bool, default `True`
+        If `True`, a coadd image is created for common aperture.
+    mask_stars: bool, default `True`
+        If `True`, the stars identified inside the common aperture
+        are masked with the mean value of the background around them.
+    coadd_filters: str, default `riz`
+        Filters to use for the coadd image.
+    threshold: float, default `3`
+        Threshold used by `sep.extract()` to extract objects.
+    bkg_sub: bool, default `True`
+        If `True`, the image gets background subtracted.
+    show_plots: bool, default `False`
+        If `True`, a diagnosis plot is shown.
+
+    Returns
+    =======
+    global_phot_df: DataFrame
+        Dataframe with the photometry, errors and SN name.
+    """
+    # SNe without PS1 data
+    skip_sne = ['SN2006bh', 'SN2008bq']
+
+    # dictionary to save results
+    mag_dict = {filt:[] for filt in filters}
+    mag_err_dict = {filt+'_err':[] for filt in filters}
+    mag_dict.update(mag_err_dict)
+
+    results_dict = {'name':[], 'host_name':[],
+                   'host_ra':[], 'host_dec':[]}
+    results_dict.update(mag_dict)
+
+    # get host galaxy info
+    osc_df = pd.read_csv('osc_results.csv')
+    for name in name_list:
+        if name in skip_sne:
+            continue
+        host_info = osc_df[osc_df.SN_Name==name]
+        results_dict['host_name'].append(host_info.Host_Name.values[0])
+        host_ra = host_info.Host_RA.values[0]
+        host_dec = host_info.Host_DEC.values[0]
+        results_dict['host_ra'].append(host_ra)
+        results_dict['host_dec'].append(host_dec)
+
+        sn_dir = f'fits_files/{name}'
+        host_files = [os.path.join(sn_dir,
+                                   f'host_{filt}.fits')
+                                        for filt in filters]
+
+        if coadd:
+            resample = False  # shouldn't be necessary for PS1 images
+            coadd_images(name, coadd_filters, resample)
+            #coadd_images_linear(name, coadd_filters)
+            coadd_file = os.path.join(sn_dir, f'host_{coadd_filters}.fits')
+            gal_object, _ = extract_aperture_params(coadd_file,
+                                                    host_ra, host_dec,
+                                                    threshold, bkg_sub)
+        else:
+            gal_object = None
+
+        for host_file, filt in zip(host_files, filters):
+            try:
+                mag, mag_err = extract_global_photometry(host_file,
+                                                         host_ra,
+                                                         host_dec,
+                                                         gal_object,
+                                                         mask_stars,
+                                                         ZP,
+                                                         threshold,
+                                                         bkg_sub,
+                                                         show_plots)
+                results_dict[filt].append(mag)
+                results_dict[filt+'_err'].append(mag_err)
+            except Exception as message:
+                results_dict[filt].append(np.nan)
+                results_dict[filt+'_err'].append(np.nan)
+                print(f'{name} failed with {filt} band: {message}')
+
+        results_dict['name'].append(name)
+    global_phot_df = pd.DataFrame(results_dict)
+
+    return global_phot_df

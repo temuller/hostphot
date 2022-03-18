@@ -3,8 +3,6 @@ import piscola
 import numpy as np
 from astropy import wcs
 from astropy.nddata.utils import Cutout2D
-from .validate import (check_survey_validity, 
-                        check_filters_validity)
 
 def trim_images(fits_files, pos, size):
     """Trims the size of the given fits images.
@@ -36,7 +34,6 @@ def trim_images(fits_files, pos, size):
 
     return trimmed_fits_files
 
-
 def get_survey_filters(survey):
     """Gets all the valid filters for the given survey.
 
@@ -56,6 +53,38 @@ def get_survey_filters(survey):
     filters = filters_dict[survey]
 
     return filters
+
+def check_survey_validity(survey):
+    """Check whether the given survey is whithin the valid
+    options.
+
+    Parameters
+    ----------
+    survey: str
+        Survey name: `PS1`, `DES` or `SDSS`.
+    """
+    valid_surveys = ['PS1', 'DES', 'SDSS']
+    assert survey in valid_surveys, (f"survey '{survey}' not"
+                                     f" in {valid_surveys}")
+
+def check_filters_validity(filters, survey):
+    """Check whether the given filters are whithin the valid
+    options for the given survey.
+
+    Parameters
+    ----------
+    filters: str
+        Filters to use, e,g, `griz`.
+    survey: str
+        Survey name: `PS1`, `DES` or `SDSS`.
+    """
+    if filters is not None:
+        valid_filters = get_survey_filters(survey)
+
+        for filt in filters:
+            message = (f"filter '{filt}' is not a valid option for "
+                       f"'{survey}' survey ({valid_filters})")
+            assert filt in valid_filters, message
 
 def extract_filters(filters, survey):
     """Extracts transmission functions from PISCOLA.
@@ -94,7 +123,6 @@ def extract_filters(filters, survey):
                               'transmission':transmission}
 
     return filters_dict
-
 
 def clean_sn_dir(sn_dir):
     """Removes the SN directory if it is empty.

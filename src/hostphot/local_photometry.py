@@ -20,7 +20,6 @@ import pandas as pd
 
 from photutils import CircularAperture
 from photutils import aperture_photometry
-from photutils.utils import calc_total_error
 
 from astropy.io import fits
 from astropy.table import Table
@@ -32,9 +31,9 @@ import piscola
 from piscola.extinction_correction import extinction_filter
 
 from .phot_utils import calc_sky_unc
-from .utils import get_survey_filters
-from .validate import (check_survey_validity,
-                        check_filters_validity)
+from .utils import (get_survey_filters, extract_filters,
+                check_survey_validity, check_filters_validity)
+
 
 H0 = 70
 Om0 = 0.3
@@ -65,7 +64,7 @@ def calc_aperture_size(z, ap_radius):
     transv_sep_per_arcmin = cosmo.kpc_proper_per_arcmin(z)
     transv_sep_per_arcsec = transv_sep_per_arcmin.to(u.kpc/u.arcsec)
 
-    radius_arcsec = ap_radius/transverse_sep_per_arcsec
+    radius_arcsec = ap_radius/transv_sep_per_arcsec
 
     return radius_arcsec.value
 
@@ -210,7 +209,7 @@ def multi_local_photometry(name_list, ra_list, dec_list, z_list,
     results_dict.update(mag_dict)
 
     # filter funcstions for extinction correction
-    filters_dict = extract_filters(filters)
+    filters_dict = extract_filters(filters, survey)
 
     for name, ra, dec, z in zip(name_list, ra_list,
                                     dec_list, z_list):

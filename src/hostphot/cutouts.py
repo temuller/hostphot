@@ -11,9 +11,8 @@ from astropy.coordinates import SkyCoord
 from pyvo.dal import sia
 from astroquery.sdss import SDSS
 
-from .utils import get_survey_filters, trim_images
-from .validate import (check_survey_validity,
-                        check_filters_validity)
+from .utils import (get_survey_filters, trim_images, clean_sn_dir,
+                check_survey_validity, check_filters_validity)
 
 # PS1
 #----------------------------------------
@@ -206,12 +205,11 @@ def get_DES_images(ra, dec, size=240, filters=None):
     fov = size*0.263/3600  # from pixels to degrees
     url_list, url_w_list = get_DES_urls(ra, dec, fov, filters)
 
+    if url_list is None:
+        return None
+
     fits_files = []
     for url, url_w in zip(url_list, url_w_list):
-        if url is None:
-            fits_files.append(None)
-            continue
-
         # combine image+weights on a single fits file
         image_fits = fits.open(url)
         weight_fits = fits.open(url_w)
@@ -273,3 +271,62 @@ def get_SDSS_images(ra, dec, size=240, filters=None):
     fits_files = trim_images(fits_files, pos, size)
 
     return fits_files
+
+# Master Function
+#----------------------------------------
+def download_multiband_images(sn_name, ra, dec, size=240,
+                                work_dir='', filters=None,
+                                  overwrite=False, survey='PS1'):
+    """Download images for a given object in the given filters of a
+    given survey.
+
+    Parameters
+    ----------
+    sn_name: str
+        SN name used for tracking the object in your local
+        directory.
+    ra: float
+        Right ascension in degrees.
+    dec: float
+        Declination in degrees.
+    size: int, default `240`
+        Image size in pixels.
+    filters: str, default `None`
+        DES filters for the images.
+    overwrite: bool, default `False`
+        If `True`, the images are overwritten if they already
+        exist.
+    survey: str, default `PS1`
+        Survey used to download the images
+    """
+
+    check_survey_validity(survey)
+    check_filters_validity(filters, survey)
+    if filters is None:
+        filters = get_survey_filters(survey)
+
+    sn_dir = os.path.join(work_dir, sn_name)
+    if not os.path.isdir(sn_dir):
+        os.mkdir(sn_dir)
+
+    if survey=='PS1':
+        fits_files = get_PS1_images(ra, dec, size, filters)
+    elif survey=='DES':
+        fits_files = get_DES_images(ra, dec, size, filters)
+    elif survey=='SDSS':
+        fits_files = get_SDSS_images(ra, dec, size, filters)
+
+    if fits_files is not None:
+        for fits_file, filt in zip(fits_files, filters):
+            outfile = os.path.join(sn_dir, f'{survey}_{filt}.fits')
+
+            if not os.path.isfile(outfile):
+                fits_file.writeto(outfile)
+            else:
+                if overwrite:
+                    fits_file.writeto(outfile, overwrite=overwrite)
+                else:
+                    continue
+
+    # remove SN directory if it ends up empty
+    clean_sn_dir(sn_dir)
