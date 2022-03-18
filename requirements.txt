@@ -1,0 +1,8 @@
+pip
+pandas
+astropy
+photutils
+astroquery
+extinction
+piscola
+sep
