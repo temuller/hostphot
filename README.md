@@ -2,8 +2,10 @@
 
 ## Conda environment
 
+It is recommended to create an environment for every new project:
+
 ```code
-conda create -n hostphot pip numpy cython pybind11
+conda create -n hostphot pip
 conda activate hostphot
 pip install hostphot
 ```
