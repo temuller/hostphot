@@ -217,8 +217,9 @@ def multi_local_photometry(name_list, ra_list, dec_list, z_list,
         sn_dir = os.path.join(work_dir, name)
         image_files = [os.path.join(sn_dir, f'{survey}_{filt}.fits')
                                                     for filt in filters]
-        try:
-            for image_file, filt in zip(image_files, filters):
+
+        for image_file, filt in zip(image_files, filters):
+            try:
                 mag, mag_err = extract_local_photometry(image_file,
                                                   ra, dec, z,
                                                   ap_radius=ap_radius,
@@ -228,15 +229,16 @@ def multi_local_photometry(name_list, ra_list, dec_list, z_list,
                     transmission = filters_dict[filt]['transmission']
                     A_ext = extinction_filter(wave, transmission, ra, dec)
                     mag -= A_ext
-
                 results_dict[filt].append(mag)
                 results_dict[filt+'_err'].append(mag_err)
-            results_dict['name'].append(name)
-            results_dict['ra'].append(ra)
-            results_dict['dec'].append(dec)
-            results_dict['zspec'].append(z)
-        except Exception as message:
-            print(f'{name} failed: {message}')
+            except Exception as message:
+                results_dict[filt].append(np.nan)
+                results_dict[filt+'_err'].append(np.nan)
+                print(f'{name} failed with {filt} band: {message}')
+        results_dict['name'].append(name)
+        results_dict['ra'].append(ra)
+        results_dict['dec'].append(dec)
+        results_dict['zspec'].append(z)
 
     local_phot_df = pd.DataFrame(results_dict)
 

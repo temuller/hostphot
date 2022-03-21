@@ -25,7 +25,6 @@ from matplotlib.patches import Ellipse
 
 import sep
 from astropy.io import fits
-from astropy.stats import sigma_clipped_stats
 from astropy.modeling import models, fitting
 from astropy import coordinates as coords, units as u, wcs
 
@@ -37,9 +36,10 @@ from photutils.detection import DAOStarFinder
 import piscola
 from piscola.extinction_correction import extinction_filter
 
-from .phot_utils import calc_sky_unc
-from .utils import (get_survey_filters, check_survey_validity,
-                                        check_filters_validity)
+from .utils import (get_survey_filters, extract_filters,
+                check_survey_validity, check_filters_validity)
+
+sep.set_sub_object_limit(1e4)
 
 # Masking Stars
 #-------------------------------
@@ -84,7 +84,7 @@ def inside_galaxy(star_center, gal_center, gal_r):
     Returns
     =======
     condition: bool
-        `True` if the a star is inside the galaxy.
+        `True` if the star is inside the galaxy,
         `False` otherwise.
     """
 
@@ -304,7 +304,8 @@ def mask_image(data, apertures, bkg, gal_center=None, gal_r=None, plot=False):
 
 # Coadding images
 #-------------------------------
-def coadd_images(sn_name, filters='riz', resample=True, verbose=False, work_dir=''):
+def coadd_images(sn_name, filters='riz', resample=True, verbose=False,
+                                                work_dir='', survey='PS1'):
     """Coadds images with SWarp for the choosen filters for
     common-aperture photometry.
 
@@ -319,6 +320,11 @@ def coadd_images(sn_name, filters='riz', resample=True, verbose=False, work_dir=
         before coadding them.
     verbose: bool, default `False`
         If `True`, the steps taken by this function are printed.
+    work_dir: str
+        Working directory where to find the objects'
+        directories with the images.
+    survey: str, default `PS1`
+        Survey to use as prefix for the images.
 
     Returns
     -------
@@ -328,7 +334,7 @@ def coadd_images(sn_name, filters='riz', resample=True, verbose=False, work_dir=
 
     init_dir = os.path.abspath('.')
     sn_dir = os.path.join(work_dir, sn_name)
-    fits_files = [os.path.join(sn_dr,
+    fits_files = [os.path.join(sn_dir,
                                f'{survey}_{filt}.fits') for filt in filters]
 
     # change to SN directory
@@ -363,7 +369,7 @@ def coadd_images(sn_name, filters='riz', resample=True, verbose=False, work_dir=
             # Now resample the image
             combine_frames = glob.glob(f'*resamp*.fits')
             combine_frame_str = ''.join("%s "%''.join(os.path.basename(combine_file))
-                                                       for combine_file in combine_frames)
+                                                    for combine_file in combine_frames)
         else:
             combine_frame_str = ''.join("%s "%''.join(os.path.basename(fits_file))
                                                     for fits_file in fits_files)
@@ -402,28 +408,248 @@ def coadd_images(sn_name, filters='riz', resample=True, verbose=False, work_dir=
 
 # Photometry
 #-------------------------------
-def multi_global_photometry(name_list, filters = "grizy",
-                             coadd=True, mask_stars=True, coadd_filters='riz',
-                                threshold=3, bkg_sub=False, show_plots=False):
+def extract_aperture_params(fits_file, host_ra, host_dec, threshold, bkg_sub=True):
+    """Extracts aperture parameters of a galaxy.
+
+    **Note:** the galaxy must be ideally centred in the image.
+
+    Parameters
+    ==========
+    fits_file: str
+        Path to the fits file.
+    host_ra: float
+        Host-galaxy Right ascension of the galaxy in degrees.
+    host_dec: float
+        Host-galaxy Declination of the galaxy in degrees.
+    threshold: float
+        Threshold used by `sep.extract()` to extract objects.
+    bkg_sub: bool, default `True`
+        If `True`, the image gets background subtracted.
+
+    Returns
+    =======
+    gal_object: numpy array
+        Galaxy object extracted with `sep.extract()`.
+    objects: numpy array
+        All objects extracted with `sep.extract()`.
+    """
+
+    img = fits.open(fits_file)
+
+    header = img[0].header
+    data = img[0].data
+    img_wcs = wcs.WCS(header, naxis=2)
+
+    data = data.astype(np.float64)
+    bkg = sep.Background(data)
+    bkg_rms = bkg.globalrms
+    if bkg_sub:
+        data_sub = np.copy(data - bkg)
+    else:
+        data_sub = np.copy(data)
+
+    # extract objects with Source Extractor
+    objects = sep.extract(data_sub, threshold, err=bkg_rms)
+
+    # obtain the galaxy data (hopefully centred in the image)
+    gal_coords = coords.SkyCoord(ra=host_ra*u.degree,
+                                 dec=host_dec*u.degree)
+    gal_x, gal_y = img_wcs.world_to_pixel(gal_coords)
+
+    x_diff = np.abs(objects['x']-gal_x)
+    y_diff = np.abs(objects['y']-gal_y)
+    gal_id = np.argmin(x_diff+y_diff)
+    gal_object = objects[gal_id:gal_id+1]
+
+    return gal_object, objects
+
+def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
+                              mask_stars=True, threshold=3, bkg_sub=True,
+                              survey='PS1', show_plots=False):
+    """Extracts PanSTARRS's global photometry of a galaxy. The use
+    of `gal_object` is intended for common-aperture photometry.
+
+    **Note:** the galaxy must be ideally centred in the image.
+
+    Parameters
+    ==========
+    fits_file: str
+        Path to the fits file.
+    host_ra: float
+        Host-galaxy Right ascension of the galaxy in degrees.
+    host_dec: float
+        Host-galaxy Declination of the galaxy in degrees.
+    gal_object: numpy array, default `None`
+        Galaxy object extracted with `extract_aperture_params()`.
+        Use this for common-aperture photometry only.
+    mask_stars: bool, default `True`
+        If `True`, the stars identified inside the common aperture
+        are masked with the mean value of the background around them.
+    threshold: float, default `3`
+        Threshold used by `sep.extract()` to extract objects.
+    bkg_sub: bool, default `True`
+        If `True`, the image gets background subtracted.
+    survey: str, default `PS1`
+        Survey to use for the zero-points.
+    show_plots: bool, default `False`
+        If `True`, diagnosis plot are shown.
+
+    Returns
+    =======
+    mag: float
+        Aperture magnitude.
+    mag_err: float
+        Error on the aperture magnitude.
+    """
+    check_survey_validity(survey)
+
+    img = fits.open(fits_file)
+
+    header = img[0].header
+    data = img[0].data
+    exptime = float(header['EXPTIME'])
+
+    data = data.astype(np.float64)
+    bkg = sep.Background(data)
+    bkg_rms = bkg.globalrms
+    if bkg_sub:
+        data_sub = np.copy(data - bkg)
+    else:
+        data_sub = np.copy(data)
+
+    if gal_object is None:
+        # no common aperture
+        gal_object, objects = extract_aperture_params(fits_file,
+                                                      host_ra,
+                                                      host_dec,
+                                                      threshold,
+                                                      bkg_sub)
+    else:
+        _, objects = extract_aperture_params(fits_file,
+                                             host_ra,
+                                             host_dec,
+                                             threshold,
+                                             bkg_sub)
+
+    if mask_stars:
+        # identify bright source.....
+        #mean, median, std = sigma_clipped_stats(data_sub, sigma=3.0)
+        #daofind = DAOStarFinder(fwhm=3.0, threshold=7.*std)  # avoids bogus sources
+        #sources = daofind(data_sub)
+        #positions = np.transpose((sources['xcentroid'], sources['ycentroid']))
+
+        # ... or create apertures for the sources obtained with sep
+        positions = np.transpose([objects['x'], objects['y']])
+
+        apertures = CircularAperture(positions, r=4)  # the value of r is irrelevant
+
+        # mask image
+        gal_center = (gal_object['x'][0], gal_object['y'][0])
+        gal_r = (6/2)*gal_object['a'][0]  # using the major-axis as radius
+        masked_data, model_sigmas = mask_image(data_sub, apertures, bkg_rms,
+                                                gal_center, gal_r, show_plots)
+        data_sub = masked_data.copy()
+
+    # aperture photometry
+    # This uses what would be the default SExtractor parameters.
+    # See https://sep.readthedocs.io/en/v1.1.x/apertures.html
+    # NaNs are converted to mean values to avoid issues with the photometry.
+    # The value used, slightly affects the results (~ 0.0x mag).
+    masked_data = np.nan_to_num(data_sub, nan=np.nanmean(data_sub))
+    kronrad, krflag = sep.kron_radius(masked_data,
+                                      gal_object['x'],
+                                      gal_object['y'],
+                                      gal_object['a'],
+                                      gal_object['b'],
+                                      gal_object['theta'],
+                                      6.0)
+
+    r_min = 1.75  # minimum diameter = 3.5
+    if kronrad*np.sqrt(gal_object['a']*gal_object['b']) < r_min:
+        print(f'Warning: using circular photometry on {fits_file}')
+        flux, flux_err, flag = sep.sum_circle(masked_data,
+                                              gal_object['x'],
+                                              gal_object['y'],
+                                              r_min,
+                                              err=bkg.globalrms,
+                                              subpix=1)
+    else:
+        flux, flux_err, flag = sep.sum_ellipse(masked_data,
+                                              gal_object['x'],
+                                              gal_object['y'],
+                                              gal_object['a'],
+                                              gal_object['b'],
+                                              gal_object['theta'],
+                                              2.5*kronrad,
+                                              err=bkg.globalrms,
+                                              subpix=1)
+
+    zp_dict = {'PS1':25 + 2.5*np.log10(exptime),
+               'DES':30,
+               'SDSS':22.5}
+    zp = zp_dict[survey]
+
+    mag = -2.5*np.log10(flux) + zp
+    mag_err = 2.5/np.log(10)*flux_err/flux
+
+    if show_plots:
+        fig, ax = plt.subplots()
+        m, s = np.nanmean(data_sub), np.nanstd(data_sub)
+        im = ax.imshow(data_sub, interpolation='nearest',
+                       cmap='gray',
+                       vmin=m-s, vmax=m+s,
+                       origin='lower')
+
+        e = Ellipse(xy=(gal_object['x'][0], gal_object['y'][0]),
+                    width=6*gal_object['a'][0],
+                    height=6*gal_object['b'][0],
+                    angle=gal_object['theta'][0]*180./np.pi)
+
+        e.set_facecolor('none')
+        e.set_edgecolor('red')
+        ax.add_artist(e)
+        plt.show()
+
+    return mag[0], mag_err[0]
+
+def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir,
+                            filters=None, coadd=True, coadd_filters='riz',
+                            resample=True, mask_stars=True, threshold=3,
+                            bkg_sub=True, survey="PS1", correct_extinction=True,
+                            show_plots=False):
     """Extract global photometry for multiple SNe.
 
     Parameters
     ==========
     name_list: list-like
         List of SN names.
-    filters: str, defaul `grizy`
-        Filters used to extract photometry.
+    host_ra_list: list-like
+        List of host-galaxy right ascensions in degrees.
+    host_dec_list: list-like
+        List of host-galaxy declinations in degrees.
+    work_dir: str
+        Working directory where to find the objects'
+        directories with the images.
+    filters: str, defaul `None`
+        Filters used to extract photometry. If `None`, use all
+        the available filters for the given survey.
     coadd: bool, default `True`
         If `True`, a coadd image is created for common aperture.
+    coadd_filters: str, default `riz`
+        Filters to use for the coadd image.
+    resample: bool, default `True`
+        If `True`, the images are resampled before coadding them.
     mask_stars: bool, default `True`
         If `True`, the stars identified inside the common aperture
         are masked with the mean value of the background around them.
-    coadd_filters: str, default `riz`
-        Filters to use for the coadd image.
     threshold: float, default `3`
         Threshold used by `sep.extract()` to extract objects.
     bkg_sub: bool, default `True`
         If `True`, the image gets background subtracted.
+    survey: str, default `PS1`
+        Survey to use for the zero-points.
+    correct_extinction: bool, default `True`
+        If `True`, the magnitudes are corrected for extinction.
     show_plots: bool, default `False`
         If `True`, a diagnosis plot is shown.
 
@@ -432,65 +658,67 @@ def multi_global_photometry(name_list, filters = "grizy",
     global_phot_df: DataFrame
         Dataframe with the photometry, errors and SN name.
     """
-    # SNe without PS1 data
-    skip_sne = ['SN2006bh', 'SN2008bq']
+    check_survey_validity(survey)
+    check_filters_validity(filters, survey)
+    if filters is None:
+        filters = get_survey_filters(survey)
 
     # dictionary to save results
     mag_dict = {filt:[] for filt in filters}
     mag_err_dict = {filt+'_err':[] for filt in filters}
     mag_dict.update(mag_err_dict)
 
-    results_dict = {'name':[], 'host_name':[],
-                   'host_ra':[], 'host_dec':[]}
+    results_dict = {'name':[], 'host_ra':[], 'host_dec':[]}
     results_dict.update(mag_dict)
 
-    # get host galaxy info
-    osc_df = pd.read_csv('osc_results.csv')
-    for name in name_list:
-        if name in skip_sne:
-            continue
-        host_info = osc_df[osc_df.SN_Name==name]
-        results_dict['host_name'].append(host_info.Host_Name.values[0])
-        host_ra = host_info.Host_RA.values[0]
-        host_dec = host_info.Host_DEC.values[0]
-        results_dict['host_ra'].append(host_ra)
-        results_dict['host_dec'].append(host_dec)
+    # filter funcstions for extinction correction
+    filters_dict = extract_filters(filters, survey)
 
-        sn_dir = f'fits_files/{name}'
-        host_files = [os.path.join(sn_dir,
-                                   f'host_{filt}.fits')
-                                        for filt in filters]
+    for name, host_ra, host_dec in zip(name_list, host_ra_list,
+                                                      host_dec_list):
+
+        sn_dir = os.path.join(work_dir, name)
+        image_files = [os.path.join(sn_dir, f'{survey}_{filt}.fits')
+                                                    for filt in filters]
 
         if coadd:
-            resample = False  # shouldn't be necessary for PS1 images
-            coadd_images(name, coadd_filters, resample)
-            #coadd_images_linear(name, coadd_filters)
-            coadd_file = os.path.join(sn_dir, f'host_{coadd_filters}.fits')
+            verbose = False
+            coadd_images(name, coadd_filters, resample,
+                                 verbose, work_dir, survey)
+            coadd_file = os.path.join(sn_dir, f'{coadd_filters}.fits')
             gal_object, _ = extract_aperture_params(coadd_file,
                                                     host_ra, host_dec,
                                                     threshold, bkg_sub)
         else:
             gal_object = None
 
-        for host_file, filt in zip(host_files, filters):
+        for image_file, filt in zip(image_files, filters):
             try:
-                mag, mag_err = extract_global_photometry(host_file,
+                mag, mag_err = extract_global_photometry(image_file,
                                                          host_ra,
                                                          host_dec,
                                                          gal_object,
                                                          mask_stars,
-                                                         ZP,
                                                          threshold,
                                                          bkg_sub,
+                                                         survey,
                                                          show_plots)
+                if correct_extinction:
+                    wave = filters_dict[filt]['wave']
+                    transmission = filters_dict[filt]['transmission']
+                    A_ext = extinction_filter(wave, transmission,
+                                                host_ra, host_dec)
+                    mag -= A_ext
                 results_dict[filt].append(mag)
                 results_dict[filt+'_err'].append(mag_err)
             except Exception as message:
                 results_dict[filt].append(np.nan)
                 results_dict[filt+'_err'].append(np.nan)
                 print(f'{name} failed with {filt} band: {message}')
-
         results_dict['name'].append(name)
+        results_dict['host_ra'].append(host_ra)
+        results_dict['host_dec'].append(host_dec)
+
     global_phot_df = pd.DataFrame(results_dict)
 
     return global_phot_df
