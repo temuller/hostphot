@@ -1,9 +1,0 @@
-pip
-numpy
-pandas
-astropy
-photutils
-astroquery
-extinction
-piscola
-sep
