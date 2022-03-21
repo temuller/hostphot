@@ -38,6 +38,7 @@ download_multiband_images(sn_name, ra, dec, size,
 
 where `work_dir` is where all the images will be downloaded. A Subdirectory inside `work_dir` will be created with the SN name as the directory name.
 
+
 ### Local Photometry
 
 Local photometry can be obtained for the downloaded images. For this, use `extract_local_photometry()` for a single image:
@@ -55,7 +56,7 @@ survey = 'PS1'
 extract_local_photometry(fits_file, ra, dec, z, ap_radius, survey)
 ```
 
-or you can use `multi_local_photometry()`, for multiple images:
+which returns `mag` and `mag_err`. You can also use `multi_local_photometry()` for multiple images:
 
 
 ```python
@@ -66,7 +67,8 @@ multi_local_photometry(name_list, ra_list, dec_list, z_list,
                                survey, correct_extinction)
 ```
 
-where `work_dir` should be the same as used in `download_multiband_images()` and name_list should contain the names of the SNe used in `download_multiband_images()` as well. This produces a pandas DataFrame as an output where, e.g., `g` is the g-band magnitude and `g_err` its uncertainty.
+where `work_dir` should be the same as used in `download_multiband_images()` and `name_list` should contain the names of the SNe used in `download_multiband_images()` as well. This produces a pandas DataFrame as an output where, e.g., column `g` is the g-band magnitude and `g_err` its uncertainty.
+
 
 ### Global Photometry
 
@@ -80,7 +82,7 @@ survey = 'PS1'
 extract_global_photometry(fits_file, host_ra, host_ra, survey=survey)
 ```
 
-or you can use `multi_global_photometry()`, for multiple images:
+which returns `mag` and `mag_err`. You can also use `multi_global_photometry()` for multiple images:
 
 
 ```python
