@@ -33,6 +33,9 @@ from photutils import (CircularAnnulus,
                        aperture_photometry)
 from photutils.detection import DAOStarFinder
 
+import reproject
+from reproject.mosaicking import reproject_and_coadd
+
 import piscola
 from piscola.extinction_correction import extinction_filter
 
@@ -127,8 +130,8 @@ def fit_2dgauss(star_data, x0=None, y0=None, plot_fit=False):
     gaussian_model = models.Gaussian2D(amp, x0, y0, sigma, sigma)
     gaussian_model.fixed['x_mean'] = True
     gaussian_model.fixed['y_mean'] = True
-    gaussian_model.bounds['x_stddev'] = (0, 10)
-    gaussian_model.bounds['y_stddev'] = (0, 10)
+    gaussian_model.bounds['x_stddev'] = (0, 8)
+    gaussian_model.bounds['y_stddev'] = (0, 8)
 
     yi, xi = np.indices(star_data.shape)
     model_result = fitter(gaussian_model, xi, yi, star_data)
@@ -185,11 +188,10 @@ def mask_image(data, apertures, bkg, gal_center=None, gal_r=None, plot=False):
     """
     h, w = data.shape[:2]
     masked_data = data.copy()
+    ring_scales = [3, 4, 5]  # how many sigmas
 
     model_sigmas = []
     skip_indeces = []
-    Rin_scalings = []
-    Rout_scalings = []
     for i, aperture in enumerate(apertures):
         star_y, star_x = aperture.positions
         size = 10
@@ -204,20 +206,15 @@ def mask_image(data, apertures, bkg, gal_center=None, gal_r=None, plot=False):
             star_data = masked_data[xmin:xmax, ymin:ymax]
         else:
             skip_indeces.append(i)
-            model_sigmas.append(np.nan)
-            Rin_scalings.append(np.nan)
-            Rout_scalings.append(np.nan)
             continue  # skip this star
 
         # fit a gaussian to the star and get sigma
         x0, y0 = star_x-xmin, star_y-ymin
         model_sigma = fit_2dgauss(star_data)
         model_sigmas.append(model_sigma)
-        if model_sigma==10:
+        if model_sigma==8:
             # 10 is the limit I putted in `fit_2dgauss` --> fit failed
             skip_indeces.append(i)
-            Rin_scalings.append(np.nan)
-            Rout_scalings.append(np.nan)
             continue  # skip this star
 
         # check if the star is inside the galaxy aperture
@@ -228,27 +225,16 @@ def mask_image(data, apertures, bkg, gal_center=None, gal_r=None, plot=False):
             star_inside_galaxy = inside_galaxy(star_center,
                                                gal_center, gal_r)
         if star_inside_galaxy:
-            # obtain the "optimal" mask size
-            sigma_scalings = np.arange(2, 14.5, 0.1)
-            for Rin_scale in sigma_scalings:
-                Rout_scale = Rin_scale+3
-                r_in, r_out = Rin_scale*model_sigma, Rout_scale*model_sigma
-                ann = CircularAnnulus(aperture.positions,
-                                      r_in=r_in, r_out=r_out)
-                ann_mean = aperture_photometry(
-                                data, ann)['aperture_sum'][0] / ann.area
-                if ann_mean<=3*bkg:
-                    break
-                if ann_mean>bkg*3 and Rin_scale==sigma_scalings.max():
-                    # if the loop ends not successfully...
-                    Rin_scale =7.0  # some "average"(abitrary) value
-                    Rout_scale = Rin_scale+3
-                    r_in, r_out = Rin_scale*model_sigma, Rout_scale*model_sigma
-
-            Rin_scalings.append(Rin_scale)
-            Rout_scalings.append(Rout_scale)
-
+            r_in = ring_scales[0]*model_sigma,
+            r_mid = ring_scales[1]*model_sigma
+            r_out = ring_scales[2]*model_sigma
+            # calculate flux in outer ring (4-6 sigmas)
+            ann = CircularAnnulus(aperture.positions,
+                                  r_in=r_mid, r_out=r_out)
+            ann_mean = aperture_photometry(
+                            data, ann)['aperture_sum'][0] / ann.area
             mask = create_circular_mask(h, w, star_center, r_in)
+
             # basically remove the failed fits and avoid large objects
             not_big_object = r_in<(gal_r/3)
             # do not mask the galaxy
@@ -259,9 +245,6 @@ def mask_image(data, apertures, bkg, gal_center=None, gal_r=None, plot=False):
                 masked_data[mask] = ann_mean
             else:
                 skip_indeces.append(i)
-        else:
-            Rin_scalings.append(5.0)
-            Rout_scalings.append(8.0)
 
     if plot:
         m, s = np.nanmean(data), np.nanstd(data)
@@ -286,16 +269,12 @@ def mask_image(data, apertures, bkg, gal_center=None, gal_r=None, plot=False):
                        vmin=m-s, vmax=m+s, origin='lower')
         ax[2].set_title('masked image')
 
-        for i, (aperture, model_sigma,
-                Rin_scale, Rout_scale) in enumerate(zip(apertures,
-                                                        model_sigmas,
-                                                        Rin_scalings,
-                                                        Rout_scalings)):
+        for i, (aperture, model_sigma) in enumerate(zip(apertures,
+                                                         model_sigmas)):
             if i not in skip_indeces:
-                aperture.r = Rin_scale*model_sigma
-                aperture.plot(ax[1], color='red', lw=1.5, alpha=0.5)
-                aperture.r = Rout_scale*model_sigma
-                aperture.plot(ax[1], color='red', lw=1.5, alpha=0.5)
+                for scale in ring_scales:
+                    aperture.r = scale*model_sigma
+                    aperture.plot(ax[1], color='red', lw=1.5, alpha=0.5)
 
         plt.tight_layout()
         plt.show()
@@ -304,9 +283,8 @@ def mask_image(data, apertures, bkg, gal_center=None, gal_r=None, plot=False):
 
 # Coadding images
 #-------------------------------
-def coadd_images(sn_name, filters='riz', resample=True, verbose=False,
-                                                work_dir='', survey='PS1'):
-    """Coadds images with SWarp for the choosen filters for
+def coadd_images(sn_name, filters='riz', work_dir='', survey='PS1'):
+    """Reprojects and coadds images for the choosen filters for
     common-aperture photometry.
 
     Parameters
@@ -315,11 +293,6 @@ def coadd_images(sn_name, filters='riz', resample=True, verbose=False,
         SN name to be used for finding the images locally.
     filters: str, default `riz`
         Filters to use for the coadd image.
-    resample: bool, default `True`
-        If `True`, the images are resampled to a common frame
-        before coadding them.
-    verbose: bool, default `False`
-        If `True`, the steps taken by this function are printed.
     work_dir: str
         Working directory where to find the objects'
         directories with the images.
@@ -337,74 +310,18 @@ def coadd_images(sn_name, filters='riz', resample=True, verbose=False,
     fits_files = [os.path.join(sn_dir,
                                f'{survey}_{filt}.fits') for filt in filters]
 
-    # change to SN directory
-    os.chdir(sn_dir)
-    if verbose:
-        print(f'moving to {os.path.abspath(".")}')
+    hdu_list = []
+    for fits_file in fits_files:
+        fits_image = fits.open(fits_file)
+        hdu_list.append(fits_image[0])
 
-    try:
-        if resample:
-            img = fits.open(os.path.basename(fits_files[0]))
-            # Note that this assumes that all the images have the same size
-            header = img[0].header
-            stamp_sizex, stamp_sizey = header['NAXIS1'], header['NAXIS2']
-
-            sci_frame_str = ''.join("%s "%''.join(os.path.basename(fits_file))
-                                                    for fits_file in fits_files)
-            # make a stamp as a det image
-            resamp_cmd = ['swarp',
-                          '-COMBINE', 'N',
-                          '-RESAMPLE', 'Y',
-                          '-IMAGE_SIZE', f'{stamp_sizex}, {stamp_sizey}',
-                          '-BACK_SIZE', '512',
-                          sci_frame_str]
-
-            p = subprocess.Popen(resamp_cmd,
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
-            outs, errs = p.communicate()
-            if verbose:
-                print(errs.decode("utf-8"))
-
-            # Now resample the image
-            combine_frames = glob.glob(f'*resamp*.fits')
-            combine_frame_str = ''.join("%s "%''.join(os.path.basename(combine_file))
-                                                    for combine_file in combine_frames)
-        else:
-            combine_frame_str = ''.join("%s "%''.join(os.path.basename(fits_file))
-                                                    for fits_file in fits_files)
-
-        if verbose:
-            print(f'Creating a {filters} image')
-
-        combine_cmd = ['swarp',
-                       '-COMBINE','Y',
-                       '-RESAMPLE','N',
-                       '-BACK_SIZE','512',
-                       '-IMAGEOUT_NAME', 'riz.fits',
-                       combine_frame_str]
-
-        p = subprocess.Popen(combine_cmd,
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
-        outs, errs = p.communicate()
-        if verbose:
-            print(errs.decode("utf-8"))
-
-        # remove temporary files
-        for file in glob.glob('*.fits'):
-            if '.resamp.' in file:
-                os.remove(file)
-            if 'coadd' in file:
-                os.remove(file)
-
-        # move back to initial directory
-        os.chdir(init_dir)
-        if verbose:
-            print(f'moving to {os.path.abspath(".")}')
-    except Exception as message:
-        os.chdir(init_dir)
-        print(message)
+    hdu_list = fits.HDUList(hdu_list)
+    # use the last image as reference
+    coadd = reproject_and_coadd(hdu_list, fits_image[0].header,
+                                reproject_function=reproject.reproject_interp)
+    fits_image[0].data = coadd[0]
+    outfile = os.path.join(sn_dir, f'{survey}_{filters}.fits')
+    fits_image.writeto(outfile, overwrite=True)
 
 # Photometry
 #-------------------------------
@@ -458,7 +375,8 @@ def extract_aperture_params(fits_file, host_ra, host_dec, threshold, bkg_sub=Tru
 
     x_diff = np.abs(objects['x']-gal_x)
     y_diff = np.abs(objects['y']-gal_y)
-    gal_id = np.argmin(x_diff+y_diff)
+    dist = np.sqrt(x_diff**2 + y_diff**2)
+    gal_id = np.argmin(dist)
     gal_object = objects[gal_id:gal_id+1]
 
     return gal_object, objects
@@ -525,11 +443,17 @@ def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
                                                       threshold,
                                                       bkg_sub)
     else:
-        _, objects = extract_aperture_params(fits_file,
+        gal_object2, objects = extract_aperture_params(fits_file,
                                              host_ra,
                                              host_dec,
                                              threshold,
                                              bkg_sub)
+        # sometimes, one of the filter images can be flipped, so the position of the
+        # aperture from the coadd image might not match that of the filter image. This
+        # is a workaround as we only need the semi-major and semi-minor axes.
+        gal_object['x'] = gal_object2['x']
+        gal_object['y'] = gal_object2['y']
+        gal_object['theta'] = gal_object2['theta']
 
     if mask_stars:
         # identify bright source.....
@@ -554,7 +478,7 @@ def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
     # This uses what would be the default SExtractor parameters.
     # See https://sep.readthedocs.io/en/v1.1.x/apertures.html
     # NaNs are converted to mean values to avoid issues with the photometry.
-    # The value used, slightly affects the results (~ 0.0x mag).
+    # The value used, might slightly affects the results (~ 0.0x mag).
     masked_data = np.nan_to_num(data_sub, nan=np.nanmean(data_sub))
     kronrad, krflag = sep.kron_radius(masked_data,
                                       gal_object['x'],
@@ -614,9 +538,8 @@ def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
 
 def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir,
                             filters=None, coadd=True, coadd_filters='riz',
-                            resample=True, mask_stars=True, threshold=3,
-                            bkg_sub=True, survey="PS1", correct_extinction=True,
-                            show_plots=False):
+                            mask_stars=True, threshold=3, bkg_sub=True, survey="PS1",
+                            correct_extinction=True, show_plots=False):
     """Extract global photometry for multiple SNe.
 
     Parameters
@@ -637,8 +560,6 @@ def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir,
         If `True`, a coadd image is created for common aperture.
     coadd_filters: str, default `riz`
         Filters to use for the coadd image.
-    resample: bool, default `True`
-        If `True`, the images are resampled before coadding them.
     mask_stars: bool, default `True`
         If `True`, the stars identified inside the common aperture
         are masked with the mean value of the background around them.
@@ -682,10 +603,8 @@ def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir,
                                                     for filt in filters]
 
         if coadd:
-            verbose = False
-            coadd_images(name, coadd_filters, resample,
-                                 verbose, work_dir, survey)
-            coadd_file = os.path.join(sn_dir, f'{coadd_filters}.fits')
+            coadd_images(name, coadd_filters, work_dir, survey)
+            coadd_file = os.path.join(sn_dir, f'{survey}_{coadd_filters}.fits')
             gal_object, _ = extract_aperture_params(coadd_file,
                                                     host_ra, host_dec,
                                                     threshold, bkg_sub)
