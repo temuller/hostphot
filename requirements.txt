@@ -2,6 +2,7 @@ pip
 numpy
 pandas
 astropy
+reproject
 photutils
 astroquery
 extinction
