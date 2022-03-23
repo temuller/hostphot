@@ -16,7 +16,7 @@ from .utils import (get_survey_filters, trim_images, clean_sn_dir,
 
 # PS1
 #----------------------------------------
-def query_ps1(ra, dec, size=240, filters="grizy"):
+def query_ps1(ra, dec, size=240, filters=None):
     """Query ps1filenames.py service to get a list of images
 
     Parameters
@@ -27,15 +27,18 @@ def query_ps1(ra, dec, size=240, filters="grizy"):
         Declination in degrees.
     size: int, default `240`
         Image size in pixels (0.25 arcsec/pixel).
-    filters: str
-        Filters to include.
+    filters: str, default `None`
+        Filters to use. If `None`, uses `grizy`.
 
     Returns
     -------
     table: astropy Table
         Astropy table with the results.
     """
-
+    check_filters_validity(filters, 'PS1')
+    if filters is None:
+        filters = get_survey_filters('PS1')
+        
     service = "https://ps1images.stsci.edu/cgi-bin/ps1filenames.py"
     url = (f"{service}?ra={ra}&dec={dec}&size={size}&format=fits&"
            f"filters={filters}")
@@ -44,7 +47,7 @@ def query_ps1(ra, dec, size=240, filters="grizy"):
 
     return table
 
-def get_PS1_urls(ra, dec, size=240, filters="grizy"):
+def get_PS1_urls(ra, dec, size=240, filters=None):
     """Get URLs for images obtained with `query_ps1()`.
 
     Parameters
@@ -55,14 +58,18 @@ def get_PS1_urls(ra, dec, size=240, filters="grizy"):
         Declination in degrees.
     size: int, default `240`
         Image size in pixels (0.25 arcsec/pixel).
-    filters: str
-        Filters to include.
+    filters: str, default `None`
+        Filters to use. If `None`, uses `grizy`.
 
     Returns
     -------
     url_list: list
         List of URLs for the fits images.
     """
+    check_filters_validity(filters, 'PS1')
+    if filters is None:
+        filters = get_survey_filters('PS1')
+
     table = query_ps1(ra, dec, size=size, filters=filters)
     url = ("https://ps1images.stsci.edu/cgi-bin/fitscut.cgi?"
            f"ra={ra}&dec={dec}&size={size}&format=fits")
@@ -237,7 +244,7 @@ def get_SDSS_images(ra, dec, size=240, filters=None):
     size: int, default `240`
         Image size in pixels.
     filters: str, default `None`
-        Filters to use. If `None`, uses `griz`.
+        Filters to use. If `None`, uses `ugriz`.
 
     Return
     ------
