@@ -48,7 +48,7 @@ def get_survey_filters(survey):
         Filters for the given survey.
     """
     filters_dict = {'PS1':'grizy',
-                    'DES':'griz',
+                    'DES':'grizY',
                     'SDSS':'ugriz'}
     filters = filters_dict[survey]
 
