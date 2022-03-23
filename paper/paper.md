@@ -6,10 +6,10 @@ tags:
   - supernova
   - galaxy
 authors:
-  - name: Tomás E. Müller-Bravo^[Corresponding author] 
+  - name: Tomás E. Müller-Bravo
     orcid: 0000-0003-3939-7167
     affiliation: 1
-  - name: Lluís Galbany^[Co-first author] 
+  - name: Lluís Galbany 
     orcid: 0000-0002-1296-6887
     affiliation: "1, 2"
 affiliations:
@@ -19,6 +19,7 @@ affiliations:
    index: 2
 date: 22 March 2022
 bibliography: paper.bib
+---
 
 # Summary
 
