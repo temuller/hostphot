@@ -10,6 +10,7 @@ Local photometry can be obtained for the downloaded images. For this, use :func:
 
 
 .. code:: python
+
 	from hostphot.local_photometry import extract_local_photometry
 
 	fits_file = 'path/to/local/fits_file'
@@ -24,6 +25,7 @@ which returns ``mag`` and ``mag_err``. You can also use :func:`multi_local_photo
 
 
 .. code:: python
+
 	from hostphot.local_photometry import multi_local_photometry
 
 	multi_local_photometry(name_list, ra_list, dec_list, z_list,
@@ -39,6 +41,7 @@ Global Photometry
 Global photometry can be obtained in a similar way to local photometry. Use :func:`extract_global_photometry()` for a single image:
 
 .. code:: python
+
 	from hostphot.global_photometry import extract_global_photometry
 
 	survey = 'PS1'
@@ -49,6 +52,7 @@ which returns ``mag`` and ``mag_err``. You can also use :func:`multi_global_phot
 
 
 .. code:: python
+
 	from hostphot.global_photometry import multi_global_photometry
 
 	survey = 'PS1'

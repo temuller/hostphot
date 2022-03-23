@@ -3,3 +3,4 @@ images/
 src/hostphot/__pycache__/
 src/*egg*
 dist/
+docs/_build/

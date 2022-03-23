@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 Welcome to HostPhot's documentation!
-===================================
+====================================
 
 HostPhot is being actively developed in `a public repository on GitHub
 <https://github.com/temuller/hostphot>`_ so if you have any trouble, `open an issue
@@ -26,21 +26,20 @@ HostPhot is being actively developed in `a public repository on GitHub
 
 .. toctree::
    :maxdepth: 1
-   :caption: API User Guide
-
-   user/sn_object.rst
-   user/extinction_correction.rst
-   user/gaussian_process.rst
-   user/mangling.rst
-   user/filter_utils.rst
-   user/pisco_utils.rst
-
-.. toctree::
-   :maxdepth: 1
    :caption: Examples
 
    examples/cutouts_example.rst
    examples/photometry_example.rst
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API User Guide
+
+   user/cutouts.rst
+   user/local_photometry.rst
+   user/global_photometry.rst
+   user/phot_utils.rst
+   user/utils.rst
 
 .. toctree::
    :maxdepth: 1
