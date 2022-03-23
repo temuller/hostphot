@@ -40,6 +40,5 @@ Local photometry can be calculated with the desired circular aperture in physica
 TEMB and LG acknowledge financial support from the Spanish Ministerio de Ciencia e Innovación (MCIN), the Agencia Estatal de Investigación (AEI) 10.13039/501100011033 under the PID2020-115253GA-I00 HOSTFLOWS project, and from Centro Superior de Investigaciones Científicas (CSIC) under the PIE project 20215AT016, and the I-LINK 2021 LINKA20409. 
 TEMB and LG are also partially supported by the program Unidad de Excelencia Maríia de Maeztu CEX2020-001058-M.
 LG also acknowledges MCIN, AEI and the European Social Fund (ESF) "Investing in your future" under the 2019 Ramón y Cajal program RYC2019-027683-I.
-This research made use of Photutils, an Astropy package for detection and photometry of astronomical sources (Bradley et al. 2021).
 
 # References
