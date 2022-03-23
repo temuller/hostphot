@@ -49,7 +49,7 @@ def get_survey_filters(survey):
     """
     filters_dict = {'PS1':'grizy',
                     'DES':'griz',
-                    'SDSS':'griz'}
+                    'SDSS':'ugriz'}
     filters = filters_dict[survey]
 
     return filters
