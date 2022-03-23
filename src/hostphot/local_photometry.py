@@ -52,7 +52,7 @@ def calc_aperture_size(z, ap_radius):
     ap_radius: float
         Physical aperture size in kpc.
 
-    ReturnsA
+    Returns
     -------
     radius_arcsec: float
         Aperture size in arcsec.
