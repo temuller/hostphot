@@ -162,7 +162,7 @@ def extract_local_photometry(fits_file, ra, dec, z,
     return mag, mag_err
 
 def multi_local_photometry(name_list, ra_list, dec_list, z_list,
-                             ap_radius, work_dir, filters=None,
+                             ap_radius, work_dir='', filters=None,
                                survey="PS1", correct_extinction=True):
     """Extract local photometry for multiple SNe.
 
@@ -179,9 +179,9 @@ def multi_local_photometry(name_list, ra_list, dec_list, z_list,
     ap_radius: float
         Physical size of the aperture in kpc. This is used
         for aperture photometry.
-    work_dir: str
+    work_dir: str, default ''
         Working directory where to find the objects'
-        directories with the images.
+        directories with the images. Default, current directory.
     filters: str, defaul `None`
         Filters used to extract photometry. If `None`, use all
         the available filters for the given survey.

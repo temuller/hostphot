@@ -293,9 +293,9 @@ def coadd_images(sn_name, filters='riz', work_dir='', survey='PS1'):
         SN name to be used for finding the images locally.
     filters: str, default `riz`
         Filters to use for the coadd image.
-    work_dir: str
+    work_dir: str, default ''
         Working directory where to find the objects'
-        directories with the images.
+        directories with the images. Default, current directory.
     survey: str, default `PS1`
         Survey to use as prefix for the images.
 
@@ -536,7 +536,7 @@ def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
 
     return mag[0], mag_err[0]
 
-def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir,
+def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir='',
                             filters=None, coadd=True, coadd_filters='riz',
                             mask_stars=True, threshold=3, bkg_sub=True, survey="PS1",
                             correct_extinction=True, show_plots=False):
@@ -550,9 +550,9 @@ def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir,
         List of host-galaxy right ascensions in degrees.
     host_dec_list: list-like
         List of host-galaxy declinations in degrees.
-    work_dir: str
+    work_dir: str, default ''
         Working directory where to find the objects'
-        directories with the images.
+        directories with the images. Default, current directory.
     filters: str, defaul `None`
         Filters used to extract photometry. If `None`, use all
         the available filters for the given survey.

@@ -291,6 +291,9 @@ def download_multiband_images(sn_name, ra, dec, size=240,
         Declination in degrees.
     size: int, default `240`
         Image size in pixels.
+    work_dir: str, default ''
+        Working directory where to find the objects'
+        directories with the images. Default, current directory.
     filters: str, default `None`
         DES filters for the images.
     overwrite: bool, default `False`
