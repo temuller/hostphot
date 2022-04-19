@@ -1,4 +1,5 @@
 pip
+wget
 numpy
 pandas
 astropy

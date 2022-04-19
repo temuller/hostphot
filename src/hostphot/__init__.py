@@ -2,7 +2,7 @@
 
 from . import utils
 from . import cutouts
-from . import phot_utils
+from . import rgb_images
 from . import local_photometry
 from . import global_photometry
 from ._version import __version__
