@@ -1,6 +1,7 @@
 import unittest
 import os
 import wget
+import tarfile
 import hostphot
 from hostphot.cutouts import download_multiband_images
 from hostphot.local_photometry import multi_local_photometry
