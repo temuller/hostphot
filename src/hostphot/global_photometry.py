@@ -36,11 +36,9 @@ from photutils.detection import DAOStarFinder
 import reproject
 from reproject.mosaicking import reproject_and_coadd
 
-import piscola
-from piscola.extinction_correction import extinction_filter
-
 from .utils import (get_survey_filters, extract_filters,
-                check_survey_validity, check_filters_validity)
+                    check_survey_validity, check_filters_validity,
+                    calc_ext, calc_sky_unc)
 
 sep.set_sub_object_limit(1e4)
 
@@ -162,7 +160,8 @@ def fit_2dgauss(star_data, x0=None, y0=None, plot_fit=False):
 
     return model_sigma
 
-def mask_image(data, apertures, bkg, gal_center=None, gal_r=None, plot=False):
+def mask_image(data, apertures, bkg, gal_center=None,
+                                            gal_r=None, plot_output=None):
     """Creates a mask of the stars with the mean value of the background
     around them.
 
@@ -183,8 +182,9 @@ def mask_image(data, apertures, bkg, gal_center=None, gal_r=None, plot=False):
         Centre of the galaxy (y, x) in pixels.
     gal_r: float, default `None`
         Radius to define the galaxy size.
-    plot: bool, default `False`
-        If `True`, the image with the masked stars are ploted.
+    plot_output: str, default `None`
+        If not `None`, saves the output plots with the masked stars with
+        the given name.
     """
     h, w = data.shape[:2]
     masked_data = data.copy()
@@ -246,7 +246,7 @@ def mask_image(data, apertures, bkg, gal_center=None, gal_r=None, plot=False):
             else:
                 skip_indeces.append(i)
 
-    if plot:
+    if plot_output is not None:
         m, s = np.nanmean(data), np.nanstd(data)
 
         fig, ax = plt.subplots(1, 3, figsize=(15, 10))
@@ -277,7 +277,8 @@ def mask_image(data, apertures, bkg, gal_center=None, gal_r=None, plot=False):
                     aperture.plot(ax[1], color='red', lw=1.5, alpha=0.5)
 
         plt.tight_layout()
-        plt.show()
+        plt.savefig(plot_output)
+        plt.close(fig)
 
     return masked_data, model_sigmas
 
@@ -383,7 +384,7 @@ def extract_aperture_params(fits_file, host_ra, host_dec, threshold, bkg_sub=Tru
 
 def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
                               mask_stars=True, threshold=3, bkg_sub=True,
-                              survey='PS1', show_plots=False):
+                              survey='PS1', plot_output=None):
     """Extracts PanSTARRS's global photometry of a galaxy. The use
     of `gal_object` is intended for common-aperture photometry.
 
@@ -409,8 +410,8 @@ def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
         If `True`, the image gets background subtracted.
     survey: str, default `PS1`
         Survey to use for the zero-points.
-    show_plots: bool, default `False`
-        If `True`, diagnosis plot are shown.
+    plot_output: str, default `None`
+        If not `None`, saves the output plots with the given name.
 
     Returns
     =======
@@ -470,8 +471,14 @@ def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
         # mask image
         gal_center = (gal_object['x'][0], gal_object['y'][0])
         gal_r = (6/2)*gal_object['a'][0]  # using the major-axis as radius
+
+        if plot_output is not None:
+            split_name = os.path.splitext(plot_output)
+            plot_masking_output = f'{split_name[0]}_star_masking{split_name[1]}'
+        else:
+            plot_masking_output = None
         masked_data, model_sigmas = mask_image(data_sub, apertures, bkg_rms,
-                                                gal_center, gal_r, show_plots)
+                                                gal_center, gal_r, plot_masking_output)
         data_sub = masked_data.copy()
 
     # aperture photometry
@@ -516,7 +523,7 @@ def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
     mag = -2.5*np.log10(flux) + zp
     mag_err = 2.5/np.log(10)*flux_err/flux
 
-    if show_plots:
+    if plot_output is not None:
         fig, ax = plt.subplots()
         m, s = np.nanmean(data_sub), np.nanstd(data_sub)
         im = ax.imshow(data_sub, interpolation='nearest',
@@ -532,14 +539,17 @@ def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
         e.set_facecolor('none')
         e.set_edgecolor('red')
         ax.add_artist(e)
-        plt.show()
+
+        plt.tight_layout()
+        plt.savefig(plot_output)
+        plt.close(fig)
 
     return mag[0], mag_err[0]
 
 def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir='',
                             filters=None, coadd=True, coadd_filters='riz',
                             mask_stars=True, threshold=3, bkg_sub=True, survey="PS1",
-                            correct_extinction=True, show_plots=False):
+                            correct_extinction=True, plot_output=False):
     """Extract global photometry for multiple SNe.
 
     Parameters
@@ -571,8 +581,8 @@ def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir='',
         Survey to use for the zero-points.
     correct_extinction: bool, default `True`
         If `True`, the magnitudes are corrected for extinction.
-    show_plots: bool, default `False`
-        If `True`, a diagnosis plot is shown.
+    plot_output: bool, default `False`
+        If `True`, saves the output plots.
 
     Returns
     =======
@@ -613,6 +623,10 @@ def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir='',
 
         for image_file, filt in zip(image_files, filters):
             try:
+                if plot_output:
+                    plot_output = os.path.join(sn_dir, f'global_{filt}.jpg')
+                else:
+                    plot_output = None
                 mag, mag_err = extract_global_photometry(image_file,
                                                          host_ra,
                                                          host_dec,
@@ -621,12 +635,12 @@ def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir='',
                                                          threshold,
                                                          bkg_sub,
                                                          survey,
-                                                         show_plots)
+                                                         plot_output)
                 if correct_extinction:
                     wave = filters_dict[filt]['wave']
                     transmission = filters_dict[filt]['transmission']
-                    A_ext = extinction_filter(wave, transmission,
-                                                host_ra, host_dec)
+                    A_ext = calc_ext(wave, transmission,
+                                        host_ra, host_dec)
                     mag -= A_ext
                 results_dict[filt].append(mag)
                 results_dict[filt+'_err'].append(mag_err)

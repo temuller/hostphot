@@ -17,6 +17,7 @@
 import os
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from photutils import CircularAperture
 from photutils import aperture_photometry
@@ -27,12 +28,9 @@ from astropy import coordinates, units as u, wcs
 from astropy.cosmology import FlatLambdaCDM
 from astropy.stats import sigma_clipped_stats
 
-import piscola
-from piscola.extinction_correction import extinction_filter
-
-from .phot_utils import calc_sky_unc
 from .utils import (get_survey_filters, extract_filters,
-                check_survey_validity, check_filters_validity)
+                    check_survey_validity, check_filters_validity,
+                    calc_ext, calc_sky_unc)
 
 
 H0 = 70
@@ -102,8 +100,8 @@ def extract_aperture(data, error, px, py, radius):
     return raw_flux, raw_flux_err
 
 
-def extract_local_photometry(fits_file, ra, dec, z,
-                                     ap_radius=4, survey="PS1"):
+def extract_local_photometry(fits_file, ra, dec, z, ap_radius=4,
+                                        survey="PS1", plot_output=None):
     """Extracts local photometry of a given fits file.
 
     Parameters
@@ -121,6 +119,8 @@ def extract_local_photometry(fits_file, ra, dec, z,
         for aperture photometry.
     survey: str, default `PS1`
         Survey to use for the zero-points and pixel scale.
+    plot_output: str, default `None`
+        If not `None`, saves the output plots with the given name.
 
     Returns
     -------
@@ -159,11 +159,27 @@ def extract_local_photometry(fits_file, ra, dec, z,
     mag = -2.5*np.log10(raw_flux) + zp
     mag_err = 2.5/np.log(10)*raw_flux_err/raw_flux
 
+    if plot_output is not None:
+        fig, ax = plt.subplots()
+        m, s = np.nanmean(data), np.nanstd(data)
+        im = ax.imshow(data, interpolation='nearest',
+                       cmap='gray',
+                       vmin=m-s, vmax=m+s,
+                       origin='lower')
+
+        circle = plt.Circle((px, py), radius_pix, color='r', fill=False)
+        ax.add_patch(circle)
+
+        plt.tight_layout()
+        plt.savefig(plot_output)
+        plt.close(fig)
+
     return mag, mag_err
 
 def multi_local_photometry(name_list, ra_list, dec_list, z_list,
                              ap_radius, work_dir='', filters=None,
-                               survey="PS1", correct_extinction=True):
+                               survey="PS1", correct_extinction=True,
+                                plot_output=False):
     """Extract local photometry for multiple SNe.
 
     Parameters
@@ -189,6 +205,8 @@ def multi_local_photometry(name_list, ra_list, dec_list, z_list,
         Survey to use for the zero-points and pixel scale.
     correct_extinction: bool, default `True`
         If `True`, the magnitudes are corrected for extinction.
+    plot_output: bool, default `False`
+        If `True`, saves the output plots.
 
     Returns
     -------
@@ -220,14 +238,19 @@ def multi_local_photometry(name_list, ra_list, dec_list, z_list,
 
         for image_file, filt in zip(image_files, filters):
             try:
+                if plot_output:
+                    plot_output = os.path.join(sn_dir, f'local_{filt}.jpg')
+                else:
+                    plot_output = None
                 mag, mag_err = extract_local_photometry(image_file,
                                                   ra, dec, z,
                                                   ap_radius=ap_radius,
-                                                  survey=survey)
+                                                  survey=survey,
+                                                  plot_output=plot_output)
                 if correct_extinction:
                     wave = filters_dict[filt]['wave']
                     transmission = filters_dict[filt]['transmission']
-                    A_ext = extinction_filter(wave, transmission, ra, dec)
+                    A_ext = calc_ext(wave, transmission, ra, dec)
                     mag -= A_ext
                 results_dict[filt].append(mag)
                 results_dict[filt+'_err'].append(mag_err)
