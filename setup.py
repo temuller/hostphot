@@ -31,6 +31,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=requirements,
-    #package_data={},
-    #include_package_data=True,
+    package_data={'hostphot':['filters/*']},
+    include_package_data=True,
 )
