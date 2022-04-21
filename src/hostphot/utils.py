@@ -185,6 +185,32 @@ def integrate_filter(spectrum_wave, spectrum_flux, filter_wave,
 
     return flux_filter
 
+def _download_dustmaps():
+    """Downloads the dust maps for extinction calculation if they are not found
+    locally.
+    """
+    mapsdir = hostphot.__path__[0]
+
+    # check if files already exist locally
+    dust_files = [os.path.join(mapsdir,
+                'sfddata-master',
+                f'SFD_dust_4096_{sky}gp.fits') for sky in ['n', 's']]
+    mask_files = [os.path.join(mapsdir,
+                'sfddata-master',
+                f'SFD_mask_4096_{sky}gp.fits') for sky in ['n', 's']]
+    maps_files = dust_files + mask_files
+    existing_files = [os.path.isfile(file) for file in mask_files]
+
+    if not all(existing_files)==True:
+        # download dust maps
+        sfdmaps_url = 'https://github.com/kbarbary/sfddata/archive/master.tar.gz'
+        master_tar = wget.download(sfdmaps_url)
+        # extract tar file under mapsdir directory
+        tar = tarfile.open(master_tar)
+        tar.extractall(mapsdir)
+        tar.close()
+        os.remove(master_tar)
+
 def deredden(wave, flux, ra, dec, scaling=0.86, reddening_law='fitzpatrick99',
                                                     dustmaps_dir=None, r_v=3.1, ebv=None):
     """Dereddens the given spectrum, given a right ascension and declination or `E(B-V)`.
@@ -219,6 +245,8 @@ def deredden(wave, flux, ra, dec, scaling=0.86, reddening_law='fitzpatrick99',
     deredden_flux : array
         Deredden flux values.
     """
+    _download_dustmaps()
+
     hostphot_path = hostphot.__path__[0]
     if dustmaps_dir is None:
         dustmaps_dir = os.path.join(hostphot_path, 'sfddata-master')
