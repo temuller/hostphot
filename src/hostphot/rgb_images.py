@@ -2,9 +2,11 @@
 
 import os
 import math
+import requests
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
+from astropy.table import Table
 
 def sky_median_sig_clip(input_arr, sig_fract, percent_fract, max_iter=100):
 	"""Estimates median sky value for a given number of iterationsself.
@@ -292,3 +294,110 @@ def create_RGB_image(outfile=None, survey='PS1', filters='zir', images_dir='',
     plt.title(f'Blue = {filters[0]}, Green = {filters[1]}, Red = {filters[2]}')
     if outfile is not None:
         plt.savefig(outfile)
+
+# ---------------------------------------
+
+def get_PS1_url(ra, dec, size=600, filters="grizy", data_format="jpg"):
+    """Get URL for the colour image.
+
+    Parameters
+    ==========
+    ra: float
+        Right Ascension in degrees.
+    dec: float
+        Declination in degrees.
+    size: int, default `600`
+        Image size in pixels (0.25 arcsec/pixel).
+    filters: str
+        Filters to include.
+    data_format: str
+        Data format (options are "jpg" or "png").
+
+    Returns
+    =======
+    url: str
+        The image's URL for a colour image.
+    """
+    assert data_format in ["jpg","png"], ("format must be one of "
+                                                 "'jpg' or 'png'")
+    assert len(filters)>=3, "must choose at least 3 filters"
+
+    # get table with images
+    service = "https://ps1images.stsci.edu/cgi-bin/ps1filenames.py"
+    table_url = (f"{service}?ra={ra}&dec={dec}&size={size}&format=fits&"
+           f"filters={filters}")
+    table = Table.read(table_url, format='ascii')
+
+    # url for colour image
+    url = ("https://ps1images.stsci.edu/cgi-bin/fitscut.cgi?"
+           f"ra={ra}&dec={dec}&size={size}&format={data_format}"
+           f"&output_size={size}")
+
+    # sort filters from red to blue
+    flist = ["yzirg".find(x) for x in table['filter']]
+    table = table[np.argsort(flist)]
+
+    if len(table) > 3:
+        # pick only 3 filters
+        table = table[[0,len(table)//2,len(table)-1]]
+
+    for i, param in enumerate(["red", "green", "blue"]):
+        url = url + f"&{param}={table['filename'][i]}"
+
+    return url
+
+def get_PS1_RGB_image(outfile, ra, dec, size=600, filters="grizy"):
+    """Downloads an RGB image from the PS1 server.
+
+    Parameters
+    ==========
+    remote_url: str
+        URL of the image to be downloaded
+    ra: float
+        Right Ascension in degrees.
+    dec: float
+        Declination in degrees.
+    size: int, default `600`
+        Image size in pixels (0.25 arcsec/pixel).
+    filters: str
+        Filters to include.
+
+    Returns
+    =======
+    url: str
+        The image's URL for a colour image.
+    """
+    data_format = os.path.splitext(outfile)[-1][1:]
+    remote_url = get_PS1_url(ra, dec, size, filters, data_format)
+
+    data = requests.get(remote_url)
+    with open(outfile, 'wb')as file:
+        file.write(data.content)
+
+def get_SDSS_RGB_image(outfile, ra, dec, size=600):
+    """Downloads an RGB image from the PS1 server.
+
+    Parameters
+    ==========
+    remote_url: str
+        URL of the image to be downloaded
+    ra: float
+        Right Ascension in degrees.
+    dec: float
+        Declination in degrees.
+    size: int, default `600`
+        Image size in pixels (0.396127 arcsec/pixel).
+
+    Returns
+    =======
+    url: str
+        The image's URL for a colour image.
+    """
+    scale = 0.396127
+    remote_url = ("http://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/"
+                  f"getjpeg?ra={ra}&dec={dec}&scale={scale}"
+                  f"&width={size}&height={size}")
+
+    data = requests.get(remote_url)
+    with open(outfile, 'wb')as file:
+        file.write(data.content)
