@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+from multiprocessing import Pool
 
 from astropy import wcs
 import astropy.units as u
@@ -11,8 +12,9 @@ from astropy.coordinates import SkyCoord
 from pyvo.dal import sia
 from astroquery.sdss import SDSS
 
-from .utils import (get_survey_filters, trim_images, clean_sn_dir,
-                check_survey_validity, check_filters_validity)
+from .utils import (get_survey_filters, clean_dir,
+                    check_survey_validity, check_filters_validity)
+from .image_cleaning import trim_images
 
 # PS1
 #----------------------------------------
@@ -38,7 +40,7 @@ def query_ps1(ra, dec, size=240, filters=None):
     check_filters_validity(filters, 'PS1')
     if filters is None:
         filters = get_survey_filters('PS1')
-        
+
     service = "https://ps1images.stsci.edu/cgi-bin/ps1filenames.py"
     url = (f"{service}?ra={ra}&dec={dec}&size={size}&format=fits&"
            f"filters={filters}")
@@ -281,22 +283,21 @@ def get_SDSS_images(ra, dec, size=240, filters=None):
 
 # Master Function
 #----------------------------------------
-def download_multiband_images(sn_name, ra, dec, size=240,
-                                work_dir='', filters=None,
-                                  overwrite=False, survey='PS1'):
+def download_images(name, ra, dec, size=800, work_dir='', filters=None,
+                                        overwrite=False, survey='PS1'):
     """Download images for a given object in the given filters of a
     given survey.
 
     Parameters
     ----------
-    sn_name: str
-        SN name used for tracking the object in your local
+    name: str
+        Name used for tracking the object in your local
         directory.
     ra: float
         Right ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default `240`
+    size: int, default `800`
         Image size in pixels.
     work_dir: str, default ''
         Working directory where to find the objects'
@@ -315,9 +316,9 @@ def download_multiband_images(sn_name, ra, dec, size=240,
     if filters is None:
         filters = get_survey_filters(survey)
 
-    sn_dir = os.path.join(work_dir, sn_name)
-    if not os.path.isdir(sn_dir):
-        os.mkdir(sn_dir)
+    dir = os.path.join(work_dir, name)
+    if not os.path.isdir(dir):
+        os.mkdir(dir)
 
     if survey=='PS1':
         fits_files = get_PS1_images(ra, dec, size, filters)
@@ -329,7 +330,6 @@ def download_multiband_images(sn_name, ra, dec, size=240,
     if fits_files is not None:
         for fits_file, filt in zip(fits_files, filters):
             outfile = os.path.join(sn_dir, f'{survey}_{filt}.fits')
-
             if not os.path.isfile(outfile):
                 fits_file.writeto(outfile)
             else:
@@ -338,5 +338,65 @@ def download_multiband_images(sn_name, ra, dec, size=240,
                 else:
                     continue
 
-    # remove SN directory if it ends up empty
-    clean_sn_dir(sn_dir)
+    # remove directory if it ends up empty
+    clean_dir(dir)
+
+def pool_download(df=None, name=None, ra=None, dec=None, size=800,
+                    work_dir='', filters=None, overwrite=False,
+                    survey='PS1', processes=8):
+    """Downloads images for multiple objects using parallelisation.
+
+    Parameters
+    ----------
+    df: DataFrame, default `None`
+        DataFrame with the values of the argmuents. If this is given,
+        `name`, `ra` and `dec` should be the names of the columns in
+        `df`.
+    name: str or list-like, default `None`
+        Name used for tracking the object in your local
+        directory.
+    ra: float or list-like, default `None`
+        Right ascension in degrees.
+    dec: float or list-like, default `None`
+        Declination in degrees.
+    size: int, default `800`
+        Image size in pixels.
+    work_dir: str, default ''
+        Working directory where to find the objects'
+        directories with the images. Default, current directory.
+    filters: str, default `None`
+        DES filters for the images.
+    overwrite: bool, default `False`
+        If `True`, the images are overwritten if they already
+        exist.
+    survey: str, default `PS1`
+        Survey used to download the images
+    processes: floar, default `8`
+        Number of processes to use for the parallelisation.
+    """
+    ignore_args = ['df', 'processes']
+    local_dict = locals()  # get dictionary of input arguments
+    # variable_args = [key for key, value in local_dict.items()
+    #                         if isinstance(value, (list, np.ndarray))]
+    variable_args = ['name', 'ra', 'dec']
+    args_dict = {key:local_dict[key] for key in local_dict.keys()
+                                            if key not in ignore_args}
+
+    input_dict = args_dict.copy()
+    if df is None:
+        length = len(name)
+    else:
+        length = len(df)
+        for key in variable_args:
+            var_name = args_dict[key]
+            input_dict[key] = df[var_name].values
+
+    for key in args_dict.keys():
+        if key not in variable_args:
+            input_dict[key] = [args_dict[key]]*length
+
+    # transpose list
+    input_args = list(map(list, zip(*input_dict.values())))
+
+    results = Pool(processes).map(download_images,
+                                  (input_arg for input_arg in input_args))

@@ -39,248 +39,12 @@ from reproject.mosaicking import reproject_and_coadd
 from .utils import (get_survey_filters, extract_filters,
                     check_survey_validity, check_filters_validity,
                     calc_ext, calc_sky_unc)
+from .objects_detect import (extract_objects, find_gaia_objects,
+                             plot_detected_objects)
+from .image_masking import mask_image, plot_masked_image
 
 sep.set_sub_object_limit(1e4)
 
-# Masking Stars
-#-------------------------------
-def create_circular_mask(h, w, centre, radius):
-    """Creates a circular mask of an image.
-
-    Parameters
-    ----------
-    h: int
-        Image height.
-    w: int
-        Image width.
-    centre: tuple-like
-        Centre of the circular mask.
-    radius: float
-        Radius of the circular mask.
-
-    Returns
-    -------
-    mask: 2D bool-array
-        Circular mask (inside the circle = `True`).
-    """
-
-    Y, X = np.ogrid[:h, :w]
-    dist_from_center = np.sqrt((X - centre[0])**2 + (Y-centre[1])**2)
-    mask = dist_from_center <= radius
-
-    return mask
-
-def inside_galaxy(star_center, gal_center, gal_r):
-    """Checks whether a star is inside a galaxy.
-
-    Parameters
-    ==========
-    star_center: tuple-like
-        Centre of the star.
-    gal_center: tuple-like
-        Centre of the galaxy.
-    gal_r: float
-        Radius to define the galaxy size.
-
-    Returns
-    =======
-    condition: bool
-        `True` if the star is inside the galaxy,
-        `False` otherwise.
-    """
-
-    dist_from_center = np.sqrt((star_center[0] - gal_center[0])**2 +
-                               (star_center[1] - gal_center[1])**2)
-    condition = dist_from_center <= gal_r
-
-    return condition
-
-def fit_2dgauss(star_data, x0=None, y0=None, plot_fit=False):
-    """Fits a 2D gaussian to a star.
-
-    Parameters
-    ----------
-    star_data: 2D array
-        Image data.
-    x0: int, default `None`
-        Star's x-axis centre.
-    y0: int, default `None`
-        Star's y-axis centre.
-    plot_fit: bool, default `False`
-        If `True`, the model fit is plotted with `r_in`
-        and `r_out`.
-
-    Returns
-    -------
-    model_sigma: float
-        2D gaussian sigma parameter. The largest between
-        sigma_x and sigma_y.
-    """
-
-    # initial guess
-    sigma = 0.5
-    amp = np.max(star_data)
-    if (x0 is None) | (y0 is None):
-        y0, x0 = np.unravel_index(np.argmax(star_data),
-                                  star_data.shape)
-
-    fitter = fitting.LevMarLSQFitter()
-    gaussian_model = models.Gaussian2D(amp, x0, y0, sigma, sigma)
-    gaussian_model.fixed['x_mean'] = True
-    gaussian_model.fixed['y_mean'] = True
-    gaussian_model.bounds['x_stddev'] = (0, 8)
-    gaussian_model.bounds['y_stddev'] = (0, 8)
-
-    yi, xi = np.indices(star_data.shape)
-    model_result = fitter(gaussian_model, xi, yi, star_data)
-
-    model_sigma = max([model_result.x_stddev.value,
-                       model_result.y_stddev.value])
-
-    if plot_fit:
-        model_data = model_result(xi, yi)
-
-        fig, ax = plt.subplots()
-        ax.imshow(star_data, interpolation='nearest', cmap='gray',
-                       vmin=m-s, vmax=m+s, origin='lower')
-
-        x_mean = model_result.x_mean.value
-        y_mean = model_result.y_mean.value
-
-        circle_in = plt.Circle((x_mean, y_mean), Rin_scale*model_sigma,
-                               facecolor ='none', edgecolor = 'red',
-                               linewidth = 2)
-        circle_out = plt.Circle((x_mean, y_mean), Rout_scale*model_sigma,
-                                facecolor ='none', edgecolor = 'red',
-                                linewidth = 2)
-        ax.add_patch(circle_in)
-        ax.add_patch(circle_out)
-
-        plt.show()
-
-    return model_sigma
-
-def mask_image(data, apertures, bkg, gal_center=None,
-                                            gal_r=None, plot_output=None):
-    """Creates a mask of the stars with the mean value of the background
-    around them.
-
-    **Note**: the galaxy coordinates are (y, x).
-
-    Parameters
-    ----------
-    data: 2D array
-        Image data.
-    apertures: `photutils.aperture.circle.CircularAperture`
-        Circular apertures of the stars.
-    bkg: float
-        Background level used to limit the aperture size to
-        mask the stars. In other words, increase the aperture size
-        of the mask until the mask value is <= 3*bkg to properly mask
-        bright stars.
-    gal_center: tuple-like, default `None`
-        Centre of the galaxy (y, x) in pixels.
-    gal_r: float, default `None`
-        Radius to define the galaxy size.
-    plot_output: str, default `None`
-        If not `None`, saves the output plots with the masked stars with
-        the given name.
-    """
-    h, w = data.shape[:2]
-    masked_data = data.copy()
-    ring_scales = [3, 4, 5]  # how many sigmas
-
-    model_sigmas = []
-    skip_indeces = []
-    for i, aperture in enumerate(apertures):
-        star_y, star_x = aperture.positions
-        size = 10
-        xmin = max(int(star_x-2*size), 0)
-        xmax = min(int(star_x+2*size), w)
-        ymin = max(int(star_y-2*size), 0)
-        ymax = min(int(star_y+2*size), h)
-
-        # some stars close to the edges of the image fail,
-        # but we can skip those anyway
-        if (xmin<star_x<xmax) & (ymin<star_y<ymax):
-            star_data = masked_data[xmin:xmax, ymin:ymax]
-        else:
-            skip_indeces.append(i)
-            continue  # skip this star
-
-        # fit a gaussian to the star and get sigma
-        x0, y0 = star_x-xmin, star_y-ymin
-        model_sigma = fit_2dgauss(star_data)
-        model_sigmas.append(model_sigma)
-        if model_sigma==8:
-            # 10 is the limit I putted in `fit_2dgauss` --> fit failed
-            skip_indeces.append(i)
-            continue  # skip this star
-
-        # check if the star is inside the galaxy aperture
-        star_center = aperture.positions
-        if (gal_center is None) or (gal_r is None):
-            star_inside_galaxy = False
-        else:
-            star_inside_galaxy = inside_galaxy(star_center,
-                                               gal_center, gal_r)
-        if star_inside_galaxy:
-            r_in = ring_scales[0]*model_sigma,
-            r_mid = ring_scales[1]*model_sigma
-            r_out = ring_scales[2]*model_sigma
-            # calculate flux in outer ring (4-6 sigmas)
-            ann = CircularAnnulus(aperture.positions,
-                                  r_in=r_mid, r_out=r_out)
-            ann_mean = aperture_photometry(
-                            data, ann)['aperture_sum'][0] / ann.area
-            mask = create_circular_mask(h, w, star_center, r_in)
-
-            # basically remove the failed fits and avoid large objects
-            not_big_object = r_in<(gal_r/3)
-            # do not mask the galaxy
-            dist2gal = np.sum(np.abs(apertures.positions - gal_center), axis=1)
-            gal_id = np.argmin(dist2gal)
-
-            if not np.isnan(ann_mean) and not_big_object and i!=gal_id:
-                masked_data[mask] = ann_mean
-            else:
-                skip_indeces.append(i)
-
-    if plot_output is not None:
-        m, s = np.nanmean(data), np.nanstd(data)
-
-        fig, ax = plt.subplots(1, 3, figsize=(15, 10))
-        # reference image
-        ax[0].imshow(data, interpolation='nearest', cmap='gray',
-                       vmin=m-s, vmax=m+s, origin='lower')
-        ax[0].set_title('reference image')
-
-        # apertures image
-        ax[1].imshow(data, interpolation='nearest', cmap='gray',
-                       vmin=m-s, vmax=m+s, origin='lower')
-        ax[1].set_title('apertures image')
-        if (gal_center is not None) or (gal_r is not None):
-            gal_circle = plt.Circle(gal_center, gal_r,
-                                            ec='b', fill=False)
-            ax[1].add_patch(gal_circle)
-
-        # masked image
-        ax[2].imshow(masked_data, interpolation='nearest', cmap='gray',
-                       vmin=m-s, vmax=m+s, origin='lower')
-        ax[2].set_title('masked image')
-
-        for i, (aperture, model_sigma) in enumerate(zip(apertures,
-                                                         model_sigmas)):
-            if i not in skip_indeces:
-                for scale in ring_scales:
-                    aperture.r = scale*model_sigma
-                    aperture.plot(ax[1], color='red', lw=1.5, alpha=0.5)
-
-        plt.tight_layout()
-        plt.savefig(plot_output)
-        plt.close(fig)
-
-    return masked_data, model_sigmas
 
 # Coadding images
 #-------------------------------
@@ -326,66 +90,105 @@ def coadd_images(sn_name, filters='riz', work_dir='', survey='PS1'):
 
 # Photometry
 #-------------------------------
-def extract_aperture_params(fits_file, host_ra, host_dec, threshold, bkg_sub=True):
-    """Extracts aperture parameters of a galaxy.
-
-    **Note:** the galaxy must be ideally centred in the image.
+def kron_flux(data, err, objects, kronrad, scale):
+    """Calculates the Kron flux.
 
     Parameters
-    ==========
-    fits_file: str
-        Path to the fits file.
-    host_ra: float
-        Host-galaxy Right ascension of the galaxy in degrees.
-    host_dec: float
-        Host-galaxy Declination of the galaxy in degrees.
-    threshold: float
-        Threshold used by `sep.extract()` to extract objects.
-    bkg_sub: bool, default `True`
-        If `True`, the image gets background subtracted.
+    ----------
+    data: 2D array
+        Data of an image.
+    err: float or 2D array
+        Background error of the images.
+    objects: array
+        Objects detected with `sep.extract()`.
+    kronrad: float
+        Kron radius.
+    scale: float
+        Scale of the Kron radius.
 
     Returns
-    =======
-    gal_object: numpy array
-        Galaxy object extracted with `sep.extract()`.
-    objects: numpy array
-        All objects extracted with `sep.extract()`.
+    -------
+    flux: array
+        Kron flux.
+    flux_err: array
+        Kron flux error.
     """
+    r_min = 1.75  # minimum diameter = 3.5
 
-    img = fits.open(fits_file)
-
-    header = img[0].header
-    data = img[0].data
-    img_wcs = wcs.WCS(header, naxis=2)
-
-    data = data.astype(np.float64)
-    bkg = sep.Background(data)
-    bkg_rms = bkg.globalrms
-    if bkg_sub:
-        data_sub = np.copy(data - bkg)
+    if kronrad*np.sqrt(objects['a']*objects['b']) < r_min:
+        print(f'Warning: using circular photometry')
+        flux, flux_err, flag = sep.sum_circle(data, objects['x'], objects['y'],
+                                              r_min, err=err, subpix=5, gain=1.0)
     else:
-        data_sub = np.copy(data)
+        flux, flux_err, flag = sep.sum_ellipse(data, objects['x'], objects['y'],
+                                          objects['a'], objects['b'],
+                                          objects['theta'], scale*kronrad,
+                                          err=err, subpix=5, gain=1.0)
 
-    # extract objects with Source Extractor
-    objects = sep.extract(data_sub, threshold, err=bkg_rms)
+    return flux, flux_err
 
-    # obtain the galaxy data (hopefully centred in the image)
-    gal_coords = coords.SkyCoord(ra=host_ra*u.degree,
-                                 dec=host_dec*u.degree)
-    gal_x, gal_y = img_wcs.world_to_pixel(gal_coords)
+def optimize_kron_flux(data, err, objects, eps=0.001):
+    """Optimizes the Kron flux by iteration over different values.
+    The stop condition is met when the change in flux is less that `eps`.
 
-    x_diff = np.abs(objects['x']-gal_x)
-    y_diff = np.abs(objects['y']-gal_y)
-    dist = np.sqrt(x_diff**2 + y_diff**2)
-    gal_id = np.argmin(dist)
-    gal_object = objects[gal_id:gal_id+1]
+    Parameters
+    ----------
+    data: 2D array
+        Data of an image.
+    err: float or 2D array
+        Background error of the images.
+    objects: array
+        Objects detected with `sep.extract()`.
+    eps: float, default `0.001`
+        Minimum percent change in flux allowed between iterations.
 
-    return gal_object, objects
+    Returns
+    -------
+    opt_flux: float
+        Optimized Kron flux.
+    opt_flux_err: float
+        Optimized Kron flux error.
+    opt_kronrad: float
+        Optimized Kron radius.
+    opt_scale: float
+        Optimized scale of the Kron radius.
+    """
+    # iterate over kron radii
+    for r in np.arange(2, 6.1, 0.1)[::-1]:
+        kronrad, krflag = sep.kron_radius(data, objects['x'], objects['y'],
+                                      objects['a'], objects['b'],
+                                      objects['theta'], r)
+        if ~np.isnan(kronrad):
+            opt_kronrad = kronrad
+            break
 
-def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
+    opt_flux = 0.0
+    # iterate over scale
+    scales = np.arange(1, 10, 0.1)
+    for scale in scales:
+        flux, flux_err = kron_flux(data, err, objects, opt_kronrad, scale)
+        flux, flux_err = flux[0], flux_err[0]
+
+        calc_eps = np.abs(opt_flux - flux)/flux
+        if calc_eps<eps:
+            opt_scale = scale
+            opt_flux = flux
+            opt_flux_err = flux_err
+            break
+        elif np.isnan(calc_eps):
+            opt_scale = scale_list[-2]
+            warnings.warn("Warning: the aperture might not fit in the image!")
+            break
+        else:
+            opt_flux = flux
+            opt_flux_err = flux_err
+
+    return opt_flux, opt_flux_err, opt_kronrad, opt_scale
+
+def calculate_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
                               mask_stars=True, threshold=3, bkg_sub=True,
                               survey='PS1', plot_output=None):
-    """Extracts PanSTARRS's global photometry of a galaxy. The use
+    """Calculates the global photometry of a galaxy. The use
     of `gal_object` is intended for common-aperture photometry.
 
     **Note:** the galaxy must be ideally centred in the image.
@@ -423,6 +226,7 @@ def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
     check_survey_validity(survey)
 
     img = fits.open(fits_file)
+    img = remove_nan(img)
 
     header = img[0].header
     data = img[0].data
@@ -451,100 +255,44 @@ def extract_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
                                              bkg_sub)
         # sometimes, one of the filter images can be flipped, so the position of the
         # aperture from the coadd image might not match that of the filter image. This
-        # is a workaround as we only need the semi-major and semi-minor axes.
+        # is a workaround as we only need the semi-major and -minor axes from the coadd.
         gal_object['x'] = gal_object2['x']
         gal_object['y'] = gal_object2['y']
-        gal_object['theta'] = gal_object2['theta']
+        gal_object['theta'] = gal_object2['theta']  # this might be slightly different
 
     if mask_stars:
-        # identify bright source.....
-        #mean, median, std = sigma_clipped_stats(data_sub, sigma=3.0)
-        #daofind = DAOStarFinder(fwhm=3.0, threshold=7.*std)  # avoids bogus sources
-        #sources = daofind(data_sub)
-        #positions = np.transpose((sources['xcentroid'], sources['ycentroid']))
-
-        # ... or create apertures for the sources obtained with sep
-        positions = np.transpose([objects['x'], objects['y']])
-
-        apertures = CircularAperture(positions, r=4)  # the value of r is irrelevant
-
-        # mask image
-        gal_center = (gal_object['x'][0], gal_object['y'][0])
-        gal_r = (6/2)*gal_object['a'][0]  # using the major-axis as radius
-
-        if plot_output is not None:
-            split_name = os.path.splitext(plot_output)
-            plot_masking_output = f'{split_name[0]}_star_masking{split_name[1]}'
-        else:
-            plot_masking_output = None
-        masked_data, model_sigmas = mask_image(data_sub, apertures, bkg_rms,
-                                                gal_center, gal_r, plot_masking_output)
-        data_sub = masked_data.copy()
+        masked_data = mask_image(data_sub, objects)
+        if plot_output:
+            plot_masked_image(data_sub, masked_data, objects)
+    else:
+        masked_data = data_sub.copy()
 
     # aperture photometry
     # This uses what would be the default SExtractor parameters.
     # See https://sep.readthedocs.io/en/v1.1.x/apertures.html
-    # NaNs are converted to mean values to avoid issues with the photometry.
-    # The value used, might slightly affects the results (~ 0.0x mag).
-    masked_data = np.nan_to_num(data_sub, nan=np.nanmean(data_sub))
-    kronrad, krflag = sep.kron_radius(masked_data,
-                                      gal_object['x'],
-                                      gal_object['y'],
-                                      gal_object['a'],
-                                      gal_object['b'],
-                                      gal_object['theta'],
-                                      6.0)
-
-    r_min = 1.75  # minimum diameter = 3.5
-    if kronrad*np.sqrt(gal_object['a']*gal_object['b']) < r_min:
-        print(f'Warning: using circular photometry on {fits_file}')
-        flux, flux_err, flag = sep.sum_circle(masked_data,
-                                              gal_object['x'],
-                                              gal_object['y'],
-                                              r_min,
-                                              err=bkg.globalrms,
-                                              subpix=1)
+    if optimze_kronrad:
+        opt_res = optimize_kron_flux(masked_data, bkg_rms, gal_object)
+        flux, flux_err, kronrad, scale = opt_res
     else:
-        flux, flux_err, flag = sep.sum_ellipse(masked_data,
-                                              gal_object['x'],
-                                              gal_object['y'],
-                                              gal_object['a'],
-                                              gal_object['b'],
-                                              gal_object['theta'],
-                                              2.5*kronrad,
-                                              err=bkg.globalrms,
-                                              subpix=1)
+        kronrad, krflag = sep.kron_radius(masked_data,
+                                          gal_object['x'], gal_object['y'],
+                                          gal_object['a'], gal_object['b'],
+                                          gal_object['theta'], 6.0)
+        scale = 2.5
+        flux, flux_err =  kron_flux(masked_data, bkg_rms, gal_object, kronrad, scale)
+        flux, flux_err = flux[0], flux_err[0]
 
-    zp_dict = {'PS1':25 + 2.5*np.log10(exptime),
-               'DES':30,
-               'SDSS':22.5}
-    zp = zp_dict[survey]
+    zp = survey_zp(survey)
+    if survey=='PS1':
+        zp += 2.5*np.log10(exptime)
 
     mag = -2.5*np.log10(flux) + zp
     mag_err = 2.5/np.log(10)*flux_err/flux
 
-    if plot_output is not None:
-        fig, ax = plt.subplots()
-        m, s = np.nanmean(data_sub), np.nanstd(data_sub)
-        im = ax.imshow(data_sub, interpolation='nearest',
-                       cmap='gray',
-                       vmin=m-s, vmax=m+s,
-                       origin='lower')
+    if plot_output:
+        plot_detected_objects(data, objects, scale=6)
 
-        e = Ellipse(xy=(gal_object['x'][0], gal_object['y'][0]),
-                    width=6*gal_object['a'][0],
-                    height=6*gal_object['b'][0],
-                    angle=gal_object['theta'][0]*180./np.pi)
-
-        e.set_facecolor('none')
-        e.set_edgecolor('red')
-        ax.add_artist(e)
-
-        plt.tight_layout()
-        plt.savefig(plot_output)
-        plt.close(fig)
-
-    return mag[0], mag_err[0]
+    return mag, mag_err
 
 def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir='',
                             filters=None, coadd=True, coadd_filters='riz',
