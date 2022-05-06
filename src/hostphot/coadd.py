@@ -40,7 +40,7 @@ def coadd_images(name, filters='riz', work_dir='', survey='PS1'):
     coadd = reproject_and_coadd(hdu_list, fits_image[0].header,
                                 reproject_function=reproject.reproject_interp)
     fits_image[0].data = coadd[0]
-    outfile = os.path.join(sn_dir, f'{survey}_{filters}.fits')
+    outfile = os.path.join(dir, f'{survey}_{filters}.fits')
     fits_image.writeto(outfile, overwrite=True)
 
     return outfile

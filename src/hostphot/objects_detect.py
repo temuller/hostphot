@@ -4,9 +4,10 @@ from matplotlib.patches import Ellipse
 
 import sep
 from astroquery.gaia import Gaia
-from astropy import coordinates as coords, units as u, wcs
+from astropy import units as u, wcs
+from astropy.coordinates import SkyCoord
 
-def extract_objects(data, err, host_ra, host_dec, threshold):
+def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
     """Extracts objects and their ellipse parameters. The function `sep.extract()`
     is used.
 
@@ -32,10 +33,10 @@ def extract_objects(data, err, host_ra, host_dec, threshold):
         All objects extracted except for the galaxy.
     """
     # extract objects with Source Extractor
-    objects = sep.extract(data, threshold, err=bkg_rms)
+    objects = sep.extract(data, threshold, err=err)
 
-    gal_coords = coords.SkyCoord(ra=host_ra*u.degree,
-                                 dec=host_dec*u.degree)
+    gal_coords = SkyCoord(ra=host_ra*u.degree,
+                          dec=host_dec*u.degree)
     gal_x, gal_y = img_wcs.world_to_pixel(gal_coords)
 
     # find the galaxy
@@ -74,7 +75,7 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.1):
     """
     Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
 
-    coord = SkyCoord(ra=host_ra, dec=host_dec,
+    coord = SkyCoord(ra=ra, dec=dec,
                           unit=(u.degree, u.degree), frame='icrs')
     width = u.Quantity(rad, u.deg)
     height = u.Quantity(rad, u.deg)
@@ -109,8 +110,8 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
     objs_ra = objs_coord.ra.to(u.arcsec).value
     objs_dec = objs_coord.dec.to(u.arcsec).value
 
-    cat_ra = np.array(coord['ra'].to(u.arcsec).value)
-    cat_dec = np.array(coord['dec'].to(u.arcsec).value)
+    cat_ra = np.array(coord.ra.to(u.arcsec).value)
+    cat_dec = np.array(coord.dec.to(u.arcsec).value)
 
     objs_id = []
     for i in range(len(objects)):
@@ -124,7 +125,7 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
 
     return objs
 
-def plot_detected_objects(data, objects, scale=6, outfile):
+def plot_detected_objects(data, objects, scale, outfile=None):
     """Plots the objects extracted with `sep.extract()``.
 
     Parameters
@@ -133,12 +134,14 @@ def plot_detected_objects(data, objects, scale=6, outfile):
         Data of an image.
     objects: array
         Objects detected with `sep.extract()`.
-    scale: float, default `6`
+    scale: float
         Scale of the ellipse's semi-mayor and semi-minor axes.
+    outfile: str, default `None`
+        If given, path where to save the output figure.
     """
-    fig, ax = plt.subplots()
-    m, s = np.nanmean(data), np.nanstd(data_sub)
-    im = ax.imshow(data_sub, interpolation='nearest',
+    fig, ax = plt.subplots(figsize=(8, 8))
+    m, s = np.nanmean(data), np.nanstd(data)
+    im = ax.imshow(data, interpolation='nearest',
                    cmap='gray',
                    vmin=m-s, vmax=m+s,
                    origin='lower')
@@ -151,7 +154,11 @@ def plot_detected_objects(data, objects, scale=6, outfile):
     e.set_facecolor('none')
     e.set_edgecolor('red')
     ax.add_artist(e)
+    ax.set_title('Galaxy Aperture')
 
-    plt.tight_layout()
-    plt.savefig(outfile)
-    plt.close(fig)
+    if outfile:
+        plt.tight_layout()
+        plt.savefig(outfile)
+        plt.close(fig)
+    else:
+        plt.show()
