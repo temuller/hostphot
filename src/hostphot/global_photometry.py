@@ -35,10 +35,12 @@ from reproject.mosaicking import reproject_and_coadd
 
 from .utils import (get_survey_filters, extract_filters,
                     check_survey_validity, check_filters_validity,
-                    calc_sky_unc)
+                    calc_sky_unc, survey_zp)
 from .objects_detect import (extract_objects, find_gaia_objects,
-                             plot_detected_objects)
+                             cross_match, plot_detected_objects)
 from .image_masking import mask_image, plot_masked_image
+from .image_cleaning import remove_nan
+from .coadd import coadd_images
 from .dust import calc_extinction
 
 sep.set_sub_object_limit(1e4)
@@ -109,13 +111,17 @@ def optimize_kron_flux(data, err, objects, eps=0.001):
         Optimized scale of the Kron radius.
     """
     # iterate over kron radii
-    for r in np.arange(2, 6.1, 0.1)[::-1]:
+    for r in np.arange(1, 6.1, 0.1)[::-1]:
         kronrad, krflag = sep.kron_radius(data, objects['x'], objects['y'],
                                       objects['a'], objects['b'],
                                       objects['theta'], r)
         if ~np.isnan(kronrad):
             opt_kronrad = kronrad
             break
+        else:
+            print(f'kronrad = {kronrad}')
+            raise ValueError('The Kron radius cannot be calculated '
+                             '(something went wrong!)')
 
     opt_flux = 0.0
     # iterate over scale
@@ -240,18 +246,18 @@ def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
     # extract objects and cross-match with gaia
     gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
                                           host_ra, host_dec,
-                                          threshold)
+                                          threshold, img_wcs)
     gaia_coord, pix_coords = find_gaia_objects(host_ra, host_dec,
                                                 img_wcs)
     nogal_objs = cross_match(nogal_objs, img_wcs, gaia_coord)
 
     # preprocessing
     if mask_stars:
-        masked_data = mask_image(data_sub, objects)
+        masked_data = mask_image(data_sub, nogal_objs)
         if save_plots:
             outfile = os.path.join(plots_path, f'mask_{filt}.jpg')
             plot_masked_image(data_sub, masked_data,
-                                objects, outfile)
+                                nogal_objs, outfile)
     else:
         masked_data = data_sub.copy()
 
@@ -260,22 +266,22 @@ def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
         coadd_data, coadd_err = quick_load(coadd_file, bkg_sub)
         gal_obj, _ = extract_objects(coadd_data, coadd_err,
                                       host_ra, host_dec,
-                                      threshold)
+                                      threshold, img_wcs)
 
     # aperture photometry
     # This uses what would be the default SExtractor parameters.
     # See https://sep.readthedocs.io/en/v1.1.x/apertures.html
     if optimze_kronrad:
-        opt_res = optimize_kron_flux(masked_data, bkg_rms, gal_object)
+        opt_res = optimize_kron_flux(masked_data, bkg_rms, gal_obj)
         flux, flux_err, kronrad, scale = opt_res
     else:
         kronrad, krflag = sep.kron_radius(masked_data,
-                                          gal_object['x'], gal_object['y'],
-                                          gal_object['a'], gal_object['b'],
-                                          gal_object['theta'], 6.0)
+                                          gal_obj['x'], gal_obj['y'],
+                                          gal_obj['a'], gal_obj['b'],
+                                          gal_obj['theta'], 6.0)
         scale = 2.5
         flux, flux_err =  kron_flux(masked_data, bkg_rms,
-                                    gal_object, kronrad, scale)
+                                    gal_obj, kronrad, scale)
         flux, flux_err = flux[0], flux_err[0]
 
     zp = survey_zp(survey)
@@ -285,12 +291,15 @@ def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
     mag = -2.5*np.log10(flux) + zp
     mag_err = 2.5/np.log(10)*flux_err/flux
 
-    if save_plots::
-        outfile = os.path.join(plots_path, 'gal_{filt}.jpg')
+    if save_plots:
+        outfile = os.path.join(plots_path, f'gal_{filt}.jpg')
         plot_detected_objects(masked_data, gal_obj,
                                 scale*kronrad, outfile)
 
     if correct_extinction:
+        if filt is None:
+            raise ValueError('A filter must be given to calculate '
+                             'the extinction.')
         A_ext = calc_extinction(filt, survey, host_ra, host_dec)
         mag -= A_ext
 
@@ -299,7 +308,7 @@ def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
 def multi_band_phot(name, host_ra, host_dec, bkg_sub=False, threshold=7,
                    mask_stars=True, coadd_filters=None, optimze_kronrad=True,
                    filters=None, survey='PS1', correct_extinction=False,
-                   save_plots=False):
+                   work_dir='', save_plots=False):
     """Calculates multi-band photometry of the host galaxy for an object.
 
     Parameters
@@ -328,6 +337,8 @@ def multi_band_phot(name, host_ra, host_dec, bkg_sub=False, threshold=7,
         Survey to use for the zero-points and correct filter path.
     correct_extinction: bool, default `False`
         If `True`, the magnitude is corrected for Milky-Way extinction.
+    work_dir: str, default `''`
+        Working directory where to find the objects.
     save_plots: bool, default `False`
         If `True`, the mask and galaxy aperture figures are saved.
 
@@ -347,20 +358,19 @@ def multi_band_phot(name, host_ra, host_dec, bkg_sub=False, threshold=7,
     results_dict = {'name':name, 'host_ra':host_ra, 'host_dec':host_dec}
 
     if coadd_filters:
-        coadd_file = coadd_images(name, coadd_filters,
-                                  work_dir='', survey='PS1')
+        coadd_file = coadd_images(name, coadd_filters, work_dir, survey)
     else:
         coadd_file = None
 
-    dir = os.path.join(work_dir, name)
-    fits_files = [os.path.join(dir, f'{survey}_{filt}.fits')
+    obj_dir = os.path.join(work_dir, name)
+    fits_files = [os.path.join(obj_dir, f'{survey}_{filt}.fits')
                                                 for filt in filters]
 
     for fits_file, filt in zip(fits_files, filters):
         mag, mag_err = photometry(fits_file, host_ra, host_dec, bkg_sub, threshold,
                                    mask_stars, coadd_file, optimze_kronrad, filt,
-                                   survey, correct_extinction, plot_output)
-        results_dict.update({filt:mag, filt_err:mag_err})
+                                   survey, correct_extinction, save_plots, obj_dir)
+        results_dict.update({filt:mag, f'{filt}_err':mag_err})
 
     return results_dict
 

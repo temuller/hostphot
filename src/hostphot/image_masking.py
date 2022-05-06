@@ -55,7 +55,7 @@ def inside_galaxy(star_center, gal_center, gal_r):
 
     return condition
 
-def mask_image(data, objects, r=4, sigma=10, plot=False):
+def mask_image(data, objects, r=4, sigma=10):
     """Masks objects in an image (2D array) by convolving it with
     a 2D Gaussian kernel.
 
@@ -71,8 +71,6 @@ def mask_image(data, objects, r=4, sigma=10, plot=False):
     sigma: float
         Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
-    plot: bool, default `False`
-        If `True`, the output is plotted.
 
     Returns
     -------
@@ -93,7 +91,7 @@ def mask_image(data, objects, r=4, sigma=10, plot=False):
 
     return masked_data
 
-def plot_masked_image(data, masked_data, objects, outfile):
+def plot_masked_image(data, masked_data, objects, outfile=None):
     """Plots the masked image together with the original image and
     the detected objects.
 
@@ -105,13 +103,17 @@ def plot_masked_image(data, masked_data, objects, outfile):
          Masked image data.
     objects: array
         Objects extracted with `sep.extract()`.
+    outfile: str, default `None`
+        If given, path where to save the output figure.
     """
+    r = 4  # scale
     fig, ax = plt.subplots(1, 3, figsize=(20, 8))
+    m, s = np.nanmean(data), np.nanstd(data)
     for i in range(2):
         ax[i].imshow(data, interpolation='nearest', cmap='gray',
                        vmin=m-s, vmax=m+s, origin='lower')
 
-    for i in objs_id:
+    for i in range(len(objects)):
         e = Ellipse(xy=(objects['x'][i], objects['y'][i]),
                     width=2*r*objects['a'][i],
                     height=2*r*objects['b'][i],
@@ -124,8 +126,12 @@ def plot_masked_image(data, masked_data, objects, outfile):
                    vmin=m-s, vmax=m+s, origin='lower')
 
     ax[0].set_title('Initial Image')
-    ax[0].set_title('Detected Objects')
-    ax[0].set_title('Masked Image')
-    plt.tight_layout()
-    plt.savefig(outfile)
-    plt.close(fig)
+    ax[1].set_title('Detected Objects')
+    ax[2].set_title('Masked Image')
+
+    if outfile:
+        plt.tight_layout()
+        plt.savefig(outfile)
+        plt.close(fig)
+    else:
+        plt.show()

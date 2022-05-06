@@ -4,9 +4,10 @@ import requests
 import numpy as np
 
 import sfdmap
-import hostphot
 import extinction
-from .utils import integrate_filter
+
+import hostphot
+from .utils import integrate_filter, get_survey_filters, extract_filters
 
 def _download_dustmaps():
     """Downloads the dust maps for extinction calculation if they are not found
