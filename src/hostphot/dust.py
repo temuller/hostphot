@@ -71,13 +71,10 @@ def deredden(wave, flux, ra, dec, scaling=0.86, reddening_law='fitzpatrick99',
     _download_dustmaps()
 
     hostphot_path = hostphot.__path__[0]
-    if dustmaps_dir is None:
-        dustmaps_dir = os.path.join(hostphot_path, 'sfddata-master')
+    dustmaps_dir = os.path.join(hostphot_path, 'sfddata-master')
 
-    if ebv is None:
-        m = sfdmap.SFDMap(mapdir=dustmaps_dir, scaling=scaling)
-        ebv = m.ebv(ra, dec) # RA and DEC in degrees
-
+    m = sfdmap.SFDMap(mapdir=dustmaps_dir, scaling=scaling)
+    ebv = m.ebv(ra, dec) # RA and DEC in degrees
     a_v = r_v*ebv
 
     rl_list = ['ccm89', 'odonnell94', 'fitzpatrick99', 'calzetti00', 'fm07']
@@ -98,8 +95,8 @@ def deredden(wave, flux, ra, dec, scaling=0.86, reddening_law='fitzpatrick99',
 
     return deredden_flux
 
-def calc_ext(filter_wave, filter_response, ra, dec, scaling=0.86,
-                        reddening_law='fitzpatrick99', dustmaps_dir=None, r_v=3.1, ebv=None):
+def calc_extinction(filt, survey, ra, dec, scaling=0.86,
+                        reddening_law='fitzpatrick99', r_v=3.1):
     """Calculates the extinction for a given filter, right ascension and declination
     or `E(B-V)`.
 
@@ -121,21 +118,24 @@ def calc_ext(filter_wave, filter_response, ra, dec, scaling=0.86,
         Reddening law. The options are: ``ccm89`` (Cardelli, Clayton & Mathis 1989),
         ``odonnell94`` (O’Donnell 1994), ``fitzpatrick99`` (Fitzpatrick 1999), ``calzetti00``
         (Calzetti 2000) and ``fm07`` (Fitzpatrick & Massa 2007 with `R_V` = 3.1.)
-    dustmaps_dir : str, default ``None``
-        Directory where the dust maps of Schlegel, Fikbeiner & Davis (1998) are found.
     r_v : float, default ``3.1``
         Total-to-selective extinction ratio (:math:`R_V`)
-    ebv : float, default ``None``
-        Colour excess (:math:`E(B-V)`). If given, this is used instead of the dust map value.
 
     Returns
     -------
     A_ext : float
         Extinction value in magnitudes.
     """
+    # extract transmission function for the given filter+survey
+    filters = get_survey_filters(survey)
+    filters_dict = extract_filters(filters, survey)
+    filter_wave = filters_dict[filt]['wave']
+    filter_response = filters_dict[filt]['transmission']
+
+    # calculate extinction
     flux = 100
     deredden_flux = deredden(filter_wave, flux, ra, dec, scaling,
-                            reddening_law, dustmaps_dir, r_v, ebv)
+                            reddening_law, r_v)
 
     f1 = integrate_filter(filter_wave, flux, filter_wave, filter_response)
     f2 = integrate_filter(filter_wave, deredden_flux, filter_wave, filter_response)

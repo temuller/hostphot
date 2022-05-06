@@ -20,8 +20,6 @@ import subprocess
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse
 
 import sep
 from astropy.io import fits
@@ -31,62 +29,19 @@ from astropy import coordinates as coords, units as u, wcs
 from photutils import (CircularAnnulus,
                        CircularAperture,
                        aperture_photometry)
-from photutils.detection import DAOStarFinder
 
 import reproject
 from reproject.mosaicking import reproject_and_coadd
 
 from .utils import (get_survey_filters, extract_filters,
                     check_survey_validity, check_filters_validity,
-                    calc_ext, calc_sky_unc)
+                    calc_sky_unc)
 from .objects_detect import (extract_objects, find_gaia_objects,
                              plot_detected_objects)
 from .image_masking import mask_image, plot_masked_image
+from .dust import calc_extinction
 
 sep.set_sub_object_limit(1e4)
-
-
-# Coadding images
-#-------------------------------
-def coadd_images(sn_name, filters='riz', work_dir='', survey='PS1'):
-    """Reprojects and coadds images for the choosen filters for
-    common-aperture photometry.
-
-    Parameters
-    ----------
-    sn_name: str
-        SN name to be used for finding the images locally.
-    filters: str, default `riz`
-        Filters to use for the coadd image.
-    work_dir: str, default ''
-        Working directory where to find the objects'
-        directories with the images. Default, current directory.
-    survey: str, default `PS1`
-        Survey to use as prefix for the images.
-
-    Returns
-    -------
-    A fits file with the coadded images is created with the filters
-    used as the name of the file at the SN directory.
-    """
-
-    init_dir = os.path.abspath('.')
-    sn_dir = os.path.join(work_dir, sn_name)
-    fits_files = [os.path.join(sn_dir,
-                               f'{survey}_{filt}.fits') for filt in filters]
-
-    hdu_list = []
-    for fits_file in fits_files:
-        fits_image = fits.open(fits_file)
-        hdu_list.append(fits_image[0])
-
-    hdu_list = fits.HDUList(hdu_list)
-    # use the last image as reference
-    coadd = reproject_and_coadd(hdu_list, fits_image[0].header,
-                                reproject_function=reproject.reproject_interp)
-    fits_image[0].data = coadd[0]
-    outfile = os.path.join(sn_dir, f'{survey}_{filters}.fits')
-    fits_image.writeto(outfile, overwrite=True)
 
 # Photometry
 #-------------------------------
@@ -185,39 +140,80 @@ def optimize_kron_flux(data, err, objects, eps=0.001):
 
     return opt_flux, opt_flux_err, opt_kronrad, opt_scale
 
-def calculate_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
-                              mask_stars=True, threshold=3, bkg_sub=True,
-                              survey='PS1', plot_output=None):
-    """Calculates the global photometry of a galaxy. The use
-    of `gal_object` is intended for common-aperture photometry.
+def quick_load(fits_file, bkg_sub):
+    """Extracts the data and backrgound rms of an image.
+
+    Parameters
+    ----------
+    fits_file: str
+        Path to the fits file.
+    bkg_sub: bool
+        If `True`, the image gets background subtracted.
+
+    Returns
+    -------
+    data_sub: 2D array
+        Image data.
+    bkg_rms: float
+        RMS of the image's background.
+    """
+    img = fits.open(fits_file)
+    img = remove_nan(img)
+
+    data = img[0].data
+    data = data.astype(np.float64)
+    bkg = sep.Background(data)
+    bkg_rms = bkg.globalrms
+    if bkg_sub:
+        data_sub = np.copy(data - bkg)
+    else:
+        data_sub = np.copy(data)
+
+    return data_sub, bkg_rms
+
+def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
+               mask_stars=True, coadd_file=None, optimze_kronrad=True,
+               filt=None, survey='PS1', correct_extinction=False,
+               save_plots=False, plots_path=''):
+    """Calculates the global aperture photometry of a galaxy using Kron flux.
 
     **Note:** the galaxy must be ideally centred in the image.
 
     Parameters
-    ==========
+    ----------
     fits_file: str
         Path to the fits file.
     host_ra: float
         Host-galaxy Right ascension of the galaxy in degrees.
     host_dec: float
         Host-galaxy Declination of the galaxy in degrees.
-    gal_object: numpy array, default `None`
-        Galaxy object extracted with `extract_aperture_params()`.
-        Use this for common-aperture photometry only.
-    mask_stars: bool, default `True`
-        If `True`, the stars identified inside the common aperture
-        are masked with the mean value of the background around them.
-    threshold: float, default `3`
-        Threshold used by `sep.extract()` to extract objects.
-    bkg_sub: bool, default `True`
+    bkg_sub: bool, default `False`
         If `True`, the image gets background subtracted.
+    threshold: float, default `7`
+        Threshold used by `sep.extract()` to extract objects.
+    mask_stars: bool, default `True`
+        If `True`, the stars identified are masked by using
+        a convolution with a 2D Gaussian kernel.
+    coadd_file: 'str', default `None`
+        Path to the coadd image for common aperture photometry.
+        If none is given, it is not used.
+    optimze_kronrad: bool, default `True`
+        If `True`, the Kron radius is optimized, increasing the
+        aperture size until the flux does not increase.
+    filt: str, default `None`
+        Filter to use for extinction correction and saving outputs.
     survey: str, default `PS1`
-        Survey to use for the zero-points.
-    plot_output: str, default `None`
-        If not `None`, saves the output plots with the given name.
+        Survey to use for the zero-points and correct filter path.
+    correct_extinction: bool, default `False`
+        If `True`, the magnitude is corrected for Milky-Way extinction.
+    save_plots: bool, default `False`
+        If `True`, the mask and galaxy aperture figures are saved.
+    plots_path: str, default `''`
+        Path where to save the output plots. By default uses the current
+        directory.
 
     Returns
-    =======
+    -------
     mag: float
         Aperture magnitude.
     mag_err: float
@@ -231,6 +227,7 @@ def calculate_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
     header = img[0].header
     data = img[0].data
     exptime = float(header['EXPTIME'])
+    img_wcs = wcs.WCS(header, naxis=2)
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
@@ -240,32 +237,30 @@ def calculate_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
     else:
         data_sub = np.copy(data)
 
-    if gal_object is None:
-        # no common aperture
-        gal_object, objects = extract_aperture_params(fits_file,
-                                                      host_ra,
-                                                      host_dec,
-                                                      threshold,
-                                                      bkg_sub)
-    else:
-        gal_object2, objects = extract_aperture_params(fits_file,
-                                             host_ra,
-                                             host_dec,
-                                             threshold,
-                                             bkg_sub)
-        # sometimes, one of the filter images can be flipped, so the position of the
-        # aperture from the coadd image might not match that of the filter image. This
-        # is a workaround as we only need the semi-major and -minor axes from the coadd.
-        gal_object['x'] = gal_object2['x']
-        gal_object['y'] = gal_object2['y']
-        gal_object['theta'] = gal_object2['theta']  # this might be slightly different
+    # extract objects and cross-match with gaia
+    gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
+                                          host_ra, host_dec,
+                                          threshold)
+    gaia_coord, pix_coords = find_gaia_objects(host_ra, host_dec,
+                                                img_wcs)
+    nogal_objs = cross_match(nogal_objs, img_wcs, gaia_coord)
 
+    # preprocessing
     if mask_stars:
         masked_data = mask_image(data_sub, objects)
-        if plot_output:
-            plot_masked_image(data_sub, masked_data, objects)
+        if save_plots:
+            outfile = os.path.join(plots_path, f'mask_{filt}.jpg')
+            plot_masked_image(data_sub, masked_data,
+                                objects, outfile)
     else:
         masked_data = data_sub.copy()
+
+    if coadd_file:
+        # use the coadd image for the galaxy parameters
+        coadd_data, coadd_err = quick_load(coadd_file, bkg_sub)
+        gal_obj, _ = extract_objects(coadd_data, coadd_err,
+                                      host_ra, host_dec,
+                                      threshold)
 
     # aperture photometry
     # This uses what would be the default SExtractor parameters.
@@ -279,7 +274,8 @@ def calculate_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
                                           gal_object['a'], gal_object['b'],
                                           gal_object['theta'], 6.0)
         scale = 2.5
-        flux, flux_err =  kron_flux(masked_data, bkg_rms, gal_object, kronrad, scale)
+        flux, flux_err =  kron_flux(masked_data, bkg_rms,
+                                    gal_object, kronrad, scale)
         flux, flux_err = flux[0], flux_err[0]
 
     zp = survey_zp(survey)
@@ -289,10 +285,84 @@ def calculate_global_photometry(fits_file, host_ra, host_dec, gal_object=None,
     mag = -2.5*np.log10(flux) + zp
     mag_err = 2.5/np.log(10)*flux_err/flux
 
-    if plot_output:
-        plot_detected_objects(data, objects, scale=6)
+    if save_plots::
+        outfile = os.path.join(plots_path, 'gal_{filt}.jpg')
+        plot_detected_objects(masked_data, gal_obj,
+                                scale*kronrad, outfile)
+
+    if correct_extinction:
+        A_ext = calc_extinction(filt, survey, host_ra, host_dec)
+        mag -= A_ext
 
     return mag, mag_err
+
+def multi_band_phot(name, host_ra, host_dec, bkg_sub=False, threshold=7,
+                   mask_stars=True, coadd_filters=None, optimze_kronrad=True,
+                   filters=None, survey='PS1', correct_extinction=False,
+                   save_plots=False):
+    """Calculates multi-band photometry of the host galaxy for an object.
+
+    Parameters
+    ----------
+    name: str
+        Obejct's name. This is used for the directory path.
+    host_ra: float
+        Host-galaxy Right ascension of the galaxy in degrees.
+    host_dec: float
+        Host-galaxy Declination of the galaxy in degrees.
+    bkg_sub: bool, default `False`
+        If `True`, the image gets background subtracted.
+    threshold: float, default `7`
+        Threshold used by `sep.extract()` to extract objects.
+    mask_stars: bool, default `True`
+        If `True`, the stars identified are masked by using
+        a convolution with a 2D Gaussian kernel.
+    coadd_filters: 'str', default `None`
+        Filters to use for the coadd image. E.g. `riz`.
+    optimze_kronrad: bool, default `True`
+        If `True`, the Kron radius is optimized, increasing the
+        aperture size until the flux does not increase.
+    filters: str, default `None`
+        Filter to use for for the photometry.
+    survey: str, default `PS1`
+        Survey to use for the zero-points and correct filter path.
+    correct_extinction: bool, default `False`
+        If `True`, the magnitude is corrected for Milky-Way extinction.
+    save_plots: bool, default `False`
+        If `True`, the mask and galaxy aperture figures are saved.
+
+    Returns
+    -------
+    results_dict: dict
+        Dictionary with the results: name, host_ra, host_dec,
+        filter magnitudes and errors
+    """
+    check_survey_validity(survey)
+    if filters is None:
+        filters = get_survey_filters(survey)
+    else:
+        check_filters_validity(filters, survey)
+
+    # dictionary to save the results (mag + err)
+    results_dict = {'name':name, 'host_ra':host_ra, 'host_dec':host_dec}
+
+    if coadd_filters:
+        coadd_file = coadd_images(name, coadd_filters,
+                                  work_dir='', survey='PS1')
+    else:
+        coadd_file = None
+
+    dir = os.path.join(work_dir, name)
+    fits_files = [os.path.join(dir, f'{survey}_{filt}.fits')
+                                                for filt in filters]
+
+    for fits_file, filt in zip(fits_files, filters):
+        mag, mag_err = photometry(fits_file, host_ra, host_dec, bkg_sub, threshold,
+                                   mask_stars, coadd_file, optimze_kronrad, filt,
+                                   survey, correct_extinction, plot_output)
+        results_dict.update({filt:mag, filt_err:mag_err})
+
+    return results_dict
 
 def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir='',
                             filters=None, coadd=True, coadd_filters='riz',
@@ -350,7 +420,7 @@ def multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir='',
     results_dict = {'name':[], 'host_ra':[], 'host_dec':[]}
     results_dict.update(mag_dict)
 
-    # filter funcstions for extinction correction
+    # filter functions for extinction correction
     filters_dict = extract_filters(filters, survey)
 
     for name, host_ra, host_dec in zip(name_list, host_ra_list,

@@ -71,7 +71,20 @@ def get_survey_filters(survey):
     return filters
 
 def survey_zp(survey):
-    """ZP
+    """Returns the zero-point for a given survey.
+
+    **Note:** for `PS1`, an extra `+2.5*np.log10(exptime)`
+    needs to be added afterwards.
+
+    Parameters
+    ----------
+    survey: str
+        Survey name: `PS1`, `DES` or `SDSS`.
+
+    Returns
+    -------
+    zp: float
+        Zero-point.
     """
     check_survey_validity(survey)
     zp_dict = {'PS1':25 ,  # + 2.5*np.log10(exptime)
@@ -80,6 +93,28 @@ def survey_zp(survey):
     zp = zp_dict[survey]
 
     return zp
+
+def survey_pixel_scale(survey):
+        """Returns the pixel scale for a given survey.
+
+        Parameters
+        ----------
+        survey: str
+            Survey name: `PS1`, `DES` or `SDSS`.
+
+        Returns
+        -------
+        pixel_scale: float
+            Pixel scale.
+        """
+        check_survey_validity(survey)
+        # units of arcsec/pix
+        pixel_scale_dict = {'PS1':0.25,
+                            'DES':0.263,
+                            'SDSS':0.396}
+        pixel_scale = pixel_scale_dict[survey]
+
+        return pixel_scale
 
 def check_filters_validity(filters, survey):
     """Check whether the given filters are whithin the valid

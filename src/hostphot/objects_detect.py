@@ -6,14 +6,16 @@ import sep
 from astroquery.gaia import Gaia
 from astropy import coordinates as coords, units as u, wcs
 
-def extract_objects(image, host_ra, host_dec, threshold, bkg_sub=False):
+def extract_objects(data, err, host_ra, host_dec, threshold):
     """Extracts objects and their ellipse parameters. The function `sep.extract()`
     is used.
 
     Parameters
     ----------
-    image: str
-        Fits file.
+    data: 2D array
+        Image data.
+    err: 2D array
+        Background error of the image.
     host_ra: float
         Host-galaxy Right ascension of the galaxy in degrees.
     host_dec: float
@@ -21,8 +23,6 @@ def extract_objects(image, host_ra, host_dec, threshold, bkg_sub=False):
     threshold: float
         Source with flux above `threshold*bkg_rms` are extracted.
         See `sep.extract()` for more information.
-    bkg_sub: bool, default `False`
-        If `True`, the image gets background subtracted.
 
     Returns
     -------
@@ -31,20 +31,8 @@ def extract_objects(image, host_ra, host_dec, threshold, bkg_sub=False):
     nogal_objs: numpy array
         All objects extracted except for the galaxy.
     """
-    header = image.header
-    data = image.data
-    img_wcs = wcs.WCS(header, naxis=2)
-
-    data = data.astype(np.float64)
-    bkg = sep.Background(data)
-    bkg_rms = bkg.globalrms
-    if bkg_sub:
-        data_sub = np.copy(data - bkg)
-    else:
-        data_sub = np.copy(data)
-
     # extract objects with Source Extractor
-    objects = sep.extract(data_sub, threshold, err=bkg_rms)
+    objects = sep.extract(data, threshold, err=bkg_rms)
 
     gal_coords = coords.SkyCoord(ra=host_ra*u.degree,
                                  dec=host_dec*u.degree)
@@ -63,10 +51,10 @@ def extract_objects(image, host_ra, host_dec, threshold, bkg_sub=False):
     return gal_obj, nogal_objs
 
 def find_gaia_objects(ra, dec, img_wcs, rad=0.1):
-    """Finds objects from the Gaia DR2 catalogue for the given
+    """Finds objects from the Gaia DR3 catalogue for the given
     coordinates in a given radius.
 
-    parameters
+    Parameters
     ----------
     ra: float
         Right ascension in degrees.
@@ -84,6 +72,8 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.1):
     pix_coords: tuple
         Tuple with the coordinates in pixels of the objects found.
     """
+    Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
+
     coord = SkyCoord(ra=host_ra, dec=host_dec,
                           unit=(u.degree, u.degree), frame='icrs')
     width = u.Quantity(rad, u.deg)
@@ -134,7 +124,7 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
 
     return objs
 
-def plot_detected_objects(data, objects, scale=6):
+def plot_detected_objects(data, objects, scale=6, outfile):
     """Plots the objects extracted with `sep.extract()``.
 
     Parameters
@@ -163,5 +153,5 @@ def plot_detected_objects(data, objects, scale=6):
     ax.add_artist(e)
 
     plt.tight_layout()
-    plt.savefig(plot_output)
+    plt.savefig(outfile)
     plt.close(fig)
