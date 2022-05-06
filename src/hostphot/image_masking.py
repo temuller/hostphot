@@ -93,7 +93,7 @@ def mask_image(data, objects, r=4, sigma=10, plot=False):
 
     return masked_data
 
-def plot_masked_image(data, masked_data, objects):
+def plot_masked_image(data, masked_data, objects, outfile):
     """Plots the masked image together with the original image and
     the detected objects.
 
@@ -127,5 +127,5 @@ def plot_masked_image(data, masked_data, objects):
     ax[0].set_title('Detected Objects')
     ax[0].set_title('Masked Image')
     plt.tight_layout()
-    plt.savefig(plot_output)
+    plt.savefig(outfile)
     plt.close(fig)

@@ -28,17 +28,27 @@ from astropy import coordinates, units as u, wcs
 from astropy.cosmology import FlatLambdaCDM
 from astropy.stats import sigma_clipped_stats
 
+from .dust import calc_extinction
 from .utils import (get_survey_filters, extract_filters,
                     check_survey_validity, check_filters_validity,
-                    calc_ext, calc_sky_unc)
-
+                     calc_sky_unc, survey_pixel_scale)
 
 H0 = 70
 Om0 = 0.3
-cosmo = FlatLambdaCDM(H0, Om0)
+__cosmo__ = FlatLambdaCDM(H0, Om0)
+#-------------------------------
+def choose_cosmology(cosmo):
+    """Updates the cosmology used to calculate the aperture size.
+
+    Parameters
+    ----------
+    cosmo: `astropy.cosmology` object
+        Cosmological model. E.g. `FlatLambdaCDM(70, 0.3)`.
+    """
+    global __cosmo__
+    __cosmo__ = cosmo
 
 #-------------------------------
-
 def calc_aperture_size(z, ap_radius):
     """Calculates the size of the aperture in arsec,
     for aperture photometry, given a physical size.
@@ -55,17 +65,15 @@ def calc_aperture_size(z, ap_radius):
     radius_arcsec: float
         Aperture size in arcsec.
     """
-
     ap_radius = ap_radius*u.kpc
 
     # transverse separations
-    transv_sep_per_arcmin = cosmo.kpc_proper_per_arcmin(z)
+    transv_sep_per_arcmin = __cosmo__.kpc_proper_per_arcmin(z)
     transv_sep_per_arcsec = transv_sep_per_arcmin.to(u.kpc/u.arcsec)
 
     radius_arcsec = ap_radius/transv_sep_per_arcsec
 
     return radius_arcsec.value
-
 
 def extract_aperture(data, error, px, py, radius):
     """Extracts aperture photometry of a single image.
@@ -90,7 +98,6 @@ def extract_aperture(data, error, px, py, radius):
     raw_flux_err: float
         Uncertainty on the aperture photometry.
     """
-
     aperture = CircularAperture((px, py), r=radius)
     ap_results = aperture_photometry(data, aperture,
                                          error=error)
@@ -140,21 +147,18 @@ def extract_local_photometry(fits_file, ra, dec, z, ap_radius=4,
     exptime = float(header['EXPTIME'])
     radius_arcsec = calc_aperture_size(z, ap_radius)
 
-    # arcsec to number of pixels (0.XXX arcsec/pix)
-    pixel_scale_dict = {'PS1':0.25, 'DES':0.263, 'SDSS':0.396}
-    pixel_scale = pixel_scale_dict[survey]
+    pixel_scale = survey_pixel_scale[survey]
     radius_pix  = radius_arcsec/pixel_scale
 
     px, py = img_wcs.wcs_world2pix(ra, dec, 1)
     error = calc_sky_unc(data, exptime)
 
-    raw_flux, raw_flux_err = extract_aperture(data, error,
-                                              px, py, radius_pix)
+    flux, flux_err = extract_aperture(data, error,
+                                      px, py, radius_pix)
 
-    zp_dict = {'PS1':25 + 2.5*np.log10(exptime),
-               'DES':30,
-               'SDSS':22.5}
-    zp = zp_dict[survey]
+    zp = survey_zp(survey)
+    if survey=='PS1':
+        zp += 2.5*np.log10(exptime)
 
     mag = -2.5*np.log10(raw_flux) + zp
     mag_err = 2.5/np.log(10)*raw_flux_err/raw_flux

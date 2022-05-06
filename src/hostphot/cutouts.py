@@ -1,4 +1,5 @@
 import os
+import copy
 import numpy as np
 import pandas as pd
 from multiprocessing import Pool
@@ -11,6 +12,8 @@ from astropy.coordinates import SkyCoord
 
 from pyvo.dal import sia
 from astroquery.sdss import SDSS
+
+from reproject import reproject_interp
 
 from .utils import (get_survey_filters, clean_dir,
                     check_survey_validity, check_filters_validity)
@@ -281,6 +284,35 @@ def get_SDSS_images(ra, dec, size=240, filters=None):
 
     return fits_files
 
+# Check orientation
+#------------------
+def match_wcs(fits_files):
+    """Matches the WCS of all the images, taking the first ones as
+    a reference.
+
+    Parameters
+    ----------
+    fits_files: list
+        List of fits files.
+
+    Returns
+    -------
+    matched_fits_files: list
+        List of fits files with matched WCS.
+    """
+    matched_fits_files = copy.deepcopy(fits_files)
+    # some hdu have data + error
+    for i in range(len(matched_fits_files[0])):
+        hdu0 = matched_fits_files[0][i]
+        wcs0 = wcs.WCS(hdu0.header)
+
+        for hdu in matched_fits_files[1:]:
+            data, footprint = reproject_interp(hdu[i], hdu0.header)
+            hdu[i].data = data
+            hdu[i].header.update(wcs0.to_header())
+
+    return matched_fits_files
+
 # Master Function
 #----------------------------------------
 def download_images(name, ra, dec, size=800, work_dir='', filters=None,
@@ -303,14 +335,13 @@ def download_images(name, ra, dec, size=800, work_dir='', filters=None,
         Working directory where to find the objects'
         directories with the images. Default, current directory.
     filters: str, default `None`
-        DES filters for the images.
+        Filters for the images.
     overwrite: bool, default `False`
         If `True`, the images are overwritten if they already
         exist.
     survey: str, default `PS1`
         Survey used to download the images
     """
-
     check_survey_validity(survey)
     check_filters_validity(filters, survey)
     if filters is None:
@@ -326,6 +357,8 @@ def download_images(name, ra, dec, size=800, work_dir='', filters=None,
         fits_files = get_DES_images(ra, dec, size, filters)
     elif survey=='SDSS':
         fits_files = get_SDSS_images(ra, dec, size, filters)
+    # this corrects any possible shifts between the images
+    fits_files = match_wcs(fits_files)
 
     if fits_files is not None:
         for fits_file, filt in zip(fits_files, filters):
