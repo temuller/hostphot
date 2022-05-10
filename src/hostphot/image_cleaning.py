@@ -55,17 +55,19 @@ def remove_nan(image):
     data = image[0].data
     img_wcs = wcs.WCS(header, naxis=2)
 
-    mask = ~np.all(np.isnan(data), axis=1)
-    x_size = np.sum(np.ones_like(data[0])[mask])
-    y_pos = np.median(np.arange(data.shape[0])[mask])
-
     mask = ~np.all(np.isnan(data), axis=0)
+    x_size = np.sum(np.ones_like(data[0])[mask])
+    x_pos = np.median(np.arange(data.shape[1])[mask])
+
+    mask = ~np.all(np.isnan(data), axis=1)
     y_size = np.sum(np.ones_like(data[:,0])[mask])
-    x_pos = np.median(np.arange(data.shape[0])[mask])
+    y_pos = np.median(np.arange(data.shape[0])[mask])
 
     # trim data and update the header with the WCS
     trimmed_data = Cutout2D(data, (x_pos, y_pos),
-                            (x_size, y_size), wcs=img_wcs)
+                            (y_size, x_size),   # has to be (ny, nx)
+                            wcs=img_wcs,
+                            copy=True)
     header.update(trimmed_data.wcs.to_header())
     header['COMMENT'] = "= Trimmed fits file (hostphot)"
 
