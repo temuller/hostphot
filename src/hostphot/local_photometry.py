@@ -15,10 +15,13 @@
 # Some parts of this notebook are based on https://github.com/djones1040/PS1_surface_brightness/blob/master/Surface%20Brightness%20Tutorial.ipynb and codes from Lluís Galbany
 
 import os
+import inspect
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import multiprocessing as mp
 
+import sep
 from photutils import CircularAperture
 from photutils import aperture_photometry
 
@@ -28,14 +31,20 @@ from astropy import coordinates, units as u, wcs
 from astropy.cosmology import FlatLambdaCDM
 from astropy.stats import sigma_clipped_stats
 
-from .dust import calc_extinction
 from .utils import (get_survey_filters, extract_filters,
                     check_survey_validity, check_filters_validity,
-                     calc_sky_unc, survey_pixel_scale)
+                     calc_sky_unc, survey_pixel_scale, survey_zp,
+                     get_image_gain, get_image_readnoise)
+from .objects_detect import (extract_objects, find_gaia_objects,
+                             cross_match, plot_detected_objects)
+from .image_masking import mask_image, plot_masked_image
+from .image_cleaning import remove_nan
+from .dust import calc_extinction
 
 H0 = 70
 Om0 = 0.3
 __cosmo__ = FlatLambdaCDM(H0, Om0)
+sep.set_sub_object_limit(1e4)
 #-------------------------------
 def choose_cosmology(cosmo):
     """Updates the cosmology used to calculate the aperture size.
@@ -75,7 +84,7 @@ def calc_aperture_size(z, ap_radius):
 
     return radius_arcsec.value
 
-def extract_aperture(data, error, px, py, radius):
+def extract_aperture_flux(data, error, px, py, radius):
     """Extracts aperture photometry of a single image.
 
     Parameters
@@ -106,10 +115,42 @@ def extract_aperture(data, error, px, py, radius):
 
     return raw_flux, raw_flux_err
 
+def plot_aperture(data, px, py, radius_pix, outfile=None):
+    """Plots the aperture for the given parameters.
 
-def extract_local_photometry(fits_file, ra, dec, z, ap_radius=4,
-                                        survey="PS1", plot_output=None):
-    """Extracts local photometry of a given fits file.
+    Parameters
+    ----------
+    data: 2D array
+        Data of an image.
+    px: float
+        X-axis center of the aperture in pixels.
+    py: float
+        Y-axis center of the aperture in pixels.
+    radius_pix: float
+        Aperture radius in pixels.
+    outfile: str, default `None`
+        If given, path where to save the output figure.
+    """
+    fig, ax = plt.subplots(figsize=(8, 8))
+    m, s = np.nanmean(data), np.nanstd(data)
+    im = ax.imshow(data, interpolation='nearest',
+                   cmap='gray',
+                   vmin=m-s, vmax=m+s,
+                   origin='lower')
+
+    circle = plt.Circle((px, py), radius_pix, color='r', fill=False)
+    ax.add_patch(circle)
+
+    if outfile:
+        plt.tight_layout()
+        plt.savefig(outfile)
+        plt.close(fig)
+    else:
+        plt.show()
+
+def photometry(fits_file, ra, dec, z, ap_radius, host_ra, host_dec, threshold, bkg_sub=False, mask_stars=True, filt=None,
+                survey=None, correct_extinction=False, save_plots=False, plots_path=''):
+    """Calculates the local aperture photometry in a given radius.
 
     Parameters
     ----------
@@ -121,152 +162,206 @@ def extract_local_photometry(fits_file, ra, dec, z, ap_radius=4,
         Declinations in degrees.
     z: float
         Redshift of the SN.
-    ap_radius: float, default `4`
+    ap_radius: float
         Physical size of the aperture in kpc. This is used
         for aperture photometry.
-    survey: str, default `PS1`
+    bkg_sub: bool, default `False`
+        If `True`, the image gets background subtracted.
+    mask_stars: bool, default `True`
+        If `True`, the stars identified are masked by using
+        a convolution with a 2D Gaussian kernel.
+    filt: str, default `None`
+        Filter to use for extinction correction and saving outputs.
+    survey: str, default `None`
         Survey to use for the zero-points and pixel scale.
-    plot_output: str, default `None`
-        If not `None`, saves the output plots with the given name.
+    correct_extinction: bool, default `False`
+        If `True`, the magnitude is corrected for Milky-Way extinction.
+    save_plots: bool, default `False`
+        If `True`, the a figure with the aperture is saved.
+    plots_path: str, default `''`
+        Path where to save the output plots. By default uses the current
+        directory.
 
     Returns
     -------
     mag: float
-        Magnitude.
+        Aperture magnitude.
     mag_err: float
-        Error on the magnitude.
+        Error on the aperture magnitude.
     """
     check_survey_validity(survey)
 
     img = fits.open(fits_file)
+    img = remove_nan(img)
 
     header = img[0].header
     data = img[0].data
+    exptime = float(header['EXPTIME'])
+    gain = get_image_gain(header, survey)
+    readnoise = get_image_readnoise(header, survey)
     img_wcs = wcs.WCS(header, naxis=2)
 
-    exptime = float(header['EXPTIME'])
-    radius_arcsec = calc_aperture_size(z, ap_radius)
+    data = data.astype(np.float64)
+    bkg = sep.Background(data)
+    bkg_rms = bkg.globalrms
+    if bkg_sub:
+        data_sub = np.copy(data - bkg)
+    else:
+        data_sub = np.copy(data)
 
-    pixel_scale = survey_pixel_scale[survey]
+    # preprocessing
+    if mask_stars:
+        # extract objects and cross-match with gaia
+        gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
+                                              host_ra, host_dec,
+                                              threshold, img_wcs)
+        gaia_coord, pix_coords = find_gaia_objects(host_ra, host_dec,
+                                                    img_wcs)
+        nogal_objs = cross_match(nogal_objs, img_wcs, gaia_coord)
+
+        masked_data = mask_image(data_sub, nogal_objs)
+        if save_plots:
+            outfile = os.path.join(plots_path, f'mask_{filt}.jpg')
+            plot_masked_image(data_sub, masked_data,
+                                nogal_objs, outfile)
+    else:
+        masked_data = data_sub.copy()
+
+    # aperture photometry
+    radius_arcsec = calc_aperture_size(z, ap_radius)
+    pixel_scale = survey_pixel_scale(survey)
     radius_pix  = radius_arcsec/pixel_scale
 
     px, py = img_wcs.wcs_world2pix(ra, dec, 1)
-    error = calc_sky_unc(data, exptime)
+    error = calc_sky_unc(masked_data, exptime)
 
-    flux, flux_err = extract_aperture(data, error,
-                                      px, py, radius_pix)
+    flux, flux_err = extract_aperture_flux(masked_data, error,
+                                            px, py, radius_pix)
 
     zp = survey_zp(survey)
     if survey=='PS1':
         zp += 2.5*np.log10(exptime)
 
-    mag = -2.5*np.log10(raw_flux) + zp
-    mag_err = 2.5/np.log(10)*raw_flux_err/raw_flux
+    mag = -2.5*np.log10(flux) + zp
+    mag_err = 2.5/np.log(10)*flux_err/flux
 
-    if plot_output is not None:
-        fig, ax = plt.subplots()
-        m, s = np.nanmean(data), np.nanstd(data)
-        im = ax.imshow(data, interpolation='nearest',
-                       cmap='gray',
-                       vmin=m-s, vmax=m+s,
-                       origin='lower')
+    if save_plots:
+        outfile = os.path.join(plots_path, f'local_{filt}.jpg')
+        plot_aperture(masked_data, px, py, radius_pix, outfile)
 
-        circle = plt.Circle((px, py), radius_pix, color='r', fill=False)
-        ax.add_patch(circle)
+    if correct_extinction:
+        if filt is None:
+            raise ValueError('A filter must be given to calculate '
+                             'the extinction.')
+        A_ext = calc_extinction(filt, survey, ra, dec)
+        mag -= A_ext
 
-        plt.tight_layout()
-        plt.savefig(plot_output)
-        plt.close(fig)
+    # error budget
+    # 1.0857 = 2.5/ln(10)
+    if survey!='SDSS':
+        ap_area = 2*np.pi*(radius_pix**2)
+        extra_err = 1.0857*np.sqrt(ap_area*(readnoise**2) + flux/gain)/flux
+        mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
     return mag, mag_err
 
-def multi_local_photometry(name_list, ra_list, dec_list, z_list,
-                             ap_radius, work_dir='', filters=None,
-                               survey="PS1", correct_extinction=True,
-                                plot_output=False):
-    """Extract local photometry for multiple SNe.
+def multi_band_phot(name, ra, dec, z, ap_radius, host_ra, host_dec, threshold, bkg_sub=False, mask_stars=True,
+                    filters=None, survey=None, correct_extinction=True,
+                    work_dir='', save_plots=False):
+    """Calculates the local aperture photometry in a given radius.
 
     Parameters
     ----------
-    name_list: list-like
-        List of SN names.
-    ra_list: list-like
-        List of right ascensions in degrees.
-    dec_list: list-like
-        List of declinations in degrees.
-    z_list: list-like
-        List of redshifts.
+    name: str
+        Obejct's name. This is used for the directory path.
+    ra: float
+        Right Ascensions in degrees.
+    dec: float
+        Declinations in degrees.
+    z: float
+        Redshift of the SN.
     ap_radius: float
-        Physical size of the aperture in kpc. This is used
-        for aperture photometry.
-    work_dir: str, default ''
-        Working directory where to find the objects'
-        directories with the images. Default, current directory.
-    filters: str, defaul `None`
-        Filters used to extract photometry. If `None`, use all
-        the available filters for the given survey.
-    survey: str, default `PS1`
-        Survey to use for the zero-points and pixel scale.
+        Physical size of the aperture in kpc.
+    bkg_sub: bool, default `False`
+        If `True`, the image gets background subtracted.
+    mask_stars: bool, default `True`
+        If `True`, the stars identified are masked by using
+        a convolution with a 2D Gaussian kernel.
+    filters: str, default `None`
+        Filter to use for for the photometry.
+    survey: str, default `None`
+        Survey to use for the zero-points and correct filter path.
     correct_extinction: bool, default `True`
-        If `True`, the magnitudes are corrected for extinction.
-    plot_output: bool, default `False`
-        If `True`, saves the output plots.
+        If `True`, the magnitude is corrected for Milky-Way extinction.
+    work_dir: str, default `''`
+        Working directory where to find the objects.
+    save_plots: bool, default `False`
+        If `True`, the mask and galaxy aperture figures are saved.
 
     Returns
     -------
-    local_phot_df: DataFrame
-        Dataframe with the photometry, errors and SN info.
+    results_dict: dict
+        Dictionary with the results: name, host_ra, host_dec,
+        filter magnitudes and errors
     """
     check_survey_validity(survey)
-    check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
+    else:
+        check_filters_validity(filters, survey)
 
-    # dictionary to save results
-    mag_dict = {filt:[] for filt in filters}
-    mag_err_dict = {filt+'_err':[] for filt in filters}
-    mag_dict.update(mag_err_dict)
+    obj_dir = os.path.join(work_dir, name)
+    # get parameters in common between `multi_band_phot()` and `photometry()`
+    kwargs = locals()
+    phot_args = inspect.getargspec(photometry).args
+    phot_kwargs = {key:val for key, val in kwargs.items() if key in phot_args}
 
-    results_dict = {'name':[], 'ra':[], 'dec':[], 'zspec':[]}
-    results_dict.update(mag_dict)
+    # dictionary to save the results (mag + err)
+    results_dict = {'name':name, 'ra':ra, 'dec':dec, 'ap_radius':ap_radius,
+                    'host_ra':host_ra, 'host_dec':host_dec}
 
-    # filter funcstions for extinction correction
-    filters_dict = extract_filters(filters, survey)
+    fits_files = [os.path.join(obj_dir, f'{survey}_{filt}.fits')
+                                                for filt in filters]
+    for fits_file, filt in zip(fits_files, filters):
+        mag, mag_err = photometry(fits_file, filt=filt, plots_path=obj_dir,
+                                    **phot_kwargs)
+        results_dict.update({filt:mag, f'{filt}_err':mag_err})
 
-    for name, ra, dec, z in zip(name_list, ra_list,
-                                    dec_list, z_list):
+    return results_dict
 
-        sn_dir = os.path.join(work_dir, name)
-        image_files = [os.path.join(sn_dir, f'{survey}_{filt}.fits')
-                                                    for filt in filters]
+def pool_phot(input_args, n_cores):
+    """Parallelises `multi_band_phot()` for multiple objects.
 
-        for image_file, filt in zip(image_files, filters):
-            try:
-                if plot_output:
-                    plot_output = os.path.join(sn_dir, f'local_{filt}.jpg')
-                else:
-                    plot_output = None
-                mag, mag_err = extract_local_photometry(image_file,
-                                                  ra, dec, z,
-                                                  ap_radius=ap_radius,
-                                                  survey=survey,
-                                                  plot_output=plot_output)
-                if correct_extinction:
-                    wave = filters_dict[filt]['wave']
-                    transmission = filters_dict[filt]['transmission']
-                    A_ext = calc_ext(wave, transmission, ra, dec)
-                    mag -= A_ext
-                results_dict[filt].append(mag)
-                results_dict[filt+'_err'].append(mag_err)
-            except Exception as message:
-                results_dict[filt].append(np.nan)
-                results_dict[filt+'_err'].append(np.nan)
-                print(f'{name} failed with {filt} band: {message}')
-        results_dict['name'].append(name)
-        results_dict['ra'].append(ra)
-        results_dict['dec'].append(dec)
-        results_dict['zspec'].append(z)
+    Parameters
+    ----------
+    input_args: dict or DataFrame
+        Dictionary or DataFrame with keys/columns names as the
+        parameters of `multi_band_phot()`.
+    n_cores: int
+        Number of CPU cores to use.
 
-    local_phot_df = pd.DataFrame(results_dict)
+    Returns
+    -------
+    results_df: DataFrame
+        Results with the same outputs of `multi_band_phot()` as columns
+    """
+    if isinstance(input_args, pd.DataFrame):
+        input_args = input_args.to_dict('list')
 
-    return local_phot_df
+    _results = []
+    def _collect_result(result):
+        nonlocal _results
+        _results.append(result)
+
+    pool = mp.Pool(n_cores)
+    for i, name in enumerate(input_args['name']):
+        kwds = {key:input_args[key][i] for key in input_args.keys()}
+        pool.apply_async(multi_band_phot, kwds=kwds,
+                         callback=_collect_result)
+    # the callback allows the colection of the outputs
+    pool.close()
+    pool.join()
+
+    results_df = pd.DataFrame(_results)
+
+    return results_df

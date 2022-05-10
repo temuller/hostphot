@@ -94,6 +94,64 @@ def survey_zp(survey):
 
     return zp
 
+def get_image_gain(header, survey):
+    """Returns the gain from an image's header.
+
+    **Note:** for `SDSS` this is assumed to be zero
+    as it should already be included.
+
+    Parameters
+    ----------
+    header: fits header
+        Header of an image.
+    survey: str
+        Survey name: `PS1`, `DES` or `SDSS`.
+
+    Returns
+    -------
+    gain: float
+        Gain value.
+    """
+    check_survey_validity(survey)
+    if survey=='PS1':
+        gain = header['HIERARCH CELL.GAIN']
+    elif survey=='DES':
+        gain = header['GAIN']
+    elif survey=='SDSS':
+        gain = 0.0
+
+    return gain
+
+def get_image_readnoise(header, survey):
+    """Returns the read noise from an image's header.
+    All values are per-pixel values.
+
+    **Note:** for `SDSS` this is assumed to be zero
+    as it should already be included.
+
+    Parameters
+    ----------
+    header: fits header
+        Header of an image.
+    survey: str
+        Survey name: `PS1`, `DES` or `SDSS`.
+
+    Returns
+    -------
+    readnoise: float
+        Read noise value.
+    """
+    check_survey_validity(survey)
+    if survey=='PS1':
+        readnoise = header['HIERARCH CELL.READNOISE']
+    elif survey=='DES':
+        # see https://arxiv.org/pdf/0810.3600.pdf
+        readnoise = 7.0  # electrons per pixel
+    elif survey=='SDSS':
+        readnoise = 0.0
+
+    return readnoise
+
 def survey_pixel_scale(survey):
         """Returns the pixel scale for a given survey.
 
