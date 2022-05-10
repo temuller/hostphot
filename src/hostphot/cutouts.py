@@ -2,7 +2,7 @@ import os
 import copy
 import numpy as np
 import pandas as pd
-from multiprocessing import Pool
+import multiprocessing as mp
 
 from astropy import wcs
 import astropy.units as u
@@ -347,9 +347,9 @@ def download_images(name, ra, dec, size=800, work_dir='', filters=None,
     if filters is None:
         filters = get_survey_filters(survey)
 
-    dir = os.path.join(work_dir, name)
-    if not os.path.isdir(dir):
-        os.mkdir(dir)
+    obj_dir = os.path.join(work_dir, name)
+    if not os.path.isdir(obj_dir):
+        os.mkdir(obj_dir)
 
     if survey=='PS1':
         fits_files = get_PS1_images(ra, dec, size, filters)
@@ -362,7 +362,7 @@ def download_images(name, ra, dec, size=800, work_dir='', filters=None,
 
     if fits_files is not None:
         for fits_file, filt in zip(fits_files, filters):
-            outfile = os.path.join(sn_dir, f'{survey}_{filt}.fits')
+            outfile = os.path.join(obj_dir, f'{survey}_{filt}.fits')
             if not os.path.isfile(outfile):
                 fits_file.writeto(outfile)
             else:
@@ -372,7 +372,7 @@ def download_images(name, ra, dec, size=800, work_dir='', filters=None,
                     continue
 
     # remove directory if it ends up empty
-    clean_dir(dir)
+    clean_dir(obj_dir)
 
 def pool_download(df=None, name=None, ra=None, dec=None, size=800,
                     work_dir='', filters=None, overwrite=False,
@@ -398,7 +398,8 @@ def pool_download(df=None, name=None, ra=None, dec=None, size=800,
         Working directory where to find the objects'
         directories with the images. Default, current directory.
     filters: str, default `None`
-        DES filters for the images.
+        Filters for the images. If `None`, use all the available
+        filters.
     overwrite: bool, default `False`
         If `True`, the images are overwritten if they already
         exist.
@@ -407,11 +408,9 @@ def pool_download(df=None, name=None, ra=None, dec=None, size=800,
     processes: floar, default `8`
         Number of processes to use for the parallelisation.
     """
-    ignore_args = ['df', 'processes']
     local_dict = locals()  # get dictionary of input arguments
-    # variable_args = [key for key, value in local_dict.items()
-    #                         if isinstance(value, (list, np.ndarray))]
     variable_args = ['name', 'ra', 'dec']
+    ignore_args = ['df', 'processes']
     args_dict = {key:local_dict[key] for key in local_dict.keys()
                                             if key not in ignore_args}
 
@@ -431,5 +430,5 @@ def pool_download(df=None, name=None, ra=None, dec=None, size=800,
     # transpose list
     input_args = list(map(list, zip(*input_dict.values())))
 
-    results = Pool(processes).map(download_images,
-                                  (input_arg for input_arg in input_args))
+    pool = mp.Pool(processes)
+    pool.starmap(download_images, (input_arg for input_arg in input_args))

@@ -70,25 +70,28 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.1):
     -------
     gaia_coord: SkyCoor object
         Coordinates of the objects found.
-    pix_coords: tuple
-        Tuple with the coordinates in pixels of the objects found.
     """
     Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
-
+    Gaia.ROW_LIMIT = 100
     coord = SkyCoord(ra=ra, dec=dec,
                           unit=(u.degree, u.degree), frame='icrs')
     width = u.Quantity(rad, u.deg)
     height = u.Quantity(rad, u.deg)
-    gaia_cat = Gaia.query_object_async(coordinate=coord,
-                                       width=width, height=height)
+    try:
+        gaia_cat = Gaia.query_object_async(coordinate=coord,
+                                           width=width, height=height)
+    except:
+        print('No objects found with Gaia DR3, switching to DR2')
+        Gaia.MAIN_GAIA_TABLE = "gaiadr2.gaia_source"
+        gaia_cat = Gaia.query_object_async(coordinate=coord,
+                                           width=width, height=height)
 
     gaia_ra = np.array(gaia_cat['ra'].value)
     gaia_dec = np.array(gaia_cat['dec'].value)
     gaia_coord = SkyCoord(ra=gaia_ra, dec=gaia_dec,
                           unit=(u.degree, u.degree), frame='icrs')
-    pix_coords = img_wcs.world_to_pixel(gaia_coord)
 
-    return gaia_coord, pix_coords
+    return gaia_coord
 
 def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
     """Cross-matches objects with a given set of coordinates.

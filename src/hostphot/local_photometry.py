@@ -148,8 +148,9 @@ def plot_aperture(data, px, py, radius_pix, outfile=None):
     else:
         plt.show()
 
-def photometry(fits_file, ra, dec, z, ap_radius, host_ra, host_dec, threshold, bkg_sub=False, mask_stars=True, filt=None,
-                survey=None, correct_extinction=False, save_plots=False, plots_path=''):
+def photometry(fits_file, ra, dec, z, ap_radius, host_ra=None, host_dec=None,
+                threshold=7, bkg_sub=False, mask_stars=True, filt=None, survey=None,
+                correct_extinction=True, save_plots=False, plots_path=''):
     """Calculates the local aperture photometry in a given radius.
 
     Parameters
@@ -165,6 +166,14 @@ def photometry(fits_file, ra, dec, z, ap_radius, host_ra, host_dec, threshold, b
     ap_radius: float
         Physical size of the aperture in kpc. This is used
         for aperture photometry.
+    host_ra: float, default `None`
+        Host-galaxy Right ascension of the galaxy in degrees.
+        Used for masking objects in the image.
+    host_dec: float, default `None`
+        Host-galaxy Declination of the galaxy in degrees.
+        Used for masking objects in the image.
+    threshold: float, default `7`
+        Threshold used by `sep.extract()` to extract objects.
     bkg_sub: bool, default `False`
         If `True`, the image gets background subtracted.
     mask_stars: bool, default `True`
@@ -174,7 +183,7 @@ def photometry(fits_file, ra, dec, z, ap_radius, host_ra, host_dec, threshold, b
         Filter to use for extinction correction and saving outputs.
     survey: str, default `None`
         Survey to use for the zero-points and pixel scale.
-    correct_extinction: bool, default `False`
+    correct_extinction: bool, default `True`
         If `True`, the magnitude is corrected for Milky-Way extinction.
     save_plots: bool, default `False`
         If `True`, the a figure with the aperture is saved.
@@ -221,7 +230,7 @@ def photometry(fits_file, ra, dec, z, ap_radius, host_ra, host_dec, threshold, b
 
         masked_data = mask_image(data_sub, nogal_objs)
         if save_plots:
-            outfile = os.path.join(plots_path, f'mask_{filt}.jpg')
+            outfile = os.path.join(plots_path, f'local_mask_{filt}.jpg')
             plot_masked_image(data_sub, masked_data,
                                 nogal_objs, outfile)
     else:
@@ -265,9 +274,10 @@ def photometry(fits_file, ra, dec, z, ap_radius, host_ra, host_dec, threshold, b
 
     return mag, mag_err
 
-def multi_band_phot(name, ra, dec, z, ap_radius, host_ra, host_dec, threshold, bkg_sub=False, mask_stars=True,
-                    filters=None, survey=None, correct_extinction=True,
-                    work_dir='', save_plots=False):
+def multi_band_phot(name, ra, dec, z, ap_radius, host_ra=None, host_dec=None,
+                    threshold=7, bkg_sub=False, mask_stars=True, filters=None,
+                    survey=None, correct_extinction=True, work_dir='',
+                    save_plots=False):
     """Calculates the local aperture photometry in a given radius.
 
     Parameters
@@ -282,6 +292,14 @@ def multi_band_phot(name, ra, dec, z, ap_radius, host_ra, host_dec, threshold, b
         Redshift of the SN.
     ap_radius: float
         Physical size of the aperture in kpc.
+    host_ra: float, default `None`
+        Host-galaxy Right ascension of the galaxy in degrees.
+        Used for masking objects in the image.
+    host_dec: float, default `None`
+        Host-galaxy Declination of the galaxy in degrees.
+        Used for masking objects in the image.
+    threshold: float, default `7`
+        Threshold used by `sep.extract()` to extract objects.
     bkg_sub: bool, default `False`
         If `True`, the image gets background subtracted.
     mask_stars: bool, default `True`

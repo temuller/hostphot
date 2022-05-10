@@ -185,7 +185,7 @@ def quick_load(fits_file, bkg_sub):
 def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
                mask_stars=True, get_kron_params=False, kron_params=None,
                optimze_kronrad=True, filt=None, survey=None,
-               correct_extinction=False, save_plots=False, plots_path=''):
+               correct_extinction=True, save_plots=False, plots_path=''):
     """Calculates the global aperture photometry of a galaxy using Kron flux.
 
     **Note:** the galaxy must be ideally centred in the image.
@@ -218,7 +218,7 @@ def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
         Filter to use for extinction correction and saving outputs.
     survey: str, default `None`
         Survey to use for the zero-points and correct filter path.
-    correct_extinction: bool, default `False`
+    correct_extinction: bool, default `True`
         If `True`, the magnitude is corrected for Milky-Way extinction.
     save_plots: bool, default `False`
         If `True`, the mask and galaxy aperture figures are saved.
@@ -269,16 +269,16 @@ def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
     # preprocessing
     if mask_stars:
         # cross-match extracted objects with gaia
-        gaia_coord, pix_coords = find_gaia_objects(host_ra, host_dec,
-                                                    img_wcs)
+        gaia_coord = find_gaia_objects(host_ra, host_dec, img_wcs)
         nogal_objs = cross_match(nogal_objs, img_wcs, gaia_coord)
 
         masked_data = mask_image(data_sub, nogal_objs)
         if save_plots:
-            outfile = os.path.join(plots_path, f'mask_{filt}.jpg')
+            outfile = os.path.join(plots_path, f'global_mask_{filt}.jpg')
             plot_masked_image(data_sub, masked_data,
                                 nogal_objs, outfile)
     else:
+        gaia_coord = False
         masked_data = data_sub.copy()
 
     if kron_params is None:
@@ -305,13 +305,18 @@ def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
         if get_kron_params:
             return gal_obj, kronrad, scale
     else:
-        gal_obj, kronrad, scale = kron_params
+        new_gal_obj, kronrad, scale = kron_params
+        # do not use x, y as these are in pixels Coordinates
+        # and can change between images if they are trimmed
+        gal_obj['a'] = new_gal_obj['a']
+        gal_obj['b'] = new_gal_obj['b']
+        gal_obj['theta'] = new_gal_obj['theta']
         flux, flux_err =  kron_flux(masked_data, bkg_rms, gain,
                                     gal_obj, kronrad, scale)
         flux, flux_err = flux[0], flux_err[0]
 
         if save_plots:
-            outfile = os.path.join(plots_path, f'gal_{filt}.jpg')
+            outfile = os.path.join(plots_path, f'global_{filt}.jpg')
             plot_detected_objects(masked_data, gal_obj,
                                     scale*kronrad, outfile)
 
@@ -339,7 +344,7 @@ def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
     return mag, mag_err
 
 def multi_band_phot(name, host_ra, host_dec, bkg_sub=False, threshold=7,
-                   mask_stars=True, coadd_filters=None, optimze_kronrad=True,
+                   mask_stars=True, coadd_filters='riz', optimze_kronrad=True,
                    filters=None, survey=None, correct_extinction=True,
                    work_dir='', save_plots=False):
     """Calculates multi-band photometry of the host galaxy for an object.
@@ -359,8 +364,8 @@ def multi_band_phot(name, host_ra, host_dec, bkg_sub=False, threshold=7,
     mask_stars: bool, default `True`
         If `True`, the stars identified are masked by using
         a convolution with a 2D Gaussian kernel.
-    coadd_filters: 'str', default `None`
-        Filters to use for the coadd image. E.g. `riz`.
+    coadd_filters: 'str', default `riz`
+        Filters to use for the coadd image.
     optimze_kronrad: bool, default `True`
         If `True`, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
