@@ -357,10 +357,10 @@ def download_images(name, ra, dec, size=800, work_dir='', filters=None,
         fits_files = get_DES_images(ra, dec, size, filters)
     elif survey=='SDSS':
         fits_files = get_SDSS_images(ra, dec, size, filters)
-    # this corrects any possible shifts between the images
-    fits_files = match_wcs(fits_files)
 
     if fits_files is not None:
+        # this corrects any possible shifts between the images
+        fits_files = match_wcs(fits_files)
         for fits_file, filt in zip(fits_files, filters):
             outfile = os.path.join(obj_dir, f'{survey}_{filt}.fits')
             if not os.path.isfile(outfile):
@@ -431,4 +431,4 @@ def pool_download(df=None, name=None, ra=None, dec=None, size=800,
     input_args = list(map(list, zip(*input_dict.values())))
 
     pool = mp.Pool(processes)
-    pool.starmap(download_images, (input_arg for input_arg in input_args))
+    pool.starmap_async(download_images, (args for args in input_args))

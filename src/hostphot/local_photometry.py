@@ -34,11 +34,12 @@ from astropy.stats import sigma_clipped_stats
 from .utils import (get_survey_filters, extract_filters,
                     check_survey_validity, check_filters_validity,
                      calc_sky_unc, survey_pixel_scale, survey_zp,
-                     get_image_gain, get_image_readnoise)
+                     get_image_gain, get_image_readnoise, pixel2pixel)
 from .objects_detect import (extract_objects, find_gaia_objects,
                              cross_match, plot_detected_objects)
 from .image_masking import mask_image, plot_masked_image
 from .image_cleaning import remove_nan
+from .coadd import coadd_images
 from .dust import calc_extinction
 
 H0 = 70
@@ -148,9 +149,90 @@ def plot_aperture(data, px, py, radius_pix, outfile=None):
     else:
         plt.show()
 
+def common_aperture(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
+                   mask_stars=True,filt=None, survey=None, save_plots=False,
+                   plots_path=''):
+    """Calculates the aperture parameters for common aperture.
+
+    Parameters
+    ----------
+    fits_file: str
+        Path to the fits file.
+    host_ra: float
+        Host-galaxy Right ascension of the galaxy in degrees.
+    host_dec: float
+        Host-galaxy Declination of the galaxy in degrees.
+    bkg_sub: bool, default `False`
+        If `True`, the image gets background subtracted.
+    threshold: float, default `7`
+        Threshold used by `sep.extract()` to extract objects.
+    mask_stars: bool, default `True`
+        If `True`, the stars identified are masked by using
+        a convolution with a 2D Gaussian kernel.
+    filt: str, default `None`
+        Filter to use for extinction correction and saving outputs.
+    survey: str, default `None`
+        Survey to use for the zero-points and correct filter path.
+    save_plots: bool, default `False`
+        If `True`, the mask and galaxy aperture figures are saved.
+    plots_path: str, default `''`
+        Path where to save the output plots. By default uses the current
+        directory.
+
+    Returns
+    -------
+    gal_obj: array
+        Galaxy object.
+    gal_obj: array
+        Non-galaxy objects.
+    img_wcs: WCS
+        Image's WCS.
+    """
+    check_survey_validity(survey)
+
+    img = fits.open(fits_file)
+    img = remove_nan(img)
+
+    header = img[0].header
+    data = img[0].data
+    exptime = float(header['EXPTIME'])
+    img_wcs = wcs.WCS(header, naxis=2)
+
+    data = data.astype(np.float64)
+    bkg = sep.Background(data)
+    bkg_rms = bkg.globalrms
+    if bkg_sub:
+        data_sub = np.copy(data - bkg)
+    else:
+        data_sub = np.copy(data)
+
+    # extract objects
+    gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
+                                          host_ra, host_dec,
+                                          threshold, img_wcs)
+
+    # preprocessing
+    # cross-match extracted objects with gaia
+    gaia_coord = find_gaia_objects(host_ra, host_dec, img_wcs)
+    nogal_objs = cross_match(nogal_objs, img_wcs, gaia_coord)
+    masked_data = mask_image(data_sub, nogal_objs)
+
+    if save_plots:
+        outfile = os.path.join(plots_path,
+                                f'local_mask_{survey}_{filt}.jpg')
+        plot_masked_image(data_sub, masked_data,
+                            nogal_objs, outfile)
+
+        outfile = os.path.join(plots_path, f'local_{survey}_{filt}.jpg')
+        plot_detected_objects(masked_data, gal_obj,
+                                6, outfile)
+
+    return gal_obj, nogal_objs, img_wcs
+
 def photometry(fits_file, ra, dec, z, ap_radius, host_ra=None, host_dec=None,
-                threshold=7, bkg_sub=False, mask_stars=True, filt=None, survey=None,
-                correct_extinction=True, save_plots=False, plots_path=''):
+                threshold=7, bkg_sub=False, mask_stars=True, aperture_params=None,
+                filt=None, survey=None, correct_extinction=True, save_plots=False,
+                plots_path=''):
     """Calculates the local aperture photometry in a given radius.
 
     Parameters
@@ -179,6 +261,9 @@ def photometry(fits_file, ra, dec, z, ap_radius, host_ra=None, host_dec=None,
     mask_stars: bool, default `True`
         If `True`, the stars identified are masked by using
         a convolution with a 2D Gaussian kernel.
+    aperture_params: tuple, default `None`
+        Tuple with objects info and Kron parameters. Used for
+        common aperture.
     filt: str, default `None`
         Filter to use for extinction correction and saving outputs.
     survey: str, default `None`
@@ -220,17 +305,25 @@ def photometry(fits_file, ra, dec, z, ap_radius, host_ra=None, host_dec=None,
 
     # preprocessing
     if mask_stars:
-        # extract objects and cross-match with gaia
-        gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
-                                              host_ra, host_dec,
-                                              threshold, img_wcs)
-        gaia_coord, pix_coords = find_gaia_objects(host_ra, host_dec,
-                                                    img_wcs)
-        nogal_objs = cross_match(nogal_objs, img_wcs, gaia_coord)
-
+        if aperture_params is None:
+            # extract objects and cross-match with gaia
+            gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
+                                                  host_ra, host_dec,
+                                                  threshold, img_wcs)
+            gaia_coord = find_gaia_objects(host_ra, host_dec, img_wcs)
+            nogal_objs = cross_match(nogal_objs, img_wcs, gaia_coord)
+        else:
+            gal_obj, nogal_objs, img_wcs0 = aperture_params
+            gal_obj['x'], gal_obj['y'] = pixel2pixel(gal_obj['x'],
+                                                    gal_obj['y'],
+                                                    img_wcs0, img_wcs)
+            nogal_objs['x'], nogal_objs['y'] = pixel2pixel(nogal_objs['x'],
+                                                    nogal_objs['y'],
+                                                    img_wcs0, img_wcs)
         masked_data = mask_image(data_sub, nogal_objs)
         if save_plots:
-            outfile = os.path.join(plots_path, f'local_mask_{filt}.jpg')
+            outfile = os.path.join(plots_path,
+                                    f'local_mask_{survey}_{filt}.jpg')
             plot_masked_image(data_sub, masked_data,
                                 nogal_objs, outfile)
     else:
@@ -255,7 +348,7 @@ def photometry(fits_file, ra, dec, z, ap_radius, host_ra=None, host_dec=None,
     mag_err = 2.5/np.log(10)*flux_err/flux
 
     if save_plots:
-        outfile = os.path.join(plots_path, f'local_{filt}.jpg')
+        outfile = os.path.join(plots_path, f'local_{survey}_{filt}.jpg')
         plot_aperture(masked_data, px, py, radius_pix, outfile)
 
     if correct_extinction:
@@ -331,6 +424,8 @@ def multi_band_phot(name, ra, dec, z, ap_radius, host_ra=None, host_dec=None,
     obj_dir = os.path.join(work_dir, name)
     # get parameters in common between `multi_band_phot()` and `photometry()`
     kwargs = locals()
+    cap_args = inspect.getargspec(common_aperture).args
+    cap_kwargs = {key:val for key, val in kwargs.items() if key in cap_args}
     phot_args = inspect.getargspec(photometry).args
     phot_kwargs = {key:val for key, val in kwargs.items() if key in phot_args}
 
@@ -338,11 +433,18 @@ def multi_band_phot(name, ra, dec, z, ap_radius, host_ra=None, host_dec=None,
     results_dict = {'name':name, 'ra':ra, 'dec':dec, 'ap_radius':ap_radius,
                     'host_ra':host_ra, 'host_dec':host_dec}
 
+    if mask_stars:
+        coadd_file = coadd_images(name, 'riz', work_dir, survey)
+        aperture_params = common_aperture(coadd_file, filt='riz',
+                                      plots_path=obj_dir, **cap_kwargs)
+    else:
+        aperture_params = None
+
     fits_files = [os.path.join(obj_dir, f'{survey}_{filt}.fits')
                                                 for filt in filters]
     for fits_file, filt in zip(fits_files, filters):
         mag, mag_err = photometry(fits_file, filt=filt, plots_path=obj_dir,
-                                    **phot_kwargs)
+                                aperture_params=aperture_params, **phot_kwargs)
         results_dict.update({filt:mag, f'{filt}_err':mag_err})
 
     return results_dict

@@ -35,7 +35,7 @@ from reproject.mosaicking import reproject_and_coadd
 from .utils import (get_survey_filters, extract_filters,
                     check_survey_validity, check_filters_validity,
                     calc_sky_unc, survey_zp, get_image_gain,
-                    get_image_readnoise)
+                    get_image_readnoise, pixel2pixel)
 from .objects_detect import (extract_objects, find_gaia_objects,
                              cross_match, plot_detected_objects)
 from .image_masking import mask_image, plot_masked_image
@@ -122,10 +122,10 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.001):
         if ~np.isnan(kronrad):
             opt_kronrad = kronrad
             break
-        else:
-            print(f'kronrad = {kronrad}')
-            raise ValueError('The Kron radius cannot be calculated '
-                             '(something went wrong!)')
+    if np.isnan(kronrad):
+        print(f'kronrad = {kronrad}')
+        raise ValueError('The Kron radius cannot be calculated '
+                         '(something went wrong!)')
 
     opt_flux = 0.0
     # iterate over scale
@@ -182,10 +182,117 @@ def quick_load(fits_file, bkg_sub):
 
     return data_sub, bkg_rms
 
+def common_aperture(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
+                   mask_stars=True, optimze_kronrad=True, eps=0.001, filt=None,
+                   survey=None, save_plots=False, plots_path=''):
+    """Calculates the aperture parameters for common aperture.
+
+    Parameters
+    ----------
+    fits_file: str
+        Path to the fits file.
+    host_ra: float
+        Host-galaxy Right ascension of the galaxy in degrees.
+    host_dec: float
+        Host-galaxy Declination of the galaxy in degrees.
+    bkg_sub: bool, default `False`
+        If `True`, the image gets background subtracted.
+    threshold: float, default `7`
+        Threshold used by `sep.extract()` to extract objects.
+    mask_stars: bool, default `True`
+        If `True`, the stars identified are masked by using
+        a convolution with a 2D Gaussian kernel.
+    optimze_kronrad: bool, default `True`
+        If `True`, the Kron radius is optimized, increasing the
+        aperture size until the flux does not increase.
+    eps: float, default `0.001`
+        Minimum percent change in flux allowed between iterations
+        when optimizing the Kron radius.
+    filt: str, default `None`
+        Filter to use for extinction correction and saving outputs.
+    survey: str, default `None`
+        Survey to use for the zero-points and correct filter path.
+    save_plots: bool, default `False`
+        If `True`, the mask and galaxy aperture figures are saved.
+    plots_path: str, default `''`
+        Path where to save the output plots. By default uses the current
+        directory.
+
+    Returns
+    -------
+    gal_obj: array
+        Galaxy object.
+    gal_obj: array
+        Non-galaxy objects.
+    img_wcs: WCS
+        Image's WCS.
+    kronrad: float
+        Kron radius.
+    scale: float
+        Scale for the kron radius.
+    """
+    check_survey_validity(survey)
+
+    img = fits.open(fits_file)
+    img = remove_nan(img)
+
+    header = img[0].header
+    data = img[0].data
+    exptime = float(header['EXPTIME'])
+    img_wcs = wcs.WCS(header, naxis=2)
+
+    data = data.astype(np.float64)
+    bkg = sep.Background(data)
+    bkg_rms = bkg.globalrms
+    if bkg_sub:
+        data_sub = np.copy(data - bkg)
+    else:
+        data_sub = np.copy(data)
+
+    # extract objects
+    gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
+                                          host_ra, host_dec,
+                                          threshold, img_wcs)
+
+    # preprocessing
+    if mask_stars:
+        # cross-match extracted objects with gaia
+        gaia_coord = find_gaia_objects(host_ra, host_dec, img_wcs)
+        nogal_objs = cross_match(nogal_objs, img_wcs, gaia_coord)
+
+        masked_data = mask_image(data_sub, nogal_objs)
+        if save_plots:
+            outfile = os.path.join(plots_path,
+                                    f'global_mask_{survey}_{filt}.jpg')
+            plot_masked_image(data_sub, masked_data,
+                                nogal_objs, outfile)
+    else:
+        masked_data = data_sub.copy()
+
+    if optimze_kronrad:
+        gain = 1  # doesn't matter here
+        opt_res = optimize_kron_flux(masked_data, bkg_rms,
+                                     gain, gal_obj, eps)
+        flux, flux_err, kronrad, scale = opt_res
+    else:
+        scale = 2.5
+        kronrad, krflag = sep.kron_radius(masked_data,
+                                          gal_obj['x'], gal_obj['y'],
+                                          gal_obj['a'], gal_obj['b'],
+                                          gal_obj['theta'], 6.0)
+
+    if save_plots:
+        outfile = os.path.join(plots_path, f'global_{survey}_{filt}.jpg')
+        plot_detected_objects(masked_data, gal_obj,
+                                scale*kronrad, outfile)
+
+    return gal_obj, nogal_objs, img_wcs, kronrad, scale
+
+
 def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
-               mask_stars=True, get_kron_params=False, kron_params=None,
-               optimze_kronrad=True, filt=None, survey=None,
-               correct_extinction=True, save_plots=False, plots_path=''):
+               mask_stars=True, aperture_params=None, optimze_kronrad=True,
+               eps=0.001, filt=None, survey=None, correct_extinction=True,
+               save_plots=False, plots_path=''):
     """Calculates the global aperture photometry of a galaxy using Kron flux.
 
     **Note:** the galaxy must be ideally centred in the image.
@@ -205,15 +312,15 @@ def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
     mask_stars: bool, default `True`
         If `True`, the stars identified are masked by using
         a convolution with a 2D Gaussian kernel.
-    get_kron_params: bool, default `False`
-        If `True`, the galaxy object, calculate kron radius and scale
-        are returned. Used to extract these for common aperture.
-    kron_params: tuple, default `None`
-        Tuple with galaxy object, Kron radius and scale. Used for
+    aperture_params: tuple, default `None`
+        Tuple with objects info and Kron parameters. Used for
         common aperture.
     optimze_kronrad: bool, default `True`
         If `True`, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
+    eps: float, default `0.001`
+        Minimum percent change in flux allowed between iterations
+        when optimizing the Kron radius.
     filt: str, default `None`
         Filter to use for extinction correction and saving outputs.
     survey: str, default `None`
@@ -261,32 +368,44 @@ def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
     else:
         data_sub = np.copy(data)
 
-    # extract objects
-    gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
-                                          host_ra, host_dec,
-                                          threshold, img_wcs)
+    if aperture_params is not None:
+        gal_obj, nogal_objs, img_wcs0, _, _ = aperture_params
+        gal_obj['x'], gal_obj['y'] = pixel2pixel(gal_obj['x'],
+                                                gal_obj['y'],
+                                                img_wcs0, img_wcs)
+        nogal_objs['x'], nogal_objs['y'] = pixel2pixel(nogal_objs['x'],
+                                                nogal_objs['y'],
+                                                img_wcs0, img_wcs)
+    else:
+        # extract objects
+        gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
+                                              host_ra, host_dec,
+                                              threshold, img_wcs)
 
     # preprocessing
     if mask_stars:
-        # cross-match extracted objects with gaia
-        gaia_coord = find_gaia_objects(host_ra, host_dec, img_wcs)
-        nogal_objs = cross_match(nogal_objs, img_wcs, gaia_coord)
+        if aperture_params is None:
+            # cross-match extracted objects with gaia
+            gaia_coord = find_gaia_objects(host_ra, host_dec, img_wcs)
+            nogal_objs = cross_match(nogal_objs, img_wcs, gaia_coord)
+            masked_data = mask_image(data_sub, nogal_objs)
+        else:
+            masked_data = mask_image(data_sub, nogal_objs)
 
-        masked_data = mask_image(data_sub, nogal_objs)
         if save_plots:
             outfile = os.path.join(plots_path, f'global_mask_{filt}.jpg')
             plot_masked_image(data_sub, masked_data,
                                 nogal_objs, outfile)
     else:
-        gaia_coord = False
         masked_data = data_sub.copy()
 
-    if kron_params is None:
+    if aperture_params is None:
         # aperture photometry
         # This uses what would be the default SExtractor parameters.
         # See https://sep.readthedocs.io/en/v1.1.x/apertures.html
         if optimze_kronrad:
-            opt_res = optimize_kron_flux(masked_data, bkg_rms, gain, gal_obj)
+            opt_res = optimize_kron_flux(masked_data, bkg_rms,
+                                         gain, gal_obj, eps)
             flux, flux_err, kronrad, scale = opt_res
         else:
             kronrad, krflag = sep.kron_radius(masked_data,
@@ -299,24 +418,19 @@ def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
             flux, flux_err = flux[0], flux_err[0]
 
         if save_plots:
-            outfile = os.path.join(plots_path, f'gal_{filt}.jpg')
+            outfile = os.path.join(plots_path,
+                                    f'global_{survey}_{filt}.jpg')
             plot_detected_objects(masked_data, gal_obj,
                                     scale*kronrad, outfile)
-        if get_kron_params:
-            return gal_obj, kronrad, scale
     else:
-        new_gal_obj, kronrad, scale = kron_params
-        # do not use x, y as these are in pixels Coordinates
-        # and can change between images if they are trimmed
-        gal_obj['a'] = new_gal_obj['a']
-        gal_obj['b'] = new_gal_obj['b']
-        gal_obj['theta'] = new_gal_obj['theta']
+        _, _, _, kronrad, scale = aperture_params
         flux, flux_err =  kron_flux(masked_data, bkg_rms, gain,
                                     gal_obj, kronrad, scale)
         flux, flux_err = flux[0], flux_err[0]
 
         if save_plots:
-            outfile = os.path.join(plots_path, f'global_{filt}.jpg')
+            outfile = os.path.join(plots_path,
+                                    f'global_{survey}_{filt}.jpg')
             plot_detected_objects(masked_data, gal_obj,
                                     scale*kronrad, outfile)
 
@@ -345,7 +459,7 @@ def photometry(fits_file, host_ra, host_dec, bkg_sub=False, threshold=7,
 
 def multi_band_phot(name, host_ra, host_dec, bkg_sub=False, threshold=7,
                    mask_stars=True, coadd_filters='riz', optimze_kronrad=True,
-                   filters=None, survey=None, correct_extinction=True,
+                   eps=0.001, filters=None, survey=None, correct_extinction=True,
                    work_dir='', save_plots=False):
     """Calculates multi-band photometry of the host galaxy for an object.
 
@@ -369,6 +483,9 @@ def multi_band_phot(name, host_ra, host_dec, bkg_sub=False, threshold=7,
     optimze_kronrad: bool, default `True`
         If `True`, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
+    eps: float, default `0.001`
+        Minimum percent change in flux allowed between iterations
+        when optimizing the Kron radius.
     filters: str, default `None`
         Filter to use for for the photometry.
     survey: str, default `None`
@@ -393,8 +510,10 @@ def multi_band_phot(name, host_ra, host_dec, bkg_sub=False, threshold=7,
         check_filters_validity(filters, survey)
 
     obj_dir = os.path.join(work_dir, name)
-    # get parameters in common between `multi_band_phot()` and `photometry()`
+    # get parameters in common between the functions
     kwargs = locals()
+    cap_args = inspect.getargspec(common_aperture).args
+    cap_kwargs = {key:val for key, val in kwargs.items() if key in cap_args}
     phot_args = inspect.getargspec(photometry).args
     phot_kwargs = {key:val for key, val in kwargs.items() if key in phot_args}
 
@@ -403,16 +522,16 @@ def multi_band_phot(name, host_ra, host_dec, bkg_sub=False, threshold=7,
 
     if coadd_filters:
         coadd_file = coadd_images(name, coadd_filters, work_dir, survey)
-        kron_params = photometry(coadd_file, filt=coadd_filters, plots_path=obj_dir,
-                                 get_kron_params=True, **phot_kwargs)
+        aperture_params = common_aperture(coadd_file, filt=coadd_filters,
+                                      plots_path=obj_dir, **cap_kwargs)
     else:
-        kron_params = None
+        aperture_params = None
 
     fits_files = [os.path.join(obj_dir, f'{survey}_{filt}.fits')
                                                 for filt in filters]
     for fits_file, filt in zip(fits_files, filters):
         mag, mag_err = photometry(fits_file, filt=filt, plots_path=obj_dir,
-                                    kron_params=kron_params, **phot_kwargs)
+                                  aperture_params=aperture_params, **phot_kwargs)
         results_dict.update({filt:mag, f'{filt}_err':mag_err})
 
     return results_dict

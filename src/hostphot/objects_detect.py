@@ -72,7 +72,7 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.1):
         Coordinates of the objects found.
     """
     Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
-    Gaia.ROW_LIMIT = 100
+    Gaia.ROW_LIMIT = 300
     coord = SkyCoord(ra=ra, dec=dec,
                           unit=(u.degree, u.degree), frame='icrs')
     width = u.Quantity(rad, u.deg)

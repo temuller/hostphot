@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
 import sep
-from astropy.convolution import (Gaussian2DKernel,
+from astropy.convolution import (Gaussian2DKernel, convolve_fft,
                                  interpolate_replace_nans)
 
 def create_circular_mask(h, w, centre, radius):
@@ -55,7 +55,7 @@ def inside_galaxy(star_center, gal_center, gal_r):
 
     return condition
 
-def mask_image(data, objects, r=4, sigma=10):
+def mask_image(data, objects, r=5, sigma=20):
     """Masks objects in an image (2D array) by convolving it with
     a 2D Gaussian kernel.
 
@@ -65,10 +65,10 @@ def mask_image(data, objects, r=4, sigma=10):
         Image data.
     objects: array
         Objects extracted with `sep.extract()`.
-    r: float
+    r: float, default `5`
         Scale of the semi-mayor and semi-minor axes
         of the ellipse of the `obejcts`.
-    sigma: float
+    sigma: float, default `20`
         Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
 
@@ -87,7 +87,8 @@ def mask_image(data, objects, r=4, sigma=10):
     # mask data by convolving it with a 2D Gaussian kernel
     # with the same sigma in x and y
     kernel = Gaussian2DKernel(sigma)
-    masked_data = interpolate_replace_nans(masked_data, kernel)
+    masked_data = interpolate_replace_nans(masked_data, kernel,
+                                            convolve_fft)
 
     return masked_data
 
