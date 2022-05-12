@@ -188,14 +188,12 @@ def extract_kronparams(name, host_ra, host_dec, filt, survey, bkg_sub=False,
     -------
     gal_obj: array
         Galaxy object.
-    gal_obj: array
-        Non-galaxy objects.
     img_wcs: WCS
         Image's WCS.
     kronrad: float
         Kron radius.
     scale: float
-        Scale for the kron radius.
+        Scale for the Kron radius.
     """
     check_survey_validity(survey)
 
@@ -380,8 +378,8 @@ def photometry(name, host_ra, host_dec, filt, survey, bkg_sub=False,
 
 def multi_band_phot(name, host_ra, host_dec, filters=None, survey='PS1',
                     bkg_sub=False, threshold=10, use_mask=True,
-                    common_aperture=None, optimze_kronrad=True,
-                    eps=0.001, save_plots=True):
+                    common_aperture=True, coadd_filters='riz',
+                    optimze_kronrad=True, eps=0.001, save_plots=True):
     """Calculates multi-band aperture photometry of the host galaxy
     for an object.
 
@@ -407,6 +405,8 @@ def multi_band_phot(name, host_ra, host_dec, filters=None, survey='PS1',
         been created beforehand.
     common_aperture: bool, default `True`
         If `True`, use a coadd image for common aperture photometry.
+    coadd_filters: str, default `riz`
+        Filters of the coadd image. Used for common aperture photometry.
     optimze_kronrad: bool, default `True`
         If `True`, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
@@ -427,8 +427,9 @@ def multi_band_phot(name, host_ra, host_dec, filters=None, survey='PS1',
     else:
         check_filters_validity(filters, survey)
 
-    results_dict = {'name':name, 'host_ra':ra, 'host_dec':dec,
-                    'zspec':z, 'survey':survey}
+    results_dict = {'name':name,
+                    'host_ra':host_ra, 'host_dec':host_dec,
+                    'survey':survey}
 
     if common_aperture:
         aperture_params = extract_kronparams(name, host_ra, host_dec,
