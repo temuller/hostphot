@@ -51,7 +51,7 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
 
     return gal_obj, nogal_objs
 
-def find_gaia_objects(ra, dec, img_wcs, rad=0.1):
+def find_gaia_objects(ra, dec, img_wcs, rad=0.5):
     """Finds objects from the Gaia DR3 catalogue for the given
     coordinates in a given radius.
 
@@ -63,7 +63,7 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.1):
         Declination in degrees.
     img_wcs: WCS object
         WCS of an image.
-    rad: float, default `0.1`
+    rad: float, default `0.5`
         Search radius in degrees.
 
     Returns
@@ -72,7 +72,7 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.1):
         Coordinates of the objects found.
     """
     Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
-    Gaia.ROW_LIMIT = 300
+    Gaia.ROW_LIMIT = -1
     coord = SkyCoord(ra=ra, dec=dec,
                           unit=(u.degree, u.degree), frame='icrs')
     width = u.Quantity(rad, u.deg)
@@ -106,7 +106,8 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
     coord: SkyCoor object
         Coordinates for the cross-match.
     dist_thresh: float, default `1.0`
-        Distance threshold.
+        Distance in arcsec to crossmatch the objects with
+        the given coordinates.
     """
     # coordinates in arcsec
     objs_coord = img_wcs.pixel_to_world(objects['x'], objects['y'])
