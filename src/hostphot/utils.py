@@ -2,12 +2,11 @@ import os
 import sys
 import wget
 import tarfile
-
 import numpy as np
 
 import sfdmap
-import hostphot
 import extinction
+import hostphot
 
 from astropy import wcs
 from astropy.stats import sigma_clipped_stats
@@ -37,7 +36,8 @@ def calc_sky_unc(image, exptime):
     return error
 
 def pixel2pixel(x1, y1, img_wcs1, img_wcs2):
-
+    """Convert the pixel coordinates from one image to another.
+    """
     coord1 = img_wcs1.pixel_to_world(x1, y1)
     x2, y2 = img_wcs2.world_to_pixel(coord1)
 

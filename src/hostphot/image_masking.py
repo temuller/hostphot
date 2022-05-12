@@ -1,11 +1,34 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
 import sep
+from astropy.io import fits
+from astropy import wcs
 from astropy.convolution import (Gaussian2DKernel, convolve_fft,
                                  interpolate_replace_nans)
 
+from hostphot._constants import __workdir__
+from hostphot.image_cleaning import remove_nan
+from hostphot.objects_detect import (extract_objects, find_gaia_objects,
+                                        cross_match)
+from hostphot.utils import check_survey_validity, pixel2pixel
+
+
+#----------------------------------------
+def _choose_workdir(workdir):
+    """Updates the work directory.
+
+    Parameters
+    ----------
+    workdir: str
+        Path to the work directory.
+    """
+    global __workdir__
+    __workdir__ = workdir
+
+#----------------------------------------
 def create_circular_mask(h, w, centre, radius):
     """Creates a circular mask of an image.
 
@@ -91,6 +114,100 @@ def mask_image(data, objects, r=5, sigma=20):
                                             convolve_fft)
 
     return masked_data
+
+def create_mask(name, host_ra, host_dec, filt, survey, bkg_sub=False,
+                threshold=10, sigma=20, extract_params=False,
+                common_params=None, save_plots=True):
+    """Calculates the aperture parameters for common aperture.
+
+    Parameters
+    ----------
+    name: str
+        Name of the object to find the path of the fits file.
+    host_ra: float
+        Host-galaxy Right ascension of the galaxy in degrees.
+    host_dec: float
+        Host-galaxy Declination of the galaxy in degrees.
+    filt: str
+        Filter to use to load the fits file.
+    survey: str
+        Survey to use for the zero-points and correct filter path.
+    bkg_sub: bool, default `False`
+        If `True`, the image gets background subtracted.
+    threshold: float, default `10`
+        Threshold used by `sep.extract()` to extract objects.
+    sigma: float, default `20`
+        Standard deviation in pixel units of the 2D Gaussian kernel
+        used to convolve the image.
+    extract_params: bool, default `False`
+        If `True`, returns the parameters listed below.
+    common_params: tuple, default `None`
+        Parameters to use for common masking of different filters.
+        This are the same as the outputs of this function.
+    save_plots: bool, default `True`
+        If `True`, the mask and galaxy aperture figures are saved.
+
+    Returns
+    -------
+    **This are only returned if `extract_params==True`.**
+    gal_obj: array
+        Galaxy object.
+    gal_obj: array
+        Non-galaxy objects.
+    img_wcs: WCS
+        Image's WCS.
+    """
+    check_survey_validity(survey)
+
+    obj_dir = os.path.join(__workdir__, name)
+    fits_file = os.path.join(obj_dir, f'{survey}_{filt}.fits')
+    img = fits.open(fits_file)
+    img = remove_nan(img)
+
+    header = img[0].header
+    data = img[0].data
+    img_wcs = wcs.WCS(header, naxis=2)
+
+    data = data.astype(np.float64)
+    bkg = sep.Background(data)
+    bkg_rms = bkg.globalrms
+    if bkg_sub:
+        data_sub = np.copy(data - bkg)
+    else:
+        data_sub = np.copy(data)
+
+    if common_params is None:
+        # extract objects
+        gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
+                                              host_ra, host_dec,
+                                              threshold, img_wcs)
+        # preprocessing: cross-match extracted objects with gaia
+        gaia_coord = find_gaia_objects(host_ra, host_dec, img_wcs)
+        nogal_objs = cross_match(nogal_objs, img_wcs, gaia_coord)
+    else:
+        # use objects previously extracted
+        # the pixels coordinates are updated accordingly
+        gal_obj, nogal_objs, img_wcs0 = common_params
+        gal_obj['x'], gal_obj['y'] = pixel2pixel(gal_obj['x'],
+                                                gal_obj['y'],
+                                                img_wcs0, img_wcs)
+        nogal_objs['x'], nogal_objs['y'] = pixel2pixel(nogal_objs['x'],
+                                                nogal_objs['y'],
+                                                img_wcs0, img_wcs)
+
+    masked_data = mask_image(data_sub, nogal_objs, sigma=sigma)
+    img[0].data = masked_data
+    outfile = os.path.join(obj_dir, f'masked_{survey}_{filt}.fits')
+    img.writeto(outfile, overwrite=True)
+
+    if save_plots:
+        outfile = os.path.join(obj_dir,
+                                f'masked_{survey}_{filt}.jpg')
+        plot_masked_image(data_sub, masked_data,
+                            nogal_objs, outfile)
+
+    if extract_params:
+        return gal_obj, nogal_objs, img_wcs
 
 def plot_masked_image(data, masked_data, objects, outfile=None):
     """Plots the masked image together with the original image and

@@ -4,20 +4,32 @@ import numpy as np
 import pandas as pd
 import multiprocessing as mp
 
-from astropy import wcs
-import astropy.units as u
 from astropy.io import fits
 from astropy.table import Table
+from astropy import wcs, units as u
 from astropy.coordinates import SkyCoord
 
-from pyvo.dal import sia
+from pyvo.dal import sia  # DES
 from astroquery.sdss import SDSS
 
 from reproject import reproject_interp
 
-from .utils import (get_survey_filters, clean_dir,
+from hostphot._constants import __workdir__
+from hostphot.utils import (get_survey_filters, clean_dir,
                     check_survey_validity, check_filters_validity)
-from .image_cleaning import trim_images
+from hostphot.image_cleaning import trim_images
+
+#----------------------------------------
+def _choose_workdir(workdir):
+    """Updates the work directory.
+
+    Parameters
+    ----------
+    workdir: str
+        Path to the work directory.
+    """
+    global __workdir__
+    __workdir__ = workdir
 
 # PS1
 #----------------------------------------
@@ -126,7 +138,7 @@ def get_PS1_images(ra, dec, size=240, filters=None):
 
 # DES
 #----------------------------------------
-def get_DES_urls(ra, dec, fov, filters='griz'):
+def get_DES_urls(ra, dec, fov, filters='grizY'):
     """Obtains the URLs of the DES images+weights with the
     largest exposure times in the given filters.
 
@@ -138,8 +150,8 @@ def get_DES_urls(ra, dec, fov, filters='griz'):
         Declination in degrees.
     fov: float
         Field of view in degrees.
-    filters: str, default `griz`
-        DES filters for the images.
+    filters: str, default `None`
+        Filters to use. If `None`, uses `grizY`.
 
     Returns
     -------
@@ -148,6 +160,10 @@ def get_DES_urls(ra, dec, fov, filters='griz'):
     url_w_list: list
         List of URLs with DES images weights.
     """
+    check_filters_validity(filters, 'DES')
+    if filters is None:
+        filters = get_survey_filters('DES')
+
     des_access_url= "https://datalab.noirlab.edu/sia/des_dr1"
     svc = sia.SIAService(des_access_url)
     imgs_table = svc.search((ra, dec),
@@ -203,7 +219,7 @@ def get_DES_images(ra, dec, size=240, filters=None):
     size: int, default `240`
         Image size in pixels.
     filters: str, default `None`
-        Filters to use. If `None`, uses `griz`.
+        Filters to use. If `None`, uses `grizY`.
 
     Returns
     -------
@@ -310,13 +326,20 @@ def match_wcs(fits_files):
             data, footprint = reproject_interp(hdu[i], hdu0.header)
             hdu[i].data = data
             hdu[i].header.update(wcs0.to_header())
+    # hdu0 = matched_fits_files[0]
+    # wcs0 = wcs.WCS(hdu0.header)
+    #
+    # for hdu in matched_fits_files[1:]:
+    #     data, footprint = reproject_interp(hdu, hdu0.header)
+    #     hdu.data = data
+    #     hdu.header.update(wcs0.to_header())
 
     return matched_fits_files
 
 # Master Function
 #----------------------------------------
-def download_images(name, ra, dec, size=800, work_dir='', filters=None,
-                                        overwrite=False, survey='PS1'):
+def download_images(name, ra, dec, size=800, filters=None,
+                                overwrite=False, survey='PS1'):
     """Download images for a given object in the given filters of a
     given survey.
 
@@ -331,9 +354,6 @@ def download_images(name, ra, dec, size=800, work_dir='', filters=None,
         Declination in degrees.
     size: int, default `800`
         Image size in pixels.
-    work_dir: str, default ''
-        Working directory where to find the objects'
-        directories with the images. Default, current directory.
     filters: str, default `None`
         Filters for the images.
     overwrite: bool, default `False`
@@ -347,7 +367,8 @@ def download_images(name, ra, dec, size=800, work_dir='', filters=None,
     if filters is None:
         filters = get_survey_filters(survey)
 
-    obj_dir = os.path.join(work_dir, name)
+    global __workdir__
+    obj_dir = os.path.join(__workdir__, name)
     if not os.path.isdir(obj_dir):
         os.mkdir(obj_dir)
 
@@ -358,7 +379,7 @@ def download_images(name, ra, dec, size=800, work_dir='', filters=None,
     elif survey=='SDSS':
         fits_files = get_SDSS_images(ra, dec, size, filters)
 
-    if fits_files is not None:
+    if fits_files:
         # this corrects any possible shifts between the images
         fits_files = match_wcs(fits_files)
         for fits_file, filt in zip(fits_files, filters):
@@ -375,8 +396,7 @@ def download_images(name, ra, dec, size=800, work_dir='', filters=None,
     clean_dir(obj_dir)
 
 def pool_download(df=None, name=None, ra=None, dec=None, size=800,
-                    work_dir='', filters=None, overwrite=False,
-                    survey='PS1', processes=8):
+                filters=None, overwrite=False, survey='PS1', processes=8):
     """Downloads images for multiple objects using parallelisation.
 
     Parameters
@@ -389,14 +409,11 @@ def pool_download(df=None, name=None, ra=None, dec=None, size=800,
         Name used for tracking the object in your local
         directory.
     ra: float or list-like, default `None`
-        Right ascension in degrees.
+        Right ascension in degrees of the center of the image.
     dec: float or list-like, default `None`
-        Declination in degrees.
+        Declination in degrees of the center of the image.
     size: int, default `800`
         Image size in pixels.
-    work_dir: str, default ''
-        Working directory where to find the objects'
-        directories with the images. Default, current directory.
     filters: str, default `None`
         Filters for the images. If `None`, use all the available
         filters.
@@ -414,6 +431,7 @@ def pool_download(df=None, name=None, ra=None, dec=None, size=800,
     args_dict = {key:local_dict[key] for key in local_dict.keys()
                                             if key not in ignore_args}
 
+    # adapt the input to feed it to the parallelisation function
     input_dict = args_dict.copy()
     if df is None:
         length = len(name)
