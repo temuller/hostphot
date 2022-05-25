@@ -12,7 +12,7 @@ from astropy.convolution import (Gaussian2DKernel, convolve_fft,
 from hostphot._constants import __workdir__
 from hostphot.image_cleaning import remove_nan
 from hostphot.objects_detect import (extract_objects, find_gaia_objects,
-                                        cross_match)
+                                        find_catalog_objects, cross_match)
 from hostphot.utils import check_survey_validity, pixel2pixel
 
 
@@ -181,9 +181,10 @@ def create_mask(name, host_ra, host_dec, filt, survey, bkg_sub=False,
         gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
                                               host_ra, host_dec,
                                               threshold, img_wcs)
-        # preprocessing: cross-match extracted objects with gaia
-        gaia_coord = find_gaia_objects(host_ra, host_dec, img_wcs)
-        nogal_objs = cross_match(nogal_objs, img_wcs, gaia_coord)
+        # preprocessing: cross-match extracted objects with a catalog
+        #cat_coord = find_gaia_objects(host_ra, host_dec, img_wcs)
+        cat_coord = find_catalog_objects(host_ra, host_dec, img_wcs)
+        nogal_objs = cross_match(nogal_objs, img_wcs, cat_coord)
     else:
         # use objects previously extracted
         # the pixels coordinates are updated accordingly
