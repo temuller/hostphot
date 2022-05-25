@@ -13,6 +13,7 @@ from . import dust
 
 from . import local_photometry
 from . import global_photometry
+from . import interactive_aperture
 from ._constants import  __workdir__
 from ._version import __version__
 from . import _constants
@@ -34,3 +35,4 @@ def choose_workdir(workdir):
     coadd._choose_workdir(workdir)
     global_photometry._choose_workdir(workdir)
     local_photometry._choose_workdir(workdir)
+    interactive_aperture._choose_workdir(workdir)

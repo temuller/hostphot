@@ -4,6 +4,7 @@ from matplotlib.patches import Ellipse
 
 import sep
 from astroquery.gaia import Gaia
+from astroquery.mast import Catalogs
 from astropy import units as u, wcs
 from astropy.coordinates import SkyCoord
 
@@ -51,8 +52,8 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
 
     return gal_obj, nogal_objs
 
-def find_gaia_objects(ra, dec, img_wcs, rad=0.5):
-    """Finds objects from the Gaia DR3 catalogue for the given
+def find_gaia_objects(ra, dec, img_wcs, rad=0.15):
+    """Finds objects using the Gaia DR3 catalog for the given
     coordinates in a given radius.
 
     Parameters
@@ -63,7 +64,7 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.5):
         Declination in degrees.
     img_wcs: WCS object
         WCS of an image.
-    rad: float, default `0.5`
+    rad: float, default `0.15`
         Search radius in degrees.
 
     Returns
@@ -74,7 +75,7 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.5):
     Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
     Gaia.ROW_LIMIT = -1
     coord = SkyCoord(ra=ra, dec=dec,
-                          unit=(u.degree, u.degree), frame='icrs')
+                      unit=(u.degree, u.degree), frame='icrs')
     width = u.Quantity(rad, u.deg)
     height = u.Quantity(rad, u.deg)
     try:
@@ -92,6 +93,42 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.5):
                           unit=(u.degree, u.degree), frame='icrs')
 
     return gaia_coord
+
+def find_catalog_objects(ra, dec, img_wcs, rad=0.15):
+    """Finds objects using the TESS image cutouts (Tic) catalog
+    for the given coordinates in a given radius.
+
+    **Note:** this catalog includes objects from these sources:
+        HIP, TYC, UCAC, TWOMASS, SDSS, ALLWISE, GAIA, APASS, KIC
+
+    Parameters
+    ----------
+    ra: float
+        Right ascension in degrees.
+    dec: float
+        Declination in degrees.
+    img_wcs: WCS object
+        WCS of an image.
+    rad: float, default `0.15`
+        Search radius in degrees.
+
+    Returns
+    -------
+    cat_coord: SkyCoor object
+        Coordinates of the objects found.
+    """
+    coord = SkyCoord(ra=ra, dec=dec,
+                      unit=(u.degree, u.degree), frame='icrs')
+    cat_data = Catalogs.query_criteria(catalog="Tic", radius=rad,
+                                    coordinates=f"{ra} {dec}",
+                                    objType="STAR")
+
+    cat_ra = np.array(cat_data['ra'].value)
+    cat_dec = np.array(cat_data['dec'].value)
+    cat_coord = SkyCoord(ra=cat_ra, dec=cat_dec,
+                          unit=(u.degree, u.degree), frame='icrs')
+
+    return cat_coord
 
 def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
     """Cross-matches objects with a given set of coordinates.

@@ -6,5 +6,10 @@ reproject
 photutils
 astroquery
 extinction
+sfdmap
 pyvo
 sep
+jupyterlab
+ipywidgets
+ipympl
+
