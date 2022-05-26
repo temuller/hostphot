@@ -14,7 +14,7 @@ with open("src/hostphot/_version.py") as version_file:
 setuptools.setup(
     name="HostPhot",
     version=__version__,
-    author="Tomás Enrique Müller Bravo",
+    author="Tomás Enrique Müller-Bravo and Lluís Galbany",
     author_email="t.e.muller-bravo@ice.csic.es",
     license="MIT",
     description="Global and local photometry of galaxies hosting supernovae or other transients",

@@ -58,7 +58,7 @@ def choose_cosmology(cosmo):
     Parameters
     ----------
     cosmo: `astropy.cosmology` object
-        Cosmological model. E.g. `FlatLambdaCDM(70, 0.3)`.
+        Cosmological model. E.g. :func:`FlatLambdaCDM(70, 0.3)`.
     """
     global __cosmo__
     __cosmo__ = cosmo
@@ -98,7 +98,7 @@ def extract_aperture_flux(data, error, px, py, radius):
     data: array
         Image data in a 2D numpy array.
     error: array
-        Errors of `data`.
+        Errors of ``data``.
     px: float
         x-axis pixel coordinate of the aperture center.
     py: float
@@ -134,7 +134,7 @@ def plot_aperture(data, px, py, radius_pix, outfile=None):
         Y-axis center of the aperture in pixels.
     radius_pix: float
         Aperture radius in pixels.
-    outfile: str, default `None`
+    outfile: str, default ``None``
         If given, path where to save the output figure.
     """
     fig, ax = plt.subplots(figsize=(8, 8))
@@ -173,15 +173,15 @@ def photometry(name, ra, dec, z, filt, survey, ap_radii=1, bkg_sub=False,
         Filter to use to load the fits file.
     survey: str
         Survey to use for the zero-points and pixel scale.
-    ap_radii: float or list-like, default 1
+    ap_radii: float or list-like, default ``1``
         Physical size of the aperture in kpc.
-    bkg_sub: bool, default `False`
-        If `True`, the image gets background subtracted.
-    use_mask: bool, default `True`
-        If `True`, the masked fits files are used. These must have
+    bkg_sub: bool, default ``False``
+        If ``True``, the image gets background subtracted.
+    use_mask: bool, default ``True``
+        If ``True``, the masked fits files are used. These must have
         been created beforehand.
-    save_plots: bool, default `True`
-        If `True`, the a figure with the aperture is saved.
+    save_plots: bool, default ``True``
+        If ``True``, the a figure with the aperture is saved.
 
     Returns
     -------
@@ -277,20 +277,20 @@ def multi_band_phot(name, ra, dec, z, filters=None, survey='PS1', ap_radii=1,
     z: float
         Redshift of the object to estimate the physical calculate
         of the aperture.
-    filters: str, default, `None`
-        Filters to use to load the fits files. If `None` use all
+    filters: str, default, ``None``
+        Filters to use to load the fits files. If ``None`` use all
         the filters of the given survey.
-    survey: str, default `PS1`
+    survey: str, default ``PS1``
         Survey to use for the zero-points and pixel scale.
-    ap_radii: float or list-like, default 1
+    ap_radii: float or list-like, default ``1``
         Physical size of the aperture in kpc.
-    bkg_sub: bool, default `False`
-        If `True`, the image gets background subtracted.
-    use_mask: bool, default `True`
-        If `True`, the masked fits files are used. These must have
+    bkg_sub: bool, default ``False``
+        If ``True``, the image gets background subtracted.
+    use_mask: bool, default ``True``
+        If ``True``, the masked fits files are used. These must have
         been created beforehand.
-    save_plots: bool, default `True`
-        If `True`, the a figure with the aperture is saved.
+    save_plots: bool, default ``True``
+        If ``True``, the a figure with the aperture is saved.
 
     Returns
     -------

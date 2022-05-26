@@ -6,9 +6,15 @@ Utils
 Other support functions are documented bellow:
 
 .. currentmodule:: hostphot.utils
-.. autofunction:: trim_images
-.. autofunction:: get_survey_filters
+.. autofunction:: calc_sky_unc
+.. autofunction:: pixel2pixel
 .. autofunction:: check_survey_validity
+.. autofunction:: get_survey_filters
+.. autofunction:: survey_zp
+.. autofunction:: get_image_gain
+.. autofunction:: get_image_readnoise
+.. autofunction:: survey_pixel_scale
 .. autofunction:: check_filters_validity
 .. autofunction:: extract_filters
-.. autofunction:: clean_sn_dir
+.. autofunction:: integrate_filter
+.. autofunction:: clean_dir

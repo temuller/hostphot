@@ -37,7 +37,7 @@ def _download_dustmaps():
 
 def deredden(wave, flux, ra, dec, scaling=0.86, reddening_law='fitzpatrick99',
                                                     dustmaps_dir=None, r_v=3.1, ebv=None):
-    """Dereddens the given spectrum, given a right ascension and declination or `E(B-V)`.
+    """Dereddens the given spectrum, given a right ascension and declination or :math:`E(B-V)`.
 
     Parameters
     ----------
@@ -56,7 +56,7 @@ def deredden(wave, flux, ra, dec, scaling=0.86, reddening_law='fitzpatrick99',
     reddening_law: str, default ``fitzpatrick99``
         Reddening law. The options are: ``ccm89`` (Cardelli, Clayton & Mathis 1989),
         ``odonnell94`` (O’Donnell 1994), ``fitzpatrick99`` (Fitzpatrick 1999), ``calzetti00``
-        (Calzetti 2000) and ``fm07`` (Fitzpatrick & Massa 2007 with `R_V` = 3.1.)
+        (Calzetti 2000) and ``fm07`` (Fitzpatrick & Massa 2007 with :math:`R_V` = 3.1.)
     dustmaps_dir : str, default ``None``
         Directory where the dust maps of Schlegel, Fikbeiner & Davis (1998) are found.
     r_v : float, default ``3.1``
@@ -118,7 +118,7 @@ def calc_extinction(filt, survey, ra, dec, scaling=0.86,
     reddening_law: str, default ``fitzpatrick99``
         Reddening law. The options are: ``ccm89`` (Cardelli, Clayton & Mathis 1989),
         ``odonnell94`` (O’Donnell 1994), ``fitzpatrick99`` (Fitzpatrick 1999), ``calzetti00``
-        (Calzetti 2000) and ``fm07`` (Fitzpatrick & Massa 2007 with `R_V` = 3.1.)
+        (Calzetti 2000) and ``fm07`` (Fitzpatrick & Massa 2007 with :math:`R_V` = 3.1.)
     r_v : float, default ``3.1``
         Total-to-selective extinction ratio (:math:`R_V`)
 

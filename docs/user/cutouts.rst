@@ -12,5 +12,7 @@ Everything related to cutouts is documented bellow:
 .. autofunction:: get_DES_urls
 .. autofunction:: get_DES_images
 .. autofunction:: get_SDSS_images
-.. autofunction:: download_multiband_images
+.. autofunction:: match_wcs
+.. autofunction:: download_images
+.. autofunction:: pool_download
 

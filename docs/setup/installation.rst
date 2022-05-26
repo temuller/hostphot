@@ -24,5 +24,5 @@ To install the code from source, do the following:
 
 	git clone https://github.com/temuller/hostphot.git
 	cd hostphot
-	python setup.py install
+	python -m pip install .
 

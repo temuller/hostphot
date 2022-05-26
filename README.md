@@ -1,8 +1,21 @@
 # HostPhot
 
+Global and local photometry of galaxies hosting supernovae or other transients
+
+[![repo](https://img.shields.io/badge/GitHub-temuller%2Fhostphot-blue.svg?style=flat)](https://github.com/temuller/hostphot)
+[![documentation status](https://readthedocs.org/projects/hostphot/badge/?version=latest&style=flat)](https://hostphot.readthedocs.io/en/latest/?badge=latest)
+[![license](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://github.com/temuller/hostphot/blob/master/LICENSE)
+[![Tests and Publish](https://github.com/temuller/hostphot/actions/workflows/main.yml/badge.svg)](https://github.com/temuller/hostphot/actions/workflows/main.yml)
+![Python Version](https://img.shields.io/badge/Python-3.8%2B-blue)
+[![PyPI](https://img.shields.io/pypi/v/hostphot?label=PyPI&logo=pypi&logoColor=white)](https://pypi.org/project/hostphot/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6469981.svg)](https://doi.org/10.5281/zenodo.6469981)
+
+
+Read the full documentation at [hostphot.readthedocs.io](https://hostphot.readthedocs.io/en/latest/).
+___
 ## Conda environment
 
-It is recommended to create an environment for every new project:
+It is recommended to create an environment before installing HostPhot:
 
 ```code
 conda create -n hostphot pip
@@ -14,85 +27,79 @@ pip install hostphot
 
 ### Cutouts
 
-This module allows you to download image cutouts from `PS1`, `DES` and `SDSS`. For this, you can use `get_PS1_images()`, `get_DES_images()` and `get_SDSS_images()`, respectively. For example:
+This module allows you to download image cutouts from `PS1`, `DES` and `SDSS`:
 
 ```python
-from hostphot.cutouts import get_PS1_images
-
-ra, dec = 30, 100
-size = 400  # in pixels
-filters = 'grizy'
-
-fits_images = get_PS1_images(ra, dec, size, filters)
+from hostphot.cutouts import download_images
+download_images(name='SN2004eo', ra=308.22579, dec=9.92853, survey='PS1')
 ```
 
-where `fits_images` is a list with the fits images in the given filters.
+### Image Pre-processing
 
-You can also use `download_multiband_images()` for multiple images:
+Coadds can be created and stars can be masked out of the images:
 
 ```python
-from hostphot.cutouts import download_multiband_images
+from hostphot.coadd import coadd_images
 
-download_multiband_images(sn_name, ra, dec, size,
-                                work_dir, filters,
-                                  overwrite, survey)
+coadd_filters = 'riz'
+survey = 'PS1'
+coadd_images('SN2004eo', coadd_filters, survey)   # creates a new fits file
 ```
 
-where `work_dir` is where all the images will be downloaded. A Subdirectory inside `work_dir` will be created with the SN name as the directory name.
+```python
+from hostphot.image_masking import create_mask
 
+host_ra, host_dec = 308.2092, 9.92755  # coods of host galaxy of SN2004eo
+coadd_mask_params = create_mask(name, host_ra, host_dec,
+                                 filt=coadd_filters, survey=survey,
+                                 extract_params=True)  # we can extract the mask parameters from the coadd
+
+for filt in 'grizy':
+    create_mask(name, host_ra, host_dec, filt, survey=survey,
+                common_params=coadd_mask_params)
+```
 
 ### Local Photometry
 
-Local photometry can be obtained for the downloaded images. For this, use `extract_local_photometry()` for a single image:
+Local photometry can be obtained for multiple circular apertures:
 
 
 ```python
-from hostphot.local_photometry import extract_local_photometry
+import hostphot.local_photometry as lp
 
-fits_file = 'path/to/local/fits_file'
-ra, dec = 30, 100
-z = 0.01  # redshift
-ap_radius = 4  # aperture for the photometry in kpc
-survey = 'PS1'
-
-extract_local_photometry(fits_file, ra, dec, z, ap_radius, survey)
+ap_radii = [1, 2, 3, 4]  # in units of kpc
+results = lp.multi_band_phot(name='SN2004eo', ra=308.22579, dec=9.92853, z=0.0157,
+                   survey='PS1', ap_radii=ap_radii, use_mask=True, save_plots=True)
 ```
-
-which returns `mag` and `mag_err`. You can also use `multi_local_photometry()` for multiple images:
-
-
-```python
-from hostphot.local_photometry import multi_local_photometry
-
-multi_local_photometry(name_list, ra_list, dec_list, z_list,
-                             ap_radius, work_dir, filters,
-                               survey, correct_extinction)
-```
-
-where `work_dir` should be the same as used in `download_multiband_images()` and `name_list` should contain the names of the SNe used in `download_multiband_images()` as well. This produces a pandas DataFrame as an output where, e.g., column `g` is the g-band magnitude and `g_err` its uncertainty.
-
 
 ### Global Photometry
 
-Global photometry can be obtained in a similar way to local photometry. Use `extract_global_photometry()` for a single image:
+Global photometry can be obtained in a similar way to local photometry, using common aperture:
 
 ```python
-from hostphot.global_photometry import extract_global_photometry
+import hostphot.global_photometry as gp
 
-survey = 'PS1'
+host_ra, host_dec = 308.2092, 9.92755  # coods of host galaxy of SN2004eo
+results = gp.multi_band_phot(name='SN2004eo', host_ra, host_dec, survey='PS1',
+                            use_mask=True, common_aperture=True, coadd_filters='riz',
+                            optimze_kronrad=True, save_plots=True)
 
-extract_global_photometry(fits_file, host_ra, host_ra, survey=survey)
 ```
 
-which returns `mag` and `mag_err`. You can also use `multi_global_photometry()` for multiple images:
+## Citing HostPhot
 
+If you make use of HostPhot, please cite:
 
-```python
-from hostphot.global_photometry import multi_global_photometry
-
-survey = 'PS1'
-correct_extinction = True
-
-multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir, filters,
-                               survey=survey, correct_extinction=correct_extinction)
+```code
+@software{hostphot,
+  author       = {Tom\'as E. M\"uller-Bravo and
+                  Llu\'is Galbany},
+  title        = {HostPhot},
+  month        = apr,
+  year         = 2022,
+  publisher    = {Zenodo},
+  version      = {v1.0.1},
+  doi          = {10.5281/zenodo.6469981},
+  url          = {https://doi.org/10.5281/zenodo.6469981}
+}
 ```

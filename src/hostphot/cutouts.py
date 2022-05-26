@@ -33,7 +33,7 @@ def _choose_workdir(workdir):
 
 # PS1
 #----------------------------------------
-def query_ps1(ra, dec, size=240, filters=None):
+def query_ps1(ra, dec, size=600, filters=None):
     """Query ps1filenames.py service to get a list of images
 
     Parameters
@@ -42,10 +42,10 @@ def query_ps1(ra, dec, size=240, filters=None):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default `240`
+    size: int, default ``600``
         Image size in pixels (0.25 arcsec/pixel).
-    filters: str, default `None`
-        Filters to use. If `None`, uses `grizy`.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``grizy``.
 
     Returns
     -------
@@ -64,8 +64,8 @@ def query_ps1(ra, dec, size=240, filters=None):
 
     return table
 
-def get_PS1_urls(ra, dec, size=240, filters=None):
-    """Get URLs for images obtained with `query_ps1()`.
+def get_PS1_urls(ra, dec, size=600, filters=None):
+    """Get URLs for images obtained with :func:`query_ps1()`.
 
     Parameters
     ----------
@@ -73,10 +73,10 @@ def get_PS1_urls(ra, dec, size=240, filters=None):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default `240`
+    size: int, default ``600``
         Image size in pixels (0.25 arcsec/pixel).
-    filters: str, default `None`
-        Filters to use. If `None`, uses `grizy`.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``grizy``.
 
     Returns
     -------
@@ -103,7 +103,7 @@ def get_PS1_urls(ra, dec, size=240, filters=None):
 
     return url_list
 
-def get_PS1_images(ra, dec, size=240, filters=None):
+def get_PS1_images(ra, dec, size=600, filters=None):
     """Gets PS1 fits images for the given coordinates and
     filters.
 
@@ -113,10 +113,10 @@ def get_PS1_images(ra, dec, size=240, filters=None):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default `240`
+    size: int, default ``600``
         Image size in pixels.
-    filters: str, default `None`
-        Filters to use. If `None`, uses `grizy`.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``grizy``.
 
     Returns
     -------
@@ -150,8 +150,8 @@ def get_DES_urls(ra, dec, fov, filters='grizY'):
         Declination in degrees.
     fov: float
         Field of view in degrees.
-    filters: str, default `None`
-        Filters to use. If `None`, uses `grizY`.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``grizY``.
 
     Returns
     -------
@@ -206,7 +206,7 @@ def get_DES_urls(ra, dec, fov, filters='grizY'):
 
     return url_list, url_w_list
 
-def get_DES_images(ra, dec, size=240, filters=None):
+def get_DES_images(ra, dec, size=600, filters=None):
     """Gets DES fits images for the given coordinates and
     filters.
 
@@ -216,10 +216,10 @@ def get_DES_images(ra, dec, size=240, filters=None):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default `240`
+    size: int, default ``600``
         Image size in pixels.
-    filters: str, default `None`
-        Filters to use. If `None`, uses `grizY`.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``grizY``.
 
     Returns
     -------
@@ -252,7 +252,7 @@ def get_DES_images(ra, dec, size=240, filters=None):
 
 # SDSS
 #----------------------------------------
-def get_SDSS_images(ra, dec, size=240, filters=None):
+def get_SDSS_images(ra, dec, size=600, filters=None):
     """Downloads a set of SDSS fits images for a given set
     of coordinates and filters using astroquery.
 
@@ -262,10 +262,10 @@ def get_SDSS_images(ra, dec, size=240, filters=None):
         Right ascension in degrees.
     dec: str or float
         Declination in degrees.
-    size: int, default `240`
+    size: int, default ``600``
         Image size in pixels.
-    filters: str, default `None`
-        Filters to use. If `None`, uses `ugriz`.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``ugriz``.
 
     Return
     ------
@@ -338,7 +338,7 @@ def match_wcs(fits_files):
 
 # Master Function
 #----------------------------------------
-def download_images(name, ra, dec, size=800, filters=None,
+def download_images(name, ra, dec, size=600, filters=None,
                                 overwrite=False, survey='PS1'):
     """Download images for a given object in the given filters of a
     given survey.
@@ -352,14 +352,14 @@ def download_images(name, ra, dec, size=800, filters=None,
         Right ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default `800`
+    size: int, default ``600``
         Image size in pixels.
-    filters: str, default `None`
+    filters: str, default ``None``
         Filters for the images.
-    overwrite: bool, default `False`
-        If `True`, the images are overwritten if they already
+    overwrite: bool, default ``False``
+        If ``True``, the images are overwritten if they already
         exist.
-    survey: str, default `PS1`
+    survey: str, default ``PS1``
         Survey used to download the images
     """
     check_survey_validity(survey)
@@ -395,34 +395,34 @@ def download_images(name, ra, dec, size=800, filters=None,
     # remove directory if it ends up empty
     clean_dir(obj_dir)
 
-def pool_download(df=None, name=None, ra=None, dec=None, size=800,
+def pool_download(df=None, name=None, ra=None, dec=None, size=600,
                 filters=None, overwrite=False, survey='PS1', processes=8):
     """Downloads images for multiple objects using parallelisation.
 
     Parameters
     ----------
-    df: DataFrame, default `None`
+    df: DataFrame, default ``None``
         DataFrame with the values of the argmuents. If this is given,
-        `name`, `ra` and `dec` should be the names of the columns in
-        `df`.
-    name: str or list-like, default `None`
+        ``name``, ``ra`` and ``dec`` should be the names of the columns in
+        ``df``.
+    name: str or list-like, default ``None``
         Name used for tracking the object in your local
         directory.
-    ra: float or list-like, default `None`
+    ra: float or list-like, default ``None``
         Right ascension in degrees of the center of the image.
-    dec: float or list-like, default `None`
+    dec: float or list-like, default ``None``
         Declination in degrees of the center of the image.
-    size: int, default `800`
+    size: int, default ``600``
         Image size in pixels.
-    filters: str, default `None`
-        Filters for the images. If `None`, use all the available
+    filters: str, default ``None``
+        Filters for the images. If ``None``, use all the available
         filters.
-    overwrite: bool, default `False`
-        If `True`, the images are overwritten if they already
+    overwrite: bool, default ``False``
+        If ``True``, the images are overwritten if they already
         exist.
-    survey: str, default `PS1`
+    survey: str, default ``PS1``
         Survey used to download the images
-    processes: floar, default `8`
+    processes: floar, default ``8``
         Number of processes to use for the parallelisation.
     """
     local_dict = locals()  # get dictionary of input arguments

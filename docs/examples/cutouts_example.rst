@@ -3,28 +3,34 @@
 Cutouts
 =======
 
-This module allows you to download image cutouts from :code:`PS1`, :code:`DES` and :code:`SDSS`. For this, you can use :func:`get_PS1_images()`, :func:`get_DES_images()` and :func:`get_SDSS_images()`, respectively. For example:
+This module allows you to download image cutouts from :code:`PS1`, :code:`DES` and :code:`SDSS`. For this, the user can use :func:`download_images` and use the coordinates of an object:
 
 .. code:: python
 
-	from hostphot.cutouts import get_PS1_images
+	from hostphot.cutouts import download_images
 
-	ra, dec = 30, 100
-	size = 400  # in pixels
-	filters = 'grizy'
+	download_images(name='SN2004eo', ra=308.22579, dec=9.92853, survey='PS1')
 
-	fits_images = get_PS1_images(ra, dec, size, filters)
+A new directory is created with the name ``name`` under the working directory (see :ref:`Working Directory <work_dir>`). The downloaded fits images will have the format ``<survey>_<filter>.fits``. If the filters are not specified, images in all the available filters (survey dependent) are downloaded.
 
-where :code:`fits_images` is a list with the fits images in the given filters.
-
-You can also use :func:`download_multiband_images()` for multiple images:
+Let's check the downloaded image.
 
 .. code:: python
 
-	from hostphot.cutouts import download_multiband_images
+	import numpy as np
+	import matplotlib.pyplot as plt
+	from astropy.io import fits
 
-	download_multiband_images(sn_name, ra, dec, size,
-		                        work_dir, filters,
-		                          overwrite, survey)
+	img = fits.open('images/SN2004eo/PS1_g.fits')
 
-where :code:`work_dir` is where all the images will be downloaded. A Subdirectory inside :code:`work_dir` will be created with the SN name as the directory name.
+	data = img[0].data
+	m, s = np.nanmean(data), np.nanstd(data)
+
+	fig, ax = plt.subplots(figsize=(8, 8))
+	im = ax.imshow(data, interpolation='nearest',
+		       cmap='gray',
+		       vmin=m-s, vmax=m+s,
+		       origin='lower')
+	plt.show()
+
+.. image:: static/SN2004eo.png
