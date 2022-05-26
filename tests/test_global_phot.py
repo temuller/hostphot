@@ -1,46 +1,20 @@
 import unittest
-import os
-import wget
-import tarfile
-import hostphot
-from hostphot.cutouts import download_multiband_images
-from hostphot.global_photometry import multi_global_photometry
+from hostphot.cutouts import download_images
+import hostphot.global_photometry as gp
 
 class TestHostPhot(unittest.TestCase):
 
-    def download_dustmaps(self):
-        mapsdir = hostphot.__path__[0]
-
-        # check if files already exist locally
-        dust_files = [os.path.join(mapsdir,
-                    'sfddata-master',
-                    f'SFD_dust_4096_{sky}gp.fits') for sky in ['n', 's']]
-        mask_files = [os.path.join(mapsdir,
-                    'sfddata-master',
-                    f'SFD_mask_4096_{sky}gp.fits') for sky in ['n', 's']]
-        maps_files = dust_files + mask_files
-        existing_files = [os.path.isfile(file) for file in mask_files]
-
-        if not all(existing_files)==True:
-            # download dust maps
-            sfdmaps_url = 'https://github.com/kbarbary/sfddata/archive/master.tar.gz'
-            master_tar = wget.download(sfdmaps_url)
-            # extract tar file under mapsdir directory
-            tar = tarfile.open(master_tar)
-            tar.extractall(mapsdir)
-            tar.close()
-            os.remove(master_tar)
-
     def test_global_phot(self):
-        sn_name = 'SN2006hx'
-        ra = 18.488792
-        dec = 0.371667
-        z = 0.045500
+        sn_name = 'SN2004eo'
+        host_ra = 308.2092
+        host_dec = 9.92755
+        z = 0.0157
         survey = 'PS1'
 
-        self.download_dustmaps()
-        download_multiband_images(sn_name, ra, dec, survey=survey)
-        multi_global_photometry([sn_name], [ra], [dec], survey=survey)
+        download_images(sn_name, host_ra, host_dec, survey=survey)
+        gp.multi_band_phot(sn_name, host_ra, host_dec, survey=survey,
+                            use_mask=False, common_aperture=False,
+                            optimze_kronrad=True, save_plots=True)
 
 if __name__ == '__main__':
     unittest.main()
