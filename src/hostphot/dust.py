@@ -28,7 +28,12 @@ def _download_dustmaps():
     if not all(existing_files)==True:
         # download dust maps
         sfdmaps_url = 'https://github.com/kbarbary/sfddata/archive/master.tar.gz'
-        master_tar = requests.get(sfdmaps_url)
+        response = requests.get(sfdmaps_url)
+
+        master_tar = 'master.tar.gz'
+        with open(master_tar, 'wb') as file:
+            file.write(response.content)
+
         # extract tar file under mapsdir directory
         tar = tarfile.open(master_tar)
         tar.extractall(mapsdir)
