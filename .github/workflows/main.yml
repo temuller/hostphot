@@ -30,7 +30,7 @@ jobs:
         run: |
           python -m pip install -U pip pytest
           python -m pip install .
-	  python -m pip install certifi
+	  pip install certifi
         env:
           DISTUTILS_USE_SDK: 1
           MSSdk: 1
