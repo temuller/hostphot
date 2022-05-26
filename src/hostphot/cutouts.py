@@ -15,7 +15,7 @@ from astroquery.sdss import SDSS
 from reproject import reproject_interp
 
 from hostphot._constants import __workdir__
-from hostphot.utils import (get_survey_filters, clean_dir, check_work_dir
+from hostphot.utils import (get_survey_filters, clean_dir, check_work_dir,
                     check_survey_validity, check_filters_validity)
 from hostphot.image_cleaning import trim_images
 
