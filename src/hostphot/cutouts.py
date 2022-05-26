@@ -15,7 +15,7 @@ from astroquery.sdss import SDSS
 from reproject import reproject_interp
 
 from hostphot._constants import __workdir__
-from hostphot.utils import (get_survey_filters, clean_dir,
+from hostphot.utils import (get_survey_filters, clean_dir, check_work_dir
                     check_survey_validity, check_filters_validity)
 from hostphot.image_cleaning import trim_images
 
@@ -361,6 +361,7 @@ def download_images(name, ra, dec, size=600, filters=None,
         filters = get_survey_filters(survey)
 
     global __workdir__
+    check_work_dir(__workdir__)
     obj_dir = os.path.join(__workdir__, name)
     if not os.path.isdir(obj_dir):
         os.mkdir(obj_dir)

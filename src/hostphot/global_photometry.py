@@ -27,7 +27,7 @@ from astropy import wcs
 from hostphot._constants import __workdir__
 from hostphot.utils import (get_survey_filters, check_survey_validity,
                             check_filters_validity, survey_zp, get_image_gain,
-                            get_image_readnoise, pixel2pixel)
+                            get_image_readnoise, pixel2pixel, check_work_dir)
 from hostphot.objects_detect import extract_objects,  plot_detected_objects
 from hostphot.image_cleaning import remove_nan
 from hostphot.dust import calc_extinction
@@ -196,7 +196,7 @@ def extract_kronparams(name, host_ra, host_dec, filt, survey, bkg_sub=False,
         Scale for the Kron radius.
     """
     check_survey_validity(survey)
-
+    check_work_dir(__workdir__)
     obj_dir = os.path.join(__workdir__, name)
     if use_mask:
         suffix = 'masked_'
@@ -291,7 +291,7 @@ def photometry(name, host_ra, host_dec, filt, survey, bkg_sub=False,
         Error on the aperture magnitude.
     """
     check_survey_validity(survey)
-
+    check_work_dir(__workdir__)
     obj_dir = os.path.join(__workdir__, name)
     if use_mask:
         suffix = 'masked_'
