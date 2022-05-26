@@ -1,7 +1,7 @@
 .. _work_dir:
 
 Working Directory
-================
+=================
 
 HostPhot relies on the same working directory accross different modules and functions. By default, this is set to ``images`` (under your current directory):
 

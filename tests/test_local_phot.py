@@ -1,47 +1,19 @@
 import unittest
-import os
-import wget
-import tarfile
-import hostphot
-from hostphot.cutouts import download_multiband_images
-from hostphot.local_photometry import multi_local_photometry
+from hostphot.cutouts import download_images
+import hostphot.local_photometry as lp
 
 class TestHostPhot(unittest.TestCase):
 
-    def download_dustmaps(self):
-        mapsdir = hostphot.__path__[0]
-
-        # check if files already exist locally
-        dust_files = [os.path.join(mapsdir,
-                    'sfddata-master',
-                    f'SFD_dust_4096_{sky}gp.fits') for sky in ['n', 's']]
-        mask_files = [os.path.join(mapsdir,
-                    'sfddata-master',
-                    f'SFD_mask_4096_{sky}gp.fits') for sky in ['n', 's']]
-        maps_files = dust_files + mask_files
-        existing_files = [os.path.isfile(file) for file in mask_files]
-
-        if not all(existing_files)==True:
-            # download dust maps
-            sfdmaps_url = 'https://github.com/kbarbary/sfddata/archive/master.tar.gz'
-            master_tar = wget.download(sfdmaps_url)
-            # extract tar file under mapsdir directory
-            tar = tarfile.open(master_tar)
-            tar.extractall(mapsdir)
-            tar.close()
-            os.remove(master_tar)
-
     def test_local_phot(self):
-        sn_name = 'SN2006hx'
-        ra = 18.488792
-        dec = 0.371667
-        z = 0.045500
+        sn_name = 'SN2004eo'
+        ra = 308.22579
+        dec = 9.92853
+        z = 0.0157
         survey = 'PS1'
 
-        self.download_dustmaps()
-        download_multiband_images(sn_name, ra, dec, survey=survey)
-        multi_local_photometry([sn_name], [ra], [dec], [z],
-                                ap_radius=4, survey=survey)
+        ap_radii = [1, 2, 3, 4]  # in units of kpc
+        lp.multi_band_phot(sn_name, ra, dec, z, survey='PS1', filters='g',
+                    ap_radii=ap_radii, use_mask=False, save_plots=True)
 
 if __name__ == '__main__':
     unittest.main()

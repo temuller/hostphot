@@ -2,9 +2,10 @@ images/
 src/hostphot/sfddata-master/
 .ipynb*
 
-src/hostphot/__pycache__/
+*__pycache__*
 *egg*
 
 dist/
 build/
 docs/_build/
+tests/images/*

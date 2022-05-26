@@ -318,21 +318,14 @@ def match_wcs(fits_files):
     """
     matched_fits_files = copy.deepcopy(fits_files)
     # some hdu have data + error
-    for i in range(len(matched_fits_files[0])):
-        hdu0 = matched_fits_files[0][i]
-        wcs0 = wcs.WCS(hdu0.header)
+    #for i in range(len(matched_fits_files[0])):
+    hdu0 = matched_fits_files[0][0]
+    wcs0 = wcs.WCS(hdu0.header)
 
-        for hdu in matched_fits_files[1:]:
-            data, footprint = reproject_interp(hdu[i], hdu0.header)
-            hdu[i].data = data
-            hdu[i].header.update(wcs0.to_header())
-    # hdu0 = matched_fits_files[0]
-    # wcs0 = wcs.WCS(hdu0.header)
-    #
-    # for hdu in matched_fits_files[1:]:
-    #     data, footprint = reproject_interp(hdu, hdu0.header)
-    #     hdu.data = data
-    #     hdu.header.update(wcs0.to_header())
+    for hdu in matched_fits_files[1:]:
+        data, footprint = reproject_interp(hdu[0], hdu0.header)
+        hdu[0].data = data
+        hdu[0].header.update(wcs0.to_header())
 
     return matched_fits_files
 
