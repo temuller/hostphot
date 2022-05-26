@@ -46,7 +46,7 @@ def create_circular_mask(h, w, centre, radius):
     Returns
     -------
     mask: 2D bool-array
-        Circular mask (inside the circle = `True`).
+        Circular mask (inside the circle = ``True``).
     """
     Y, X = np.ogrid[:h, :w]
     dist_from_center = np.sqrt((X - centre[0])**2 + (Y-centre[1])**2)
@@ -69,8 +69,8 @@ def inside_galaxy(star_center, gal_center, gal_r):
     Returns
     -------
     condition: bool
-        `True` if the star is inside the galaxy,
-        `False` otherwise.
+        ``True`` if the star is inside the galaxy,
+        ``False`` otherwise.
     """
     dist_from_center = np.sqrt((star_center[0] - gal_center[0])**2 +
                                (star_center[1] - gal_center[1])**2)
@@ -87,11 +87,11 @@ def mask_image(data, objects, r=5, sigma=20):
     data: 2D array
         Image data.
     objects: array
-        Objects extracted with `sep.extract()`.
-    r: float, default `5`
+        Objects extracted with :func:`sep.extract()`.
+    r: float, default ``5``
         Scale of the semi-mayor and semi-minor axes
         of the ellipse of the `obejcts`.
-    sigma: float, default `20`
+    sigma: float, default ``20``
         Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
 
@@ -132,24 +132,24 @@ def create_mask(name, host_ra, host_dec, filt, survey, bkg_sub=False,
         Filter to use to load the fits file.
     survey: str
         Survey to use for the zero-points and correct filter path.
-    bkg_sub: bool, default `False`
-        If `True`, the image gets background subtracted.
+    bkg_sub: bool, default ``False``
+        If ``True``, the image gets background subtracted.
     threshold: float, default `10`
-        Threshold used by `sep.extract()` to extract objects.
-    sigma: float, default `20`
+        Threshold used by :func:`sep.extract()` to extract objects.
+    sigma: float, default ``20``
         Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
-    extract_params: bool, default `False`
-        If `True`, returns the parameters listed below.
-    common_params: tuple, default `None`
+    extract_params: bool, default ``False``
+        If ``True``, returns the parameters listed below.
+    common_params: tuple, default ``None``
         Parameters to use for common masking of different filters.
         This are the same as the outputs of this function.
-    save_plots: bool, default `True`
-        If `True`, the mask and galaxy aperture figures are saved.
+    save_plots: bool, default ``True``
+        If ``True``, the mask and galaxy aperture figures are saved.
 
     Returns
     -------
-    **This are only returned if `extract_params==True`.**
+    **This are only returned if ``extract_params==True``.**
     gal_obj: array
         Galaxy object.
     gal_obj: array
@@ -221,8 +221,8 @@ def plot_masked_image(data, masked_data, objects, outfile=None):
     masked_data: 2D array
          Masked image data.
     objects: array
-        Objects extracted with `sep.extract()`.
-    outfile: str, default `None`
+        Objects extracted with :func:`sep.extract()`.
+    outfile: str, default ``None``
         If given, path where to save the output figure.
     """
     r = 4  # scale

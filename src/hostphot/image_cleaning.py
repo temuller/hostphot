@@ -43,8 +43,7 @@ def remove_nan(image):
     Parameters
     ----------
     image: fits image
-        Fits image with the first element have a header and
-        data.
+        Fits image with header and data.
 
     Returns
     -------

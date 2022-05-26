@@ -6,57 +6,40 @@ Photometry
 Local Photometry
 ~~~~~~~~~~~~~~~~
 
-Local photometry can be obtained for the downloaded images. For this, use :func:`extract_local_photometry()` for a single image:
+Local photometry can be obtained for the downloaded images. For this, a circular aperture is used, assuming a cosmology (``H0=70`` and ``Om0=0.3`` by default):
 
 
 .. code:: python
 
-	from hostphot.local_photometry import extract_local_photometry
+	import hostphot.local_photometry as lp
 
-	fits_file = 'path/to/local/fits_file'
-	ra, dec = 30, 100
-	z = 0.01  # redshift
-	ap_radius = 4  # aperture for the photometry in kpc
-	survey = 'PS1'
-
-	extract_local_photometry(fits_file, ra, dec, z, ap_radius, survey)
-
-which returns ``mag`` and ``mag_err``. You can also use :func:`multi_local_photometry()` for multiple images:
+	ap_radii = [1, 2, 3, 4]  # in units of kpc
+	results = lp.multi_band_phot(name='SN2004eo', ra=308.22579, dec=9.92853, z=0.0157, 
+			   survey='PS1', ap_radii=ap_radii, use_mask=True, save_plots=True)
 
 
-.. code:: python
+``results`` is a dictionary with the photometry (magnitudes) of the filters used. Note that the coordinates are at the position of the object (``SN2004eo``). The cosmology can be changed with :func:`lp.choose_cosmology()`. Setting ``use_mask=True`` tells HostPhot to used the masked images previously created (see :ref:`Image Pre-processing <preprocessing>`) and setting ``save_plots=True`` provides output plots with the images and the apertures used.
 
-	from hostphot.local_photometry import multi_local_photometry
+Image with the aperture:
 
-	multi_local_photometry(name_list, ra_list, dec_list, z_list,
-		                     ap_radius, work_dir, filters,
-		                       survey, correct_extinction)
-
-where :code:`work_dir` should be the same as used in :func:`download_multiband_images()` and :code:`name_list` should contain the names of the SNe used in :func:`download_multiband_images()` as well. This produces a pandas DataFrame as an output where, e.g., column ``g`` is the g-band magnitude and ``g_err`` its uncertainty.
-
+.. image:: static/local.png
 
 Global Photometry
 ~~~~~~~~~~~~~~~~~
 
-Global photometry can be obtained in a similar way to local photometry. Use :func:`extract_global_photometry()` for a single image:
+Global photometry works in a relatively similar way:
 
 .. code:: python
 
-	from hostphot.global_photometry import extract_global_photometry
+	import hostphot.global_photometry as gp
 
-	survey = 'PS1'
+	host_ra, host_dec = 308.2092, 9.92755  # coods of host galaxy of SN2004eo
+	results = gp.multi_band_phot(name='SN2004eo', host_ra, host_dec, survey='PS1',
+				    use_mask=True, common_aperture=True, coadd_filters='riz',
+				    optimze_kronrad=True, save_plots=True)
 
-	extract_global_photometry(fits_file, host_ra, host_ra, survey=survey)
+Setting ``common_aperture=True`` tells HostPhot to used the same aperture for all the filters, obtrained from the coadded image (``coadd_filters='riz'``; see :ref:`Image Pre-processing <preprocessing>`) and setting ``optimze_kronrad=True`` provides provides a more reliable aperture than used using the default parameters commonly used by SExtractor as the aperture is increased until the change in flux is neglegible (this can be changed with ``eps``). The rest of the parameters are the same as before.
 
-which returns ``mag`` and ``mag_err``. You can also use :func:`multi_global_photometry()` for multiple images:
+Image with the aperture:
 
-
-.. code:: python
-
-	from hostphot.global_photometry import multi_global_photometry
-
-	survey = 'PS1'
-	correct_extinction = True
-
-	multi_global_photometry(name_list, host_ra_list, host_dec_list, work_dir, filters,
-		                       survey=survey, correct_extinction=correct_extinction)
+.. image:: static/global.png

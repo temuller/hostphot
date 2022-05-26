@@ -28,9 +28,9 @@ def coadd_images(name, filters='riz', survey='PS1'):
     ----------
     name: str
         Name to be used for finding the images locally.
-    filters: str, default `riz`
+    filters: str, default ``riz``
         Filters to use for the coadd image.
-    survey: str, default `PS1`
+    survey: str, default ``PS1``
         Survey to use as prefix for the images.
     """
     obj_dir = os.path.join(__workdir__, name)

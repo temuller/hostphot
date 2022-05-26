@@ -9,7 +9,7 @@ from astropy import units as u, wcs
 from astropy.coordinates import SkyCoord
 
 def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
-    """Extracts objects and their ellipse parameters. The function `sep.extract()`
+    """Extracts objects and their ellipse parameters. The function :func:`sep.extract()`
     is used.
 
     Parameters
@@ -23,8 +23,8 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
     host_dec: float
         Host-galaxy Declination of the galaxy in degrees.
     threshold: float
-        Source with flux above `threshold*bkg_rms` are extracted.
-        See `sep.extract()` for more information.
+        Source with flux above ``threshold*bkg_rms`` are extracted.
+        See :func:`sep.extract()` for more information.
 
     Returns
     -------
@@ -64,7 +64,7 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.15):
         Declination in degrees.
     img_wcs: WCS object
         WCS of an image.
-    rad: float, default `0.15`
+    rad: float, default ``0.15``
         Search radius in degrees.
 
     Returns
@@ -109,7 +109,7 @@ def find_catalog_objects(ra, dec, img_wcs, rad=0.15):
         Declination in degrees.
     img_wcs: WCS object
         WCS of an image.
-    rad: float, default `0.15`
+    rad: float, default ``0.15``
         Search radius in degrees.
 
     Returns
@@ -132,17 +132,17 @@ def find_catalog_objects(ra, dec, img_wcs, rad=0.15):
 
 def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
     """Cross-matches objects with a given set of coordinates.
-    Those with a distance of less than `dist_thresh` are selected.
+    Those with a distance of less than ``dist_thresh`` are selected.
 
     Parameters
     ----------
     objects: array
-        Objects detected with `sep.extract()`.
+        Objects detected with :func:`sep.extract()`.
     img_wcs: WCS
         WCS of the image from which the objects where extracted.
     coord: SkyCoor object
         Coordinates for the cross-match.
-    dist_thresh: float, default `1.0`
+    dist_thresh: float, default ``1.0``
         Distance in arcsec to crossmatch the objects with
         the given coordinates.
     """
@@ -167,17 +167,17 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
     return objs
 
 def plot_detected_objects(data, objects, scale, outfile=None):
-    """Plots the objects extracted with `sep.extract()``.
+    """Plots the objects extracted with :func:`sep.extract()``.
 
     Parameters
     ----------
     data: 2D array
         Data of an image.
     objects: array
-        Objects detected with `sep.extract()`.
+        Objects detected with :func:`sep.extract()`.
     scale: float
         Scale of the ellipse's semi-mayor and semi-minor axes.
-    outfile: str, default `None`
+    outfile: str, default ``None``
         If given, path where to save the output figure.
     """
     fig, ax = plt.subplots(figsize=(8, 8))

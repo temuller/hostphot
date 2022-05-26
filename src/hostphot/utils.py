@@ -50,7 +50,7 @@ def check_survey_validity(survey):
     Parameters
     ----------
     survey: str
-        Survey name: `PS1`, `DES` or `SDSS`.
+        Survey name: ``PS1``, ``DES`` or ``SDSS``.
     """
     valid_surveys = ['PS1', 'DES', 'SDSS']
     assert survey in valid_surveys, (f"survey '{survey}' not"
@@ -62,7 +62,7 @@ def get_survey_filters(survey):
     Parameters
     ----------
     survey: str
-        Survey name: `PS1`, `DES` or `SDSS`.
+        Survey name: ``PS1``, ``DES`` or ``SDSS``.
 
     Returns
     -------
@@ -80,13 +80,13 @@ def get_survey_filters(survey):
 def survey_zp(survey):
     """Returns the zero-point for a given survey.
 
-    **Note:** for `PS1`, an extra `+2.5*np.log10(exptime)`
+    **Note:** for ``PS1``, an extra :math:`+2.5*np.log10(exptime)`
     needs to be added afterwards.
 
     Parameters
     ----------
     survey: str
-        Survey name: `PS1`, `DES` or `SDSS`.
+        Survey name: ``PS1``, ``DES`` or ``SDSS``.
 
     Returns
     -------
@@ -104,7 +104,7 @@ def survey_zp(survey):
 def get_image_gain(header, survey):
     """Returns the gain from an image's header.
 
-    **Note:** for `SDSS` this is assumed to be zero
+    **Note:** for ``SDSS`` this is assumed to be zero
     as it should already be included.
 
     Parameters
@@ -112,7 +112,7 @@ def get_image_gain(header, survey):
     header: fits header
         Header of an image.
     survey: str
-        Survey name: `PS1`, `DES` or `SDSS`.
+        Survey name: ``PS1``, ``DES`` or ``SDSS``.
 
     Returns
     -------
@@ -133,7 +133,7 @@ def get_image_readnoise(header, survey):
     """Returns the read noise from an image's header.
     All values are per-pixel values.
 
-    **Note:** for `SDSS` this is assumed to be zero
+    **Note:** for ``SDSS`` this is assumed to be zero
     as it should already be included.
 
     Parameters
@@ -141,7 +141,7 @@ def get_image_readnoise(header, survey):
     header: fits header
         Header of an image.
     survey: str
-        Survey name: `PS1`, `DES` or `SDSS`.
+        Survey name: ``PS1``, ``DES`` or ``SDSS``.
 
     Returns
     -------
@@ -165,7 +165,7 @@ def survey_pixel_scale(survey):
         Parameters
         ----------
         survey: str
-            Survey name: `PS1`, `DES` or `SDSS`.
+            Survey name: ``PS1``, ``DES`` or ``SDSS``.
 
         Returns
         -------
@@ -188,9 +188,9 @@ def check_filters_validity(filters, survey):
     Parameters
     ----------
     filters: str
-        Filters to use, e,g, `griz`.
+        Filters to use, e,g, ``griz``.
     survey: str
-        Survey name: `PS1`, `DES` or `SDSS`.
+        Survey name: ``PS1``, ``DES`` or ``SDSS``.
     """
     if filters is not None:
         valid_filters = get_survey_filters(survey)

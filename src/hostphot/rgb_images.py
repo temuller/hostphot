@@ -12,20 +12,20 @@ def sky_median_sig_clip(input_arr, sig_fract, percent_fract, max_iter=100):
 	"""Estimates median sky value for a given number of iterationsself.
 
     Parameters
-    ----------
+	----------
 	input_arr: numpy array
-	   Image data array
+	   	Image data array
 	sig_fract: float
-	   Fraction of sigma clipping.
+	   	Fraction of sigma clipping.
 	percent_fract: float
         Convergence fraction.
-	max_iter: int, default `100`
-        Maximum number of iterations
+	max_iter: int, default ``100``
+        Maximum number of iterations.
 
     Returns
     -------
 	(new_sky, iteration): tuple
-	   Median sky value and number of iteration
+		Median sky value and number of iteration.
 	"""
 	work_arr = np.ravel(input_arr)
 	old_sky = np.median(work_arr)
@@ -55,18 +55,18 @@ def sky_mean_sig_clip(input_arr, sig_fract, percent_fract, max_iter=100):
 	Parameters
     ----------
 	input_arr: numpy array
-	   Image data array
+		Image data array
 	sig_fract: float
-	   Fraction of sigma clipping.
+		Fraction of sigma clipping.
 	percent_fract: float
         Convergence fraction.
-	max_iter: int, default `100`
-        Maximum number of iterations
+	max_iter: int, default ``100``
+        Maximum number of iterations.
 
     Returns
     -------
 	(new_sky, iteration): tuple
-	   Mean sky value and number of iteration
+		Mean sky value and number of iteration.
 	"""
 	work_arr = np.ravel(input_arr)
 	old_sky = np.mean(work_arr)
@@ -96,16 +96,16 @@ def linear(inputArray, scale_min=None, scale_max=None):
     Parameters
     ----------
 	inputArray: numpy array
-	   Image data array.
-	scale_min: float, default `None`
-	   Minimum data value.
-	scale_max: float, default `None`
-	   Maximum data value.
+		Image data array.
+	scale_min: float, default ``None``
+		Minimum data value.
+	scale_max: float, default ``None``
+		Maximum data value.
 
     Returns
     -------
 	imageData: numpy array
-	   Scaled image data array.
+		Scaled image data array.
 	"""
 	imageData=np.array(inputArray, copy=True)
 
@@ -124,21 +124,21 @@ def linear(inputArray, scale_min=None, scale_max=None):
 	return imageData
 
 def sqrt(inputArray, scale_min=None, scale_max=None):
-	"""Performs sqrt scaling of the input numpy array.
+	"""Performs :func:`sqrt` scaling of the input numpy array.
 
 	Parameters
-    ----------
+	----------
 	inputArray: numpy array
-	   Image data array.
-	scale_min: float, default `None`
-	   Minimum data value.
-	scale_max: float, default `None`
-	   Maximum data value.
+		Image data array.
+	scale_min: float, default ``None``
+		Minimum data value.
+	scale_max: float, default ``None``
+		Maximum data value.
 
     Returns
     -------
 	imageData: numpy array
-	   Scaled image data array.
+		Scaled image data array.
 	"""
 	imageData=np.array(inputArray, copy=True)
 
@@ -157,21 +157,22 @@ def sqrt(inputArray, scale_min=None, scale_max=None):
 	return imageData
 
 def log(inputArray, scale_min=None, scale_max=None):
-	"""Performs log10 scaling of the input numpy array.
+	"""Performs :func:`log10` scaling of the input numpy array.
+
 
 	Parameters
-    ----------
+	----------
 	inputArray: numpy array
-	   Image data array.
-	scale_min: float, default `None`
-	   Minimum data value.
-	scale_max: float, default `None`
-	   Maximum data value.
+		Image data array.
+	scale_min: float, default ``None``
+		Minimum data value.
+	scale_max: float, default ``None``
+		Maximum data value.
 
     Returns
     -------
 	imageData: numpy array
-	   Scaled image data array.
+		Scaled image data array.
 	"""
 	imageData=np.array(inputArray, copy=True)
 
@@ -194,23 +195,23 @@ def log(inputArray, scale_min=None, scale_max=None):
 	return imageData
 
 def asinh(inputArray, scale_min=None, scale_max=None, non_linear=2.0):
-	"""Performs asinh scaling of the input numpy array.
+	"""Performs :func:`asinh` scaling of the input numpy array.
 
     Parameters
     ----------
 	inputArray: numpy array
-	   Image data array.
-	scale_min: float, default `None`
-	   Minimum data value.
-	scale_max: float, default `None`
-	   Maximum data value.
-    non_linear: float, default `2.0`
-  	   Non-linearity factor.
+		Image data array.
+	scale_min: float, default ``None``
+		Minimum data value.
+	scale_max: float, default ``None``
+		Maximum data value.
+	non_linear: float, default ``2.0``
+  		Non-linearity factor.
 
     Returns
     -------
 	imageData: numpy array
-	   Scaled image data array.
+		Scaled image data array.
 	"""
 	imageData=np.array(inputArray, copy=True)
 
@@ -236,20 +237,22 @@ def create_RGB_image(outfile=None, survey='PS1', filters='zir', images_dir='',
 
     Parameters
     ----------
-    outfile: str, default `None`
+    outfile: str, default ``None``
         Output file name. If `None`, no output is saved.
-    survey: str, default `PS1`
+    survey: str, default ``PS1``
         Survey used for the filters.
-    filters: str, defaul `zir`
+    filters: str, defaul ``zir``
         Filters used to create the RGB image (in that order). Must be three filters.
-    images_dir: str, default ``
+    images_dir: str, default `''`
         Directory where to find the images.
     scaling: str
-        Type of scaling. Choose between `linear`, `sqrt`, `log` and `asinh`.
+        Type of scaling. Choose between ``linear``, ``sqrt``, ``log`` and ``asinh``.
     scaling_params: dict
-        Dictionary with the parameters for the `scaling` function. If `None`,
+        Dictionary with the parameters for the ``scaling`` function. If ``None``,
         use the default values.
 
+	Example
+	-------
     Example of scaling_params:
 
         scaling_params = {'R':{'min':r_med/100, 'max':r_med*30},
@@ -306,12 +309,12 @@ def get_PS1_url(ra, dec, size=600, filters="grizy", data_format="jpg"):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default `600`
+    size: int, default ``600``
         Image size in pixels (0.25 arcsec/pixel).
     filters: str
         Filters to include.
     data_format: str
-        Data format (options are "jpg" or "png").
+        Data format (options are ``jpg`` or ``png``).
 
     Returns
     =======
@@ -357,7 +360,7 @@ def get_PS1_RGB_image(outfile, ra, dec, size=600, filters="grizy"):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default `600`
+    size: int, default ``600``
         Image size in pixels (0.25 arcsec/pixel).
     filters: str
         Filters to include.
@@ -385,7 +388,7 @@ def get_SDSS_RGB_image(outfile, ra, dec, size=600):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default `600`
+    size: int, default ``600``
         Image size in pixels (0.396127 arcsec/pixel).
 
     Returns

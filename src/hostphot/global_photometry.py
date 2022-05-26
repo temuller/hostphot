@@ -88,7 +88,7 @@ def kron_flux(data, err, gain, objects, kronrad, scale):
 
 def optimize_kron_flux(data, err, gain, objects, eps=0.001):
     """Optimizes the Kron flux by iteration over different values.
-    The stop condition is met when the change in flux is less that `eps`.
+    The stop condition is met when the change in flux is less that ``eps``.
 
     Parameters
     ----------
@@ -99,8 +99,8 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.001):
     gain: float
         Gain value.
     objects: array
-        Objects detected with `sep.extract()`.
-    eps: float, default `0.001`
+        Objects detected with :func:`sep.extract()`.
+    eps: float, default ``0.001``
         Minimum percent change in flux allowed between iterations.
 
     Returns
@@ -391,30 +391,30 @@ def multi_band_phot(name, host_ra, host_dec, filters=None, survey='PS1',
         Host-galaxy right ascension of the galaxy in degrees.
     host_dec: float
         Host-galaxy declination of the galaxy in degrees.
-    filters: str, default, `None`
+    filters: str, default, ``None``
         Filters to use to load the fits files. If `None` use all
         the filters of the given survey.
-    survey: str, default `PS1`
+    survey: str, default ``PS1``
         Survey to use for the zero-points and pixel scale.
-    bkg_sub: bool, default `False`
+    bkg_sub: bool, default ``False``
         If `True`, the image gets background subtracted.
-    threshold: float, default `10`
-        Threshold used by `sep.extract()` to extract objects.
-    use_mask: bool, default `True`
-        If `True`, the masked fits files are used. These must have
+    threshold: float, default ``10``
+        Threshold used by :func:`sep.extract()` to extract objects.
+    use_mask: bool, default ``True``
+        If ``True``, the masked fits files are used. These must have
         been created beforehand.
-    common_aperture: bool, default `True`
-        If `True`, use a coadd image for common aperture photometry.
-    coadd_filters: str, default `riz`
+    common_aperture: bool, default ``True``
+        If ``True``, use a coadd image for common aperture photometry.
+    coadd_filters: str, default ``riz``
         Filters of the coadd image. Used for common aperture photometry.
-    optimze_kronrad: bool, default `True`
-        If `True`, the Kron radius is optimized, increasing the
+    optimze_kronrad: bool, default ``True``
+        If ``True``, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
-    eps: float, default `0.001`
+    eps: float, default ``0.001``
         Minimum percent change in flux allowed between iterations
         when optimizing the Kron radius.
-    save_plots: bool, default `True`
-        If `True`, the mask and galaxy aperture figures are saved.
+    save_plots: bool, default ``True``
+        If ``True``, the mask and galaxy aperture figures are saved.
 
     Returns
     -------

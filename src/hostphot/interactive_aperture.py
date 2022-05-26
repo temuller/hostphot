@@ -12,7 +12,7 @@ import sep
 from astropy.io import fits
 
 
-from hostphot.utils import (get_image_gain, get_image_readnoise, survey_zp, 
+from hostphot.utils import (get_image_gain, get_image_readnoise, survey_zp,
                             get_survey_filters, check_filters_validity)
 from hostphot.image_cleaning import remove_nan
 from hostphot._constants import __workdir__
@@ -36,15 +36,15 @@ class InteractiveAperture:
     ----------
     name: str
         Name of the object to find the path of the fits file.
-    filt: str, default, `g`
+    filt: str, default, ``g``
         Filter used to initiate the plot.
-    filters: str, default, `None`
+    filters: str, default, ``None``
         Filters to use to load the fits files. If `None` use all
         the filters of the given survey.
-    survey: str, default `PS1`
+    survey: str, default ``PS1``
         Survey to use for the zero-points and pixel scale.
-    masked: bool, default `True`
-        If `True`, uses masked images.
+    masked: bool, default ``True``
+        If ``True``, uses masked images.
     """
     def __init__(self, name, filt='g', survey='PS1', filters=None, masked=True):
         self.name = name
@@ -74,13 +74,13 @@ class InteractiveAperture:
         self.mag_phot.update({f'{f}_err':np.nan for f in self.filters})
 
         # initiate plots + widgets
-        self.initiate_plots()
-        self.initiate_widgets()
+        self._initiate_plots()
+        self._initiate_widgets()
 
     # -------------- Plots ------------------
     # ------
     # Images
-    def draw_image(self):
+    def _draw_image(self):
         """Plots the image."""
         m, s = np.nanmean(self.data), np.nanstd(self.data)
         self.im = self.ax.imshow(self.data, interpolation='nearest',
@@ -88,7 +88,7 @@ class InteractiveAperture:
                            vmin=m-s, vmax=m+s,
                            origin='lower')
 
-    def change_image(self, filt):
+    def _change_image(self, filt):
         """Changes the plotted image."""
         base_file = os.path.join(f'{self.masked}{self.survey}_{filt}.fits')
         self.fits_file = os.path.join(__workdir__, self.name, base_file)
@@ -108,15 +108,15 @@ class InteractiveAperture:
         title = f'{self.name} (${self.filt}$-band)'
         self.title = title
         self.ax.set_title(title)
-        self.draw_image()
+        self._draw_image()
 
-    def button_update_image(self, button):
+    def _button_update_image(self, button):
         self.filt = button.description
-        self.change_image(self.filt)
+        self._change_image(self.filt)
 
     # -------
     # Ellipse
-    def slider_update_ellipse(self, change):
+    def _slider_update_ellipse(self, change):
         """Updates the parameters of the plotted ellipse"""
         slider = change.owner
         if slider.description=='x':
@@ -132,7 +132,7 @@ class InteractiveAperture:
         self.ax.set_title(self.title)
         self.im = self.draw_image()
 
-    def get_init_eparams(self):
+    def _get_init_eparams(self):
         """Gets initial ellipse parameters."""
         ydim, xdim = self.data.shape
         max_dim = max(xdim, ydim)
@@ -143,13 +143,13 @@ class InteractiveAperture:
                  'angle':{'value':0, 'min':-90, 'max':90},
                 }
 
-    def get_eparams(self):
+    def _get_eparams(self):
         """Gets the ellipse parameters."""
         self.eparams = {}
         for key, slider in self.sliders.items():
             self.eparams[key] = slider.value
 
-    def onclick(self, event):
+    def _onclick(self, event):
         """Updates the ellipse's center with a mouse click."""
         ix, iy = event.xdata, event.ydata
         self.sliders['x'].value = ix
@@ -157,7 +157,7 @@ class InteractiveAperture:
 
     # ---------------
     # Master Function
-    def initiate_plots(self):
+    def _initiate_plots(self):
         """Initiates the plot with the image and
         aperture (ellipse)."""
         self.fig, self.ax = plt.subplots(figsize=(6, 6))
@@ -165,10 +165,10 @@ class InteractiveAperture:
         self.title = f'{self.name} (${self.filt}$-band)'
         self.ax.set_title(self.title)
 
-        self.change_image(self.filt)
+        self._change_image(self.filt)
 
         # ellipse
-        self.get_init_eparams()
+        self._get_init_eparams()
         xy = (self.eparams['x']['value'],
               self.eparams['y']['value'])
         width = self.eparams['width']['value']
@@ -187,7 +187,7 @@ class InteractiveAperture:
     # ---------- Widgets -------------
     # -------
     # widgets
-    def create_sliders(self):
+    def _create_sliders(self):
         """Creates dictionary with sliders."""
         self.sliders = {}
         for key in self.ellipse_parameters:
@@ -201,29 +201,29 @@ class InteractiveAperture:
                                               max, step=1,
                                               description=key)
 
-    def create_textboxes(self):
+    def _create_textboxes(self):
         """Creates dictionary with text boxes."""
         keys = self.ellipse_parameters
         self.textboxes = {key:widgets.Combobox(description=key)
                                           for key in keys}
 
-    def create_buttons(self):
+    def _create_buttons(self):
         """Creates dictionary with buttons."""
         self.buttons = {key:widgets.Button(description=key)
                               for key in self.filters}
 
     # ---------------
     # Master Function
-    def initiate_widgets(self):
+    def _initiate_widgets(self):
         """Initiates the widgets and displays them."""
         # Sliders
-        self.create_sliders()
+        self._create_sliders()
         for slider in self.sliders.values():
-            slider.observe(self.slider_update_ellipse, 'value')
+            slider.observe(self._slider_update_ellipse, 'value')
         self.slider_VBox = widgets.VBox(list(self.sliders.values()))
 
         # Text Boxes
-        self.create_textboxes()
+        self._create_textboxes()
         self.texbox_VBox = widgets.VBox(list(self.textboxes.values()))
 
         # Links: sliders with text boxes
@@ -234,13 +234,13 @@ class InteractiveAperture:
                                              (textbox, 'value'))
 
         # Buttons
-        self.create_buttons()
+        self._create_buttons()
         for button in self.buttons.values():
-            button.on_click(self.button_update_image)
+            button.on_click(self._button_update_image)
 
         # Photometry Button
         self.phot_button = widgets.Button(description='Calc. Photometry')
-        self.phot_button.on_click(self.calculate_phot)
+        self.phot_button.on_click(self._calculate_phot)
 
         self.phot_text = widgets.Label(value='Magnitude:')
 
@@ -252,11 +252,11 @@ class InteractiveAperture:
                                                             output)
 
         self.cid = self.fig.canvas.mpl_connect('button_press_event',
-                                               self.onclick)
+                                               self._onclick)
 
     # ------------ Photometry ----------
     # Photometry
-    def calculate_flux(self):
+    def _calculate_flux(self):
         """Calculates the flux within the aperture."""
         x, y = [self.eparams['x']], [self.eparams['y']]
         a, b = [self.eparams['width']], [self.eparams['height']]
@@ -272,7 +272,7 @@ class InteractiveAperture:
         self.flux_phot[self.filt] =  flux[0]
         self.flux_phot[f'{self.filt}_err'] =  flux_err[0]
 
-    def calculate_mag(self):
+    def _calculate_mag(self):
         """Calculates the magnitude within the aperture."""
         flux = self.flux_phot[self.filt]
         flux_err = self.flux_phot[f'{self.filt}_err']
@@ -291,12 +291,12 @@ class InteractiveAperture:
 
     # ---------------
     # Master Function
-    def calculate_phot(self, button):
+    def _calculate_phot(self, button):
         """Calculates the photometry (flux and magnitude)
         within the aperture."""
-        self.get_eparams()
-        self.calculate_flux()
-        self.calculate_mag()
+        self._get_eparams()
+        self._calculate_flux()
+        self._calculate_mag()
 
         mag = self.mag_phot[self.filt]
         mag_err = self.mag_phot[f'{self.filt}_err']
@@ -304,7 +304,13 @@ class InteractiveAperture:
 
     # Export Photometry
     def export_photometry(self, outfile=None):
-        """Exports the photometry (magnitudes) into a csv file."""
+        """Exports the photometry (magnitudes) into a csv file.
+
+        Parameters
+        ----------
+        outfile: str, default ``None``
+            Name of the output file. If ``None``, use ``f'{self.name}_phot.csv'``
+        """
         if not outfile:
             outfile = f'{self.name}_phot.csv'
 
