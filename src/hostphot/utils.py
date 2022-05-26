@@ -1,6 +1,5 @@
 import os
 import sys
-import wget
 import tarfile
 import numpy as np
 
