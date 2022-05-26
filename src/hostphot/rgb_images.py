@@ -190,7 +190,7 @@ def log(inputArray, scale_min=None, scale_max=None):
 	try :
 		imageData[indices1] = np.log10(imageData[indices1])/factor
 	except :
-		print("Error on math.log10 for ", (imageData[i][j] - scale_min))
+		print("Error on math.log10 for ", (imageData[indices1] - scale_min))
 
 	return imageData
 
