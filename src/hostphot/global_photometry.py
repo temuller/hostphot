@@ -32,6 +32,8 @@ from hostphot.objects_detect import extract_objects,  plot_detected_objects
 from hostphot.image_cleaning import remove_nan
 from hostphot.dust import calc_extinction
 
+import warnings
+
 sep.set_sub_object_limit(1e4)
 
 #----------------------------------------
@@ -142,7 +144,7 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.001):
             opt_flux_err = flux_err
             break
         elif np.isnan(calc_eps):
-            opt_scale = scale_list[-2]
+            opt_scale = scales[-2]
             warnings.warn("Warning: the aperture might not fit in the image!")
             break
         else:
