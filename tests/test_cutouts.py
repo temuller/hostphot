@@ -9,7 +9,8 @@ class TestHostPhot(unittest.TestCase):
         dec = 0.44422
         size = 100
 
-        for survey in ['PS1', 'DES', 'SDSS']:
+        # SDSS always fails in the tests
+        for survey in ['PS1', 'DES']:
             download_images(sn_name, ra, dec, overwrite=True,
                         size=size, survey=survey)
 

@@ -1,2 +1,2 @@
 include requirements.txt
-recursive-include src/hostphot/filters/
+graft src/hostphot/filters/
