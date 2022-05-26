@@ -10,8 +10,8 @@ class TestHostPhot(unittest.TestCase):
         size = 100
 
         for survey in ['PS1', 'DES', 'SDSS']:
-            download_images(sn_name, ra, dec,
-                            size=size, survey=survey)
+            download_images(sn_name, ra, dec, overwrite=True,
+                        size=size, survey=survey)
 
 if __name__ == '__main__':
     unittest.main()
