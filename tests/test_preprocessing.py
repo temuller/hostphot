@@ -11,7 +11,7 @@ class TestHostPhot(unittest.TestCase):
         survey = 'PS1'
         name = 'SN2004eo'
 
-        download_images(sn_name, ra, dec, survey=survey)
+        download_images(name, ra, dec, survey=survey)
         coadd_images(name, coadd_filters, survey)
 
         # masking
