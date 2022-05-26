@@ -6,16 +6,16 @@ from hostphot.image_masking import create_mask
 class TestHostPhot(unittest.TestCase):
 
     def test_preprocessing(self):
-        # coadd
         coadd_filters = 'riz'
         survey = 'PS1'
         name = 'SN2004eo'
+        host_ra, host_dec = 308.2092, 9.92755  # coods of host galaxy of SN2004eo
+        download_images(name, host_ra, host_dec, survey=survey)
 
-        download_images(name, ra, dec, survey=survey)
+        # coadd
         coadd_images(name, coadd_filters, survey)
 
         # masking
-        host_ra, host_dec = 308.2092, 9.92755  # coods of host galaxy of SN2004eo
         coadd_mask_params = create_mask(name, host_ra, host_dec,
                                          filt=coadd_filters, survey=survey,
                                          extract_params=True)
