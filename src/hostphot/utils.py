@@ -265,6 +265,18 @@ def integrate_filter(spectrum_wave, spectrum_flux, filter_wave,
 
     return flux_filter
 
+def check_work_dir(wokrdir):
+    """Checks if the working directory exists. If it
+    does not, one is created.
+
+    Parameters
+    ----------
+    wokrdir: str
+        Working directory path.
+    """
+    if not os.path.isdir(wokrdir):
+        os.mkdir(wokrdir)
+
 def clean_dir(dir):
     """Removes the directory if it is empty.
 

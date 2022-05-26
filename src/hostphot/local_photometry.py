@@ -31,7 +31,7 @@ from hostphot._constants import __workdir__
 from hostphot.utils import (get_survey_filters, check_survey_validity,
                             check_filters_validity, calc_sky_unc,
                             survey_pixel_scale, survey_zp, get_image_gain,
-                            get_image_readnoise)
+                            get_image_readnoise, check_work_dir)
 from hostphot.image_cleaning import remove_nan
 from hostphot.dust import calc_extinction
 
@@ -191,7 +191,7 @@ def photometry(name, ra, dec, z, filt, survey, ap_radii=1, bkg_sub=False,
         List of aperture magnitude errors for the given aperture radii.
     """
     check_survey_validity(survey)
-
+    check_work_dir(__workdir__)
     obj_dir = os.path.join(__workdir__, name)
     if use_mask:
         suffix = 'masked_'

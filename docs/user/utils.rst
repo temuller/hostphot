@@ -17,4 +17,5 @@ Other support functions are documented bellow:
 .. autofunction:: check_filters_validity
 .. autofunction:: extract_filters
 .. autofunction:: integrate_filter
+.. autofunction:: check_work_dir
 .. autofunction:: clean_dir
