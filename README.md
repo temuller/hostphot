@@ -94,12 +94,12 @@ If you make use of HostPhot, please cite:
 @software{hostphot,
   author       = {Tom\'as E. M\"uller-Bravo and
                   Llu\'is Galbany},
-  title        = {HostPhot},
-  month        = apr,
+  title        = {temuller/hostphot: HostPhot v2},
+  month        = may,
   year         = 2022,
   publisher    = {Zenodo},
-  version      = {v1.0.1},
-  doi          = {10.5281/zenodo.6469981},
-  url          = {https://doi.org/10.5281/zenodo.6469981}
+  version      = {v2.0.0},
+  doi          = {10.5281/zenodo.6586565},
+  url          = {https://doi.org/10.5281/zenodo.6586565}
 }
 ```
