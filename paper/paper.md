@@ -33,13 +33,14 @@ The major novelty of `HostPhot` is dealing with low-redshift galaxies (z$<$0.1) 
 
 Local photometry can be calculated for different circular apertures in physical units (e.g., 4 kpc) at the redshift of the given object. In addition, as the physical size depends on the assumed cosmology, the cosmological model can be changed by the user, suiting their needs. On the other hand, for the global photometry, the user can choose between using a different aperture for each filter/image or a common aperture for all the filters/images. For the latter, `HostPhot` coadds images in the desired filters, as selected by the user (e.g., *riz*), and estimates the common aperture parameters from the coadd image. The aperture used for the global photometry can also be optimised, by increasing the size until the change in flux is negligible, encompassing the entire galaxy. In a few cases, nearby galaxies can have very complex structures. `HostPhot` offers the option of interactively setting the aperture via an intuitive GUI. This option also allows the user to test how the change in aperture shape can affect the calculated photometry.
 
-`HostPhot` is fast at calculating photometry (up to a few seconds per object) and user-friendly, which allows the community to easily contribute to this package. `HostPhot` is already being used by different groups, such as HostFlows[^1] and DES, and will allow the supernova community to find exciting new scientific discoveries with future cosmological analyses. Finally, although `HostPhot` is mainly aimed at supernova science, it can be used in other fields in astronomy as well.
+`HostPhot` is fast at calculating photometry (up to a few seconds per object), user-friendly and well documented[^1], which allows the community to easily contribute to this package. `HostPhot` is already being used by different groups, such as HostFlows[^2] and DES, and will allow the supernova community to find exciting new scientific discoveries with future cosmological analyses. Finally, although `HostPhot` is mainly aimed at supernova science, it can be used in other fields in astronomy as well.
 
-[^1]: https://hostflows.github.io/
+[^1]: https://hostphot.readthedocs.io/en/latest/
+[^2]: https://hostflows.github.io/
 
-`HostPhot` heavily relies on the `Astropy` package [@astropy; @astropy2] for most functions, but also relies on `Photutils` [@photutils] for general photometry, `sep` [@sep] for global photometry, `Astroquery` [@astroquery] for cross-matching with catalogs, reproject[^2] for the coadds and `extinction` [@extinction] for extinction correction.
+`HostPhot` heavily relies on the `Astropy` package [@astropy; @astropy2] for most functions, but also relies on `Photutils` [@photutils] for general photometry, `sep` [@sep] for global photometry, `Astroquery` [@astroquery] for cross-matching with catalogs, reproject[^3] for the coadds and `extinction` [@extinction] for extinction correction.
 
-[^2]: https://pypi.org/project/reproject/
+[^3]: https://pypi.org/project/reproject/
 
 # Acknowledgements
 
