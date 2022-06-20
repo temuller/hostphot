@@ -443,4 +443,4 @@ def pool_download(df=None, name=None, ra=None, dec=None, size=600,
     input_args = list(map(list, zip(*input_dict.values())))
 
     pool = mp.Pool(processes)
-    pool.starmap_async(download_images, (args for args in input_args))
+    pool.starmap(download_images, (args for args in input_args))
