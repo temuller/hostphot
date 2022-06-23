@@ -154,7 +154,7 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.001):
     return opt_flux, opt_flux_err, opt_kronrad, opt_scale
 
 def extract_kronparams(name, host_ra, host_dec, filt, survey, bkg_sub=False,
-                       threshold=10, use_mask=True, optimze_kronrad=True,
+                       threshold=10, use_mask=True, optimize_kronrad=True,
                        eps=0.001, save_plots=True):
     """Calculates the aperture parameters for common aperture.
 
@@ -177,7 +177,7 @@ def extract_kronparams(name, host_ra, host_dec, filt, survey, bkg_sub=False,
     use_mask: bool, default `True`
         If `True`, the masked fits files are used. These must have
         been created beforehand.
-    optimze_kronrad: bool, default `True`
+    optimize_kronrad: bool, default `True`
         If `True`, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
     eps: float, default `0.001`
@@ -225,7 +225,7 @@ def extract_kronparams(name, host_ra, host_dec, filt, survey, bkg_sub=False,
     gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
                                           host_ra, host_dec,
                                           threshold, img_wcs)
-    if optimze_kronrad:
+    if optimize_kronrad:
         gain = 1  # doesn't matter here
         opt_res = optimize_kron_flux(data_sub, bkg_rms,
                                      gain, gal_obj, eps)
@@ -247,7 +247,7 @@ def extract_kronparams(name, host_ra, host_dec, filt, survey, bkg_sub=False,
 
 def photometry(name, host_ra, host_dec, filt, survey, bkg_sub=False,
                threshold=10, use_mask=True, aperture_params=None,
-               optimze_kronrad=True, eps=0.001, save_plots=True):
+               optimize_kronrad=True, eps=0.001, save_plots=True):
     """Calculates the global aperture photometry of a galaxy using
     the Kron flux.
 
@@ -276,7 +276,7 @@ def photometry(name, host_ra, host_dec, filt, survey, bkg_sub=False,
         Tuple with objects info and Kron parameters. Used for
         common aperture. If given, the Kron parameters are not
         re-calculated
-    optimze_kronrad: bool, default `True`
+    optimize_kronrad: bool, default `True`
         If `True`, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
     eps: float, default `0.001`
@@ -338,7 +338,7 @@ def photometry(name, host_ra, host_dec, filt, survey, bkg_sub=False,
         # aperture photometry
         # This uses what would be the default SExtractor parameters.
         # See https://sep.readthedocs.io/en/v1.1.x/apertures.html
-        if optimze_kronrad:
+        if optimize_kronrad:
             opt_res = optimize_kron_flux(data_sub, bkg_rms,
                                          gain, gal_obj, eps)
             flux, flux_err, kronrad, scale = opt_res
@@ -381,7 +381,7 @@ def photometry(name, host_ra, host_dec, filt, survey, bkg_sub=False,
 def multi_band_phot(name, host_ra, host_dec, filters=None, survey='PS1',
                     bkg_sub=False, threshold=10, use_mask=True,
                     common_aperture=True, coadd_filters='riz',
-                    optimze_kronrad=True, eps=0.001, save_plots=True):
+                    optimize_kronrad=True, eps=0.001, save_plots=True):
     """Calculates multi-band aperture photometry of the host galaxy
     for an object.
 
@@ -409,7 +409,7 @@ def multi_band_phot(name, host_ra, host_dec, filters=None, survey='PS1',
         If ``True``, use a coadd image for common aperture photometry.
     coadd_filters: str, default ``riz``
         Filters of the coadd image. Used for common aperture photometry.
-    optimze_kronrad: bool, default ``True``
+    optimize_kronrad: bool, default ``True``
         If ``True``, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
     eps: float, default ``0.001``
@@ -437,14 +437,14 @@ def multi_band_phot(name, host_ra, host_dec, filters=None, survey='PS1',
         aperture_params = extract_kronparams(name, host_ra, host_dec,
                                             coadd_filters, survey, bkg_sub,
                                             threshold, use_mask,
-                                            optimze_kronrad, eps, save_plots)
+                                            optimize_kronrad, eps, save_plots)
     else:
         aperture_params = None
 
     for filt in filters:
         mag, mag_err = photometry(name, host_ra, host_dec, filt, survey, bkg_sub,
                                   threshold, use_mask, aperture_params,
-                                  optimze_kronrad, eps, save_plots)
+                                  optimize_kronrad, eps, save_plots)
         results_dict[filt] = mag
         results_dict[f'{filt}_err'] = mag_err
 
