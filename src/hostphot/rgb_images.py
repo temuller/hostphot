@@ -159,7 +159,6 @@ def sqrt(inputArray, scale_min=None, scale_max=None):
 def log(inputArray, scale_min=None, scale_max=None):
 	"""Performs :func:`log10` scaling of the input numpy array.
 
-
 	Parameters
 	----------
 	inputArray: numpy array
@@ -251,14 +250,12 @@ def create_RGB_image(outfile=None, survey='PS1', filters='zir', images_dir='',
         Dictionary with the parameters for the ``scaling`` function. If ``None``,
         use the default values.
 
-	Example
-	-------
-    Example of scaling_params:
-
-        scaling_params = {'R':{'min':r_med/100, 'max':r_med*30},
-                          'G':{'min':g_med/1000, 'max':g_med*150},
-                          'B':{'min':b_med/30, 'max':b_med*100}
-        }
+	Examples
+	--------
+	>>> # Example of scaling_params:
+	>>> scaling_params = {'R':{'min':r_med/100, 'max':r_med*30},
+					  'G':{'min':g_med/1000, 'max':g_med*150},
+					  'B':{'min':b_med/30, 'max':b_med*100}}
     """
 
     assert len(filters)==3, 'Three filters should be given.'
