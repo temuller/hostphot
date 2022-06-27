@@ -25,10 +25,17 @@ from astropy.io import fits
 from astropy import wcs
 
 from hostphot._constants import __workdir__
-from hostphot.utils import (get_survey_filters, check_survey_validity,
-                            check_filters_validity, survey_zp, get_image_gain,
-                            get_image_readnoise, pixel2pixel, check_work_dir)
-from hostphot.objects_detect import extract_objects,  plot_detected_objects
+from hostphot.utils import (
+    get_survey_filters,
+    check_survey_validity,
+    check_filters_validity,
+    survey_zp,
+    get_image_gain,
+    get_image_readnoise,
+    pixel2pixel,
+    check_work_dir,
+)
+from hostphot.objects_detect import extract_objects, plot_detected_objects
 from hostphot.image_cleaning import remove_nan
 from hostphot.dust import calc_extinction
 
@@ -36,7 +43,7 @@ import warnings
 
 sep.set_sub_object_limit(1e4)
 
-#----------------------------------------
+# ----------------------------------------
 def _choose_workdir(workdir):
     """Updates the work directory.
 
@@ -48,7 +55,8 @@ def _choose_workdir(workdir):
     global __workdir__
     __workdir__ = workdir
 
-#-------------------------------
+
+# -------------------------------
 def kron_flux(data, err, gain, objects, kronrad, scale):
     """Calculates the Kron flux.
 
@@ -76,17 +84,33 @@ def kron_flux(data, err, gain, objects, kronrad, scale):
     """
     r_min = 1.75  # minimum diameter = 3.5
 
-    if kronrad*np.sqrt(objects['a']*objects['b']) < r_min:
-        print(f'Warning: using circular photometry')
-        flux, flux_err, flag = sep.sum_circle(data, objects['x'], objects['y'],
-                                              r_min, err=err, subpix=5, gain=1.0)
+    if kronrad * np.sqrt(objects["a"] * objects["b"]) < r_min:
+        print(f"Warning: using circular photometry")
+        flux, flux_err, flag = sep.sum_circle(
+            data,
+            objects["x"],
+            objects["y"],
+            r_min,
+            err=err,
+            subpix=5,
+            gain=1.0,
+        )
     else:
-        flux, flux_err, flag = sep.sum_ellipse(data, objects['x'], objects['y'],
-                                          objects['a'], objects['b'],
-                                          objects['theta'], scale*kronrad,
-                                          err=err, subpix=5, gain=gain)
+        flux, flux_err, flag = sep.sum_ellipse(
+            data,
+            objects["x"],
+            objects["y"],
+            objects["a"],
+            objects["b"],
+            objects["theta"],
+            scale * kronrad,
+            err=err,
+            subpix=5,
+            gain=gain,
+        )
 
     return flux, flux_err
+
 
 def optimize_kron_flux(data, err, gain, objects, eps=0.001):
     """Optimizes the Kron flux by iteration over different values.
@@ -118,27 +142,35 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.001):
     """
     # iterate over kron radii
     for r in np.arange(1, 6.05, 0.05)[::-1]:
-        kronrad, krflag = sep.kron_radius(data, objects['x'], objects['y'],
-                                      objects['a'], objects['b'],
-                                      objects['theta'], r)
+        kronrad, krflag = sep.kron_radius(
+            data,
+            objects["x"],
+            objects["y"],
+            objects["a"],
+            objects["b"],
+            objects["theta"],
+            r,
+        )
         if ~np.isnan(kronrad):
             opt_kronrad = kronrad
             break
     if np.isnan(kronrad):
-        print(f'kronrad = {kronrad}')
-        raise ValueError('The Kron radius cannot be calculated '
-                         '(something went wrong!)')
+        print(f"kronrad = {kronrad}")
+        raise ValueError(
+            "The Kron radius cannot be calculated " "(something went wrong!)"
+        )
 
     opt_flux = 0.0
     # iterate over scale
     scales = np.arange(1, 10, 0.01)
     for scale in scales:
-        flux, flux_err = kron_flux(data, err, gain, objects,
-                                    opt_kronrad, scale)
+        flux, flux_err = kron_flux(
+            data, err, gain, objects, opt_kronrad, scale
+        )
         flux, flux_err = flux[0], flux_err[0]
 
-        calc_eps = np.abs(opt_flux - flux)/flux
-        if calc_eps<eps:
+        calc_eps = np.abs(opt_flux - flux) / flux
+        if calc_eps < eps:
             opt_scale = scale
             opt_flux = flux
             opt_flux_err = flux_err
@@ -153,9 +185,20 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.001):
 
     return opt_flux, opt_flux_err, opt_kronrad, opt_scale
 
-def extract_kronparams(name, host_ra, host_dec, filt, survey, bkg_sub=False,
-                       threshold=10, use_mask=True, optimize_kronrad=True,
-                       eps=0.001, save_plots=True):
+
+def extract_kronparams(
+    name,
+    host_ra,
+    host_dec,
+    filt,
+    survey,
+    bkg_sub=False,
+    threshold=10,
+    use_mask=True,
+    optimize_kronrad=True,
+    eps=0.001,
+    save_plots=True,
+):
     """Calculates the aperture parameters for common aperture.
 
     Parameters
@@ -201,10 +244,10 @@ def extract_kronparams(name, host_ra, host_dec, filt, survey, bkg_sub=False,
     check_work_dir(__workdir__)
     obj_dir = os.path.join(__workdir__, name)
     if use_mask:
-        suffix = 'masked_'
+        suffix = "masked_"
     else:
-        suffix = ''
-    fits_file = os.path.join(obj_dir, f'{suffix}{survey}_{filt}.fits')
+        suffix = ""
+    fits_file = os.path.join(obj_dir, f"{suffix}{survey}_{filt}.fits")
 
     img = fits.open(fits_file)
     img = remove_nan(img)
@@ -222,32 +265,46 @@ def extract_kronparams(name, host_ra, host_dec, filt, survey, bkg_sub=False,
         data_sub = np.copy(data)
 
     # extract objects
-    gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
-                                          host_ra, host_dec,
-                                          threshold, img_wcs)
+    gal_obj, nogal_objs = extract_objects(
+        data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs
+    )
     if optimize_kronrad:
         gain = 1  # doesn't matter here
-        opt_res = optimize_kron_flux(data_sub, bkg_rms,
-                                     gain, gal_obj, eps)
+        opt_res = optimize_kron_flux(data_sub, bkg_rms, gain, gal_obj, eps)
         flux, flux_err, kronrad, scale = opt_res
     else:
         scale = 2.5
-        kronrad, krflag = sep.kron_radius(data_sub,
-                                          gal_obj['x'], gal_obj['y'],
-                                          gal_obj['a'], gal_obj['b'],
-                                          gal_obj['theta'], 6.0)
+        kronrad, krflag = sep.kron_radius(
+            data_sub,
+            gal_obj["x"],
+            gal_obj["y"],
+            gal_obj["a"],
+            gal_obj["b"],
+            gal_obj["theta"],
+            6.0,
+        )
 
     if save_plots:
-        outfile = os.path.join(obj_dir, f'global_{survey}_{filt}.jpg')
-        plot_detected_objects(data_sub, gal_obj,
-                                scale*kronrad, outfile)
+        outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
+        plot_detected_objects(data_sub, gal_obj, scale * kronrad, outfile)
 
     return gal_obj, img_wcs, kronrad, scale
 
 
-def photometry(name, host_ra, host_dec, filt, survey, bkg_sub=False,
-               threshold=10, use_mask=True, aperture_params=None,
-               optimize_kronrad=True, eps=0.001, save_plots=True):
+def photometry(
+    name,
+    host_ra,
+    host_dec,
+    filt,
+    survey,
+    bkg_sub=False,
+    threshold=10,
+    use_mask=True,
+    aperture_params=None,
+    optimize_kronrad=True,
+    eps=0.001,
+    save_plots=True,
+):
     """Calculates the global aperture photometry of a galaxy using
     the Kron flux.
 
@@ -296,17 +353,17 @@ def photometry(name, host_ra, host_dec, filt, survey, bkg_sub=False,
     check_work_dir(__workdir__)
     obj_dir = os.path.join(__workdir__, name)
     if use_mask:
-        suffix = 'masked_'
+        suffix = "masked_"
     else:
-        suffix = ''
-    fits_file = os.path.join(obj_dir, f'{suffix}{survey}_{filt}.fits')
+        suffix = ""
+    fits_file = os.path.join(obj_dir, f"{suffix}{survey}_{filt}.fits")
 
     img = fits.open(fits_file)
     img = remove_nan(img)
 
     header = img[0].header
     data = img[0].data
-    exptime = float(header['EXPTIME'])
+    exptime = float(header["EXPTIME"])
     gain = get_image_gain(header, survey)
     readnoise = get_image_readnoise(header, survey)
     img_wcs = wcs.WCS(header, naxis=2)
@@ -322,42 +379,48 @@ def photometry(name, host_ra, host_dec, filt, survey, bkg_sub=False,
     if aperture_params is not None:
         gal_obj, img_wcs0, kronrad, scale = aperture_params
 
-        gal_obj['x'], gal_obj['y'] = pixel2pixel(gal_obj['x'],
-                                                gal_obj['y'],
-                                                img_wcs0, img_wcs)
+        gal_obj["x"], gal_obj["y"] = pixel2pixel(
+            gal_obj["x"], gal_obj["y"], img_wcs0, img_wcs
+        )
 
-        flux, flux_err =  kron_flux(data_sub, bkg_rms, gain,
-                                    gal_obj, kronrad, scale)
+        flux, flux_err = kron_flux(
+            data_sub, bkg_rms, gain, gal_obj, kronrad, scale
+        )
         flux, flux_err = flux[0], flux_err[0]
     else:
         # extract objects
-        gal_obj, nogal_objs = extract_objects(data_sub, bkg_rms,
-                                              host_ra, host_dec,
-                                              threshold, img_wcs)
+        gal_obj, nogal_objs = extract_objects(
+            data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs
+        )
 
         # aperture photometry
         # This uses what would be the default SExtractor parameters.
         # See https://sep.readthedocs.io/en/v1.1.x/apertures.html
         if optimize_kronrad:
-            opt_res = optimize_kron_flux(data_sub, bkg_rms,
-                                         gain, gal_obj, eps)
+            opt_res = optimize_kron_flux(data_sub, bkg_rms, gain, gal_obj, eps)
             flux, flux_err, kronrad, scale = opt_res
         else:
-            kronrad, krflag = sep.kron_radius(data_sub,
-                                              gal_obj['x'], gal_obj['y'],
-                                              gal_obj['a'], gal_obj['b'],
-                                              gal_obj['theta'], 6.0)
+            kronrad, krflag = sep.kron_radius(
+                data_sub,
+                gal_obj["x"],
+                gal_obj["y"],
+                gal_obj["a"],
+                gal_obj["b"],
+                gal_obj["theta"],
+                6.0,
+            )
             scale = 2.5
-            flux, flux_err =  kron_flux(data_sub, bkg_rms, gain,
-                                        gal_obj, kronrad, scale)
+            flux, flux_err = kron_flux(
+                data_sub, bkg_rms, gain, gal_obj, kronrad, scale
+            )
             flux, flux_err = flux[0], flux_err[0]
 
     zp = survey_zp(survey)
-    if survey=='PS1':
-        zp += 2.5*np.log10(exptime)
+    if survey == "PS1":
+        zp += 2.5 * np.log10(exptime)
 
-    mag = -2.5*np.log10(flux) + zp
-    mag_err = 2.5/np.log(10)*flux_err/flux
+    mag = -2.5 * np.log10(flux) + zp
+    mag_err = 2.5 / np.log(10) * flux_err / flux
 
     # correct extinction
     A_ext = calc_extinction(filt, survey, host_ra, host_dec)
@@ -365,23 +428,36 @@ def photometry(name, host_ra, host_dec, filt, survey, bkg_sub=False,
 
     # error budget
     # 1.0857 = 2.5/ln(10)
-    if survey!='SDSS':
+    if survey != "SDSS":
         # ellipse area = pi*a*b
-        ap_area = np.pi*gal_obj['a'][0]*gal_obj['b'][0]
-        extra_err = 1.0857*np.sqrt(ap_area*(readnoise**2)+flux/gain)/flux
+        ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
+        extra_err = (
+            1.0857 * np.sqrt(ap_area * (readnoise**2) + flux / gain) / flux
+        )
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
     if save_plots:
-        outfile = os.path.join(obj_dir, f'global_{survey}_{filt}.jpg')
-        plot_detected_objects(data_sub, gal_obj,
-                                scale*kronrad, outfile)
+        outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
+        plot_detected_objects(data_sub, gal_obj, scale * kronrad, outfile)
 
     return mag, mag_err
 
-def multi_band_phot(name, host_ra, host_dec, filters=None, survey='PS1',
-                    bkg_sub=False, threshold=10, use_mask=True,
-                    common_aperture=True, coadd_filters='riz',
-                    optimize_kronrad=True, eps=0.001, save_plots=True):
+
+def multi_band_phot(
+    name,
+    host_ra,
+    host_dec,
+    filters=None,
+    survey="PS1",
+    bkg_sub=False,
+    threshold=10,
+    use_mask=True,
+    common_aperture=True,
+    coadd_filters="riz",
+    optimize_kronrad=True,
+    eps=0.001,
+    save_plots=True,
+):
     """Calculates multi-band aperture photometry of the host galaxy
     for an object.
 
@@ -429,23 +505,46 @@ def multi_band_phot(name, host_ra, host_dec, filters=None, survey='PS1',
     else:
         check_filters_validity(filters, survey)
 
-    results_dict = {'name':name,
-                    'host_ra':host_ra, 'host_dec':host_dec,
-                    'survey':survey}
+    results_dict = {
+        "name": name,
+        "host_ra": host_ra,
+        "host_dec": host_dec,
+        "survey": survey,
+    }
 
     if common_aperture:
-        aperture_params = extract_kronparams(name, host_ra, host_dec,
-                                            coadd_filters, survey, bkg_sub,
-                                            threshold, use_mask,
-                                            optimize_kronrad, eps, save_plots)
+        aperture_params = extract_kronparams(
+            name,
+            host_ra,
+            host_dec,
+            coadd_filters,
+            survey,
+            bkg_sub,
+            threshold,
+            use_mask,
+            optimize_kronrad,
+            eps,
+            save_plots,
+        )
     else:
         aperture_params = None
 
     for filt in filters:
-        mag, mag_err = photometry(name, host_ra, host_dec, filt, survey, bkg_sub,
-                                  threshold, use_mask, aperture_params,
-                                  optimize_kronrad, eps, save_plots)
+        mag, mag_err = photometry(
+            name,
+            host_ra,
+            host_dec,
+            filt,
+            survey,
+            bkg_sub,
+            threshold,
+            use_mask,
+            aperture_params,
+            optimize_kronrad,
+            eps,
+            save_plots,
+        )
         results_dict[filt] = mag
-        results_dict[f'{filt}_err'] = mag_err
+        results_dict[f"{filt}_err"] = mag_err
 
     return results_dict

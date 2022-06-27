@@ -9,7 +9,7 @@ with open("requirements.txt") as requirements_file:
 with open("src/hostphot/_version.py") as version_file:
     for line in version_file:
         if "__version__" in line:
-            __version__ = line.split()[-1].replace('"', '')
+            __version__ = line.split()[-1].replace('"', "")
 
 setuptools.setup(
     name="HostPhot",
@@ -23,7 +23,7 @@ setuptools.setup(
     url="https://github.com/temuller/hostphot",
     package_dir={"": "src"},
     packages=setuptools.find_packages(where="src"),
-    #scripts=["bin/hostphot"],
+    # scripts=["bin/hostphot"],
     python_requires=">=3.8",
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -31,6 +31,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=requirements,
-    package_data={'hostphot':['filters/*']},
+    package_data={"hostphot": ["filters/*"]},
     include_package_data=True,
 )

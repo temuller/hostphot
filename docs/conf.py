@@ -3,18 +3,18 @@ import sys
 import os
 
 # to be able to import piscola
-sys.path.insert(0, os.path.abspath('../src'))
+sys.path.insert(0, os.path.abspath("../src"))
 
 with open("../src/hostphot/_version.py") as version_file:
     for line in version_file:
         if "__version__" in line:
-            __version__ = line.split()[-1].replace('"', '')
+            __version__ = line.split()[-1].replace('"', "")
 
 # -- Project information -----------------------------------------------------
 
-project = 'HostPhot'
-copyright = '2022, Tomás E. Müller Bravo'
-author = 'Tomás E. Müller Bravo'
+project = "HostPhot"
+copyright = "2022, Tomás E. Müller Bravo"
+author = "Tomás E. Müller Bravo"
 
 # The short X.Y version.
 version = __version__
@@ -28,19 +28,19 @@ release = __version__
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-"sphinx.ext.autodoc",
-"sphinx.ext.napoleon",
-"sphinx.ext.mathjax",
-#"sphinx.ext.pngmath",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.mathjax",
+    # "sphinx.ext.pngmath",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -51,7 +51,7 @@ pygments_style = "sphinx"
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -68,4 +68,4 @@ html_context = dict(
 )
 
 # Name of the file to be used as the master document.
-master_doc = 'index'
+master_doc = "index"

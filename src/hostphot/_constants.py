@@ -1,4 +1,5 @@
-__workdir__ = 'images'
+__workdir__ = "images"
+
 
 def _choose_workdir(workdir):
     """Updates the work directory.

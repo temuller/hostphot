@@ -2,6 +2,7 @@ import numpy as np
 from astropy import wcs
 from astropy.nddata.utils import Cutout2D
 
+
 def trim_images(fits_files, pos, size):
     """Trims the size of the given fits images.
 
@@ -30,11 +31,12 @@ def trim_images(fits_files, pos, size):
         trimmed_data = Cutout2D(data, pos, size, img_wcs)
         fits_file[0].data = trimmed_data.data
         header.update(trimmed_data.wcs.to_header())
-        header['COMMENT'] = "= Trimmed fits file (hostphot)"
+        header["COMMENT"] = "= Trimmed fits file (hostphot)"
         fits_file[0].header = header
         trimmed_fits_files.append(fits_file)
 
     return trimmed_fits_files
+
 
 def remove_nan(image):
     """Remove columns and/or rows which have all NaN values.
@@ -59,16 +61,19 @@ def remove_nan(image):
     x_pos = np.median(np.arange(data.shape[1])[mask])
 
     mask = ~np.all(np.isnan(data), axis=1)
-    y_size = np.sum(np.ones_like(data[:,0])[mask])
+    y_size = np.sum(np.ones_like(data[:, 0])[mask])
     y_pos = np.median(np.arange(data.shape[0])[mask])
 
     # trim data and update the header with the WCS
-    trimmed_data = Cutout2D(data, (x_pos, y_pos),
-                            (y_size, x_size),   # has to be (ny, nx)
-                            wcs=img_wcs,
-                            copy=True)
+    trimmed_data = Cutout2D(
+        data,
+        (x_pos, y_pos),
+        (y_size, x_size),  # has to be (ny, nx)
+        wcs=img_wcs,
+        copy=True,
+    )
     header.update(trimmed_data.wcs.to_header())
-    header['COMMENT'] = "= Trimmed fits file (hostphot)"
+    header["COMMENT"] = "= Trimmed fits file (hostphot)"
 
     trimmed_image = image.copy()
     trimmed_image[0].data = trimmed_data.data

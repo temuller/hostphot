@@ -8,6 +8,7 @@ from astroquery.mast import Catalogs
 from astropy import units as u, wcs
 from astropy.coordinates import SkyCoord
 
+
 def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
     """Extracts objects and their ellipse parameters. The function :func:`sep.extract()`
     is used.
@@ -36,21 +37,21 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
     # extract objects with Source Extractor
     objects = sep.extract(data, threshold, err=err)
 
-    gal_coords = SkyCoord(ra=host_ra*u.degree,
-                          dec=host_dec*u.degree)
+    gal_coords = SkyCoord(ra=host_ra * u.degree, dec=host_dec * u.degree)
     gal_x, gal_y = img_wcs.world_to_pixel(gal_coords)
 
     # find the galaxy
-    x_diff = np.abs(objects['x']-gal_x)
-    y_diff = np.abs(objects['y']-gal_y)
+    x_diff = np.abs(objects["x"] - gal_x)
+    y_diff = np.abs(objects["y"] - gal_y)
     dist = np.sqrt(x_diff**2 + y_diff**2)
     gal_id = np.argmin(dist)
-    gal_obj = objects[gal_id:gal_id+1]
+    gal_obj = objects[gal_id : gal_id + 1]
 
-    objs_id = [i for i in range(len(objects)) if i!=gal_id]
+    objs_id = [i for i in range(len(objects)) if i != gal_id]
     nogal_objs = objects.take(objs_id)
 
     return gal_obj, nogal_objs
+
 
 def find_gaia_objects(ra, dec, img_wcs, rad=0.15):
     """Finds objects using the Gaia DR3 catalog for the given
@@ -74,25 +75,28 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.15):
     """
     Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
     Gaia.ROW_LIMIT = -1
-    coord = SkyCoord(ra=ra, dec=dec,
-                      unit=(u.degree, u.degree), frame='icrs')
+    coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs")
     width = u.Quantity(rad, u.deg)
     height = u.Quantity(rad, u.deg)
     try:
-        gaia_cat = Gaia.query_object_async(coordinate=coord,
-                                           width=width, height=height)
+        gaia_cat = Gaia.query_object_async(
+            coordinate=coord, width=width, height=height
+        )
     except:
-        print('No objects found with Gaia DR3, switching to DR2')
+        print("No objects found with Gaia DR3, switching to DR2")
         Gaia.MAIN_GAIA_TABLE = "gaiadr2.gaia_source"
-        gaia_cat = Gaia.query_object_async(coordinate=coord,
-                                           width=width, height=height)
+        gaia_cat = Gaia.query_object_async(
+            coordinate=coord, width=width, height=height
+        )
 
-    gaia_ra = np.array(gaia_cat['ra'].value)
-    gaia_dec = np.array(gaia_cat['dec'].value)
-    gaia_coord = SkyCoord(ra=gaia_ra, dec=gaia_dec,
-                          unit=(u.degree, u.degree), frame='icrs')
+    gaia_ra = np.array(gaia_cat["ra"].value)
+    gaia_dec = np.array(gaia_cat["dec"].value)
+    gaia_coord = SkyCoord(
+        ra=gaia_ra, dec=gaia_dec, unit=(u.degree, u.degree), frame="icrs"
+    )
 
     return gaia_coord
+
 
 def find_catalog_objects(ra, dec, img_wcs, rad=0.15):
     """Finds objects using the TESS image cutouts (Tic) catalog
@@ -117,18 +121,19 @@ def find_catalog_objects(ra, dec, img_wcs, rad=0.15):
     cat_coord: SkyCoor object
         Coordinates of the objects found.
     """
-    coord = SkyCoord(ra=ra, dec=dec,
-                      unit=(u.degree, u.degree), frame='icrs')
-    cat_data = Catalogs.query_criteria(catalog="Tic", radius=rad,
-                                    coordinates=f"{ra} {dec}",
-                                    objType="STAR")
+    coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs")
+    cat_data = Catalogs.query_criteria(
+        catalog="Tic", radius=rad, coordinates=f"{ra} {dec}", objType="STAR"
+    )
 
-    cat_ra = np.array(cat_data['ra'].value)
-    cat_dec = np.array(cat_data['dec'].value)
-    cat_coord = SkyCoord(ra=cat_ra, dec=cat_dec,
-                          unit=(u.degree, u.degree), frame='icrs')
+    cat_ra = np.array(cat_data["ra"].value)
+    cat_dec = np.array(cat_data["dec"].value)
+    cat_coord = SkyCoord(
+        ra=cat_ra, dec=cat_dec, unit=(u.degree, u.degree), frame="icrs"
+    )
 
     return cat_coord
+
 
 def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
     """Cross-matches objects with a given set of coordinates.
@@ -147,7 +152,7 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
         the given coordinates.
     """
     # coordinates in arcsec
-    objs_coord = img_wcs.pixel_to_world(objects['x'], objects['y'])
+    objs_coord = img_wcs.pixel_to_world(objects["x"], objects["y"])
     objs_ra = objs_coord.ra.to(u.arcsec).value
     objs_dec = objs_coord.dec.to(u.arcsec).value
 
@@ -166,6 +171,7 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
 
     return objs
 
+
 def plot_detected_objects(data, objects, scale, outfile=None):
     """Plots the objects extracted with :func:`sep.extract()``.
 
@@ -182,20 +188,26 @@ def plot_detected_objects(data, objects, scale, outfile=None):
     """
     fig, ax = plt.subplots(figsize=(8, 8))
     m, s = np.nanmean(data), np.nanstd(data)
-    im = ax.imshow(data, interpolation='nearest',
-                   cmap='gray',
-                   vmin=m-s, vmax=m+s,
-                   origin='lower')
+    im = ax.imshow(
+        data,
+        interpolation="nearest",
+        cmap="gray",
+        vmin=m - s,
+        vmax=m + s,
+        origin="lower",
+    )
 
-    e = Ellipse(xy=(objects['x'][0], objects['y'][0]),
-                width=scale*objects['a'][0],
-                height=scale*objects['b'][0],
-                angle=objects['theta'][0]*180./np.pi)
+    e = Ellipse(
+        xy=(objects["x"][0], objects["y"][0]),
+        width=scale * objects["a"][0],
+        height=scale * objects["b"][0],
+        angle=objects["theta"][0] * 180.0 / np.pi,
+    )
 
-    e.set_facecolor('none')
-    e.set_edgecolor('red')
+    e.set_facecolor("none")
+    e.set_edgecolor("red")
     ax.add_artist(e)
-    ax.set_title('Galaxy Aperture')
+    ax.set_title("Galaxy Aperture")
 
     if outfile:
         plt.tight_layout()

@@ -28,10 +28,17 @@ from astropy import units as u, wcs
 from astropy.cosmology import FlatLambdaCDM
 
 from hostphot._constants import __workdir__
-from hostphot.utils import (get_survey_filters, check_survey_validity,
-                            check_filters_validity, calc_sky_unc,
-                            survey_pixel_scale, survey_zp, get_image_gain,
-                            get_image_readnoise, check_work_dir)
+from hostphot.utils import (
+    get_survey_filters,
+    check_survey_validity,
+    check_filters_validity,
+    calc_sky_unc,
+    survey_pixel_scale,
+    survey_zp,
+    get_image_gain,
+    get_image_readnoise,
+    check_work_dir,
+)
 from hostphot.image_cleaning import remove_nan
 from hostphot.dust import calc_extinction
 
@@ -40,7 +47,7 @@ Om0 = 0.3
 __cosmo__ = FlatLambdaCDM(H0, Om0)
 sep.set_sub_object_limit(1e4)
 
-#----------------------------------------
+# ----------------------------------------
 def _choose_workdir(workdir):
     """Updates the work directory.
 
@@ -51,6 +58,7 @@ def _choose_workdir(workdir):
     """
     global __workdir__
     __workdir__ = workdir
+
 
 def choose_cosmology(cosmo):
     """Updates the cosmology used to calculate the aperture size.
@@ -63,7 +71,8 @@ def choose_cosmology(cosmo):
     global __cosmo__
     __cosmo__ = cosmo
 
-#-------------------------------
+
+# -------------------------------
 def calc_aperture_size(z, ap_radius):
     """Calculates the size of the aperture in arsec,
     for aperture photometry, given a physical size.
@@ -80,15 +89,16 @@ def calc_aperture_size(z, ap_radius):
     radius_arcsec: float
         Aperture size in arcsec.
     """
-    ap_radius = ap_radius*u.kpc
+    ap_radius = ap_radius * u.kpc
 
     # transverse separations
     transv_sep_per_arcmin = __cosmo__.kpc_proper_per_arcmin(z)
-    transv_sep_per_arcsec = transv_sep_per_arcmin.to(u.kpc/u.arcsec)
+    transv_sep_per_arcsec = transv_sep_per_arcmin.to(u.kpc / u.arcsec)
 
-    radius_arcsec = ap_radius/transv_sep_per_arcsec
+    radius_arcsec = ap_radius / transv_sep_per_arcsec
 
     return radius_arcsec.value
+
 
 def extract_aperture_flux(data, error, px, py, radius):
     """Extracts aperture photometry of a single image.
@@ -114,12 +124,12 @@ def extract_aperture_flux(data, error, px, py, radius):
         Uncertainty on the aperture photometry.
     """
     aperture = CircularAperture((px, py), r=radius)
-    ap_results = aperture_photometry(data, aperture,
-                                         error=error)
-    raw_flux = ap_results['aperture_sum'][0]
-    raw_flux_err = ap_results['aperture_sum_err'][0]
+    ap_results = aperture_photometry(data, aperture, error=error)
+    raw_flux = ap_results["aperture_sum"][0]
+    raw_flux_err = ap_results["aperture_sum_err"][0]
 
     return raw_flux, raw_flux_err
+
 
 def plot_aperture(data, px, py, radius_pix, outfile=None):
     """Plots the aperture for the given parameters.
@@ -139,12 +149,16 @@ def plot_aperture(data, px, py, radius_pix, outfile=None):
     """
     fig, ax = plt.subplots(figsize=(8, 8))
     m, s = np.nanmean(data), np.nanstd(data)
-    im = ax.imshow(data, interpolation='nearest',
-                   cmap='gray',
-                   vmin=m-s, vmax=m+s,
-                   origin='lower')
+    im = ax.imshow(
+        data,
+        interpolation="nearest",
+        cmap="gray",
+        vmin=m - s,
+        vmax=m + s,
+        origin="lower",
+    )
 
-    circle = plt.Circle((px, py), radius_pix, color='r', fill=False)
+    circle = plt.Circle((px, py), radius_pix, color="r", fill=False)
     ax.add_patch(circle)
 
     if outfile:
@@ -154,8 +168,19 @@ def plot_aperture(data, px, py, radius_pix, outfile=None):
     else:
         plt.show()
 
-def photometry(name, ra, dec, z, filt, survey, ap_radii=1, bkg_sub=False,
-                use_mask=True, save_plots=True):
+
+def photometry(
+    name,
+    ra,
+    dec,
+    z,
+    filt,
+    survey,
+    ap_radii=1,
+    bkg_sub=False,
+    use_mask=True,
+    save_plots=True,
+):
     """Calculates the local aperture photometry in a given radius.
 
     Parameters
@@ -194,17 +219,17 @@ def photometry(name, ra, dec, z, filt, survey, ap_radii=1, bkg_sub=False,
     check_work_dir(__workdir__)
     obj_dir = os.path.join(__workdir__, name)
     if use_mask:
-        suffix = 'masked_'
+        suffix = "masked_"
     else:
-        suffix = ''
-    fits_file = os.path.join(obj_dir, f'{suffix}{survey}_{filt}.fits')
+        suffix = ""
+    fits_file = os.path.join(obj_dir, f"{suffix}{survey}_{filt}.fits")
 
     img = fits.open(fits_file)
     img = remove_nan(img)
 
     header = img[0].header
     data = img[0].data
-    exptime = float(header['EXPTIME'])
+    exptime = float(header["EXPTIME"])
     gain = get_image_gain(header, survey)
     readnoise = get_image_readnoise(header, survey)
     img_wcs = wcs.WCS(header, naxis=2)
@@ -226,20 +251,21 @@ def photometry(name, ra, dec, z, filt, survey, ap_radii=1, bkg_sub=False,
         # aperture photometry
         radius_arcsec = calc_aperture_size(z, ap_radius)
         pixel_scale = survey_pixel_scale(survey)
-        radius_pix  = radius_arcsec/pixel_scale
+        radius_pix = radius_arcsec / pixel_scale
 
         px, py = img_wcs.wcs_world2pix(ra, dec, 1)
         error = calc_sky_unc(data_sub, exptime)
 
-        flux, flux_err = extract_aperture_flux(data_sub, error,
-                                                px, py, radius_pix)
+        flux, flux_err = extract_aperture_flux(
+            data_sub, error, px, py, radius_pix
+        )
 
         zp = survey_zp(survey)
-        if survey=='PS1':
-            zp += 2.5*np.log10(exptime)
+        if survey == "PS1":
+            zp += 2.5 * np.log10(exptime)
 
-        mag = -2.5*np.log10(flux) + zp
-        mag_err = 2.5/np.log(10)*flux_err/flux
+        mag = -2.5 * np.log10(flux) + zp
+        mag_err = 2.5 / np.log(10) * flux_err / flux
 
         # correct extinction
         A_ext = calc_extinction(filt, survey, ra, dec)
@@ -247,23 +273,39 @@ def photometry(name, ra, dec, z, filt, survey, ap_radii=1, bkg_sub=False,
 
         # error budget
         # 1.0857 = 2.5/ln(10)
-        if survey!='SDSS':
-            ap_area = 2*np.pi*(radius_pix**2)
-            extra_err = 1.0857*np.sqrt(ap_area*(readnoise**2) + flux/gain)/flux
+        if survey != "SDSS":
+            ap_area = 2 * np.pi * (radius_pix**2)
+            extra_err = (
+                1.0857
+                * np.sqrt(ap_area * (readnoise**2) + flux / gain)
+                / flux
+            )
             mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
         mags.append(mag)
         mags_err.append(mag_err)
 
         if save_plots:
-            outfile = os.path.join(obj_dir,
-                                    f'local_{survey}_{filt}_{ap_radius}kpc.jpg')
+            outfile = os.path.join(
+                obj_dir, f"local_{survey}_{filt}_{ap_radius}kpc.jpg"
+            )
             plot_aperture(data_sub, px, py, radius_pix, outfile)
 
     return mags, mags_err
 
-def multi_band_phot(name, ra, dec, z, filters=None, survey='PS1', ap_radii=1,
-                    bkg_sub=False, use_mask=True, save_plots=True):
+
+def multi_band_phot(
+    name,
+    ra,
+    dec,
+    z,
+    filters=None,
+    survey="PS1",
+    ap_radii=1,
+    bkg_sub=False,
+    use_mask=True,
+    save_plots=True,
+):
     """Calculates the local aperture photometry for multiple filters.
 
     Parameters
@@ -307,15 +349,29 @@ def multi_band_phot(name, ra, dec, z, filters=None, survey='PS1', ap_radii=1,
     if isinstance(ap_radii, float):
         ap_radii = [ap_radii]
 
-    results_dict = {'name':name, 'ra':ra, 'dec':dec,
-                    'zspec':z, 'survey':survey}
+    results_dict = {
+        "name": name,
+        "ra": ra,
+        "dec": dec,
+        "zspec": z,
+        "survey": survey,
+    }
 
     for filt in filters:
-        mags, mags_err = photometry(name, ra, dec, z, filt, survey,
-                                    ap_radii, bkg_sub, use_mask,
-                                    save_plots)
+        mags, mags_err = photometry(
+            name,
+            ra,
+            dec,
+            z,
+            filt,
+            survey,
+            ap_radii,
+            bkg_sub,
+            use_mask,
+            save_plots,
+        )
         for i, ap in enumerate(ap_radii):
-            results_dict[f'{filt}{ra}'] = mags[i]
-            results_dict[f'{filt}{ra}_err'] = mags_err[i]
+            results_dict[f"{filt}{ra}"] = mags[i]
+            results_dict[f"{filt}{ra}_err"] = mags_err[i]
 
     return results_dict

@@ -8,230 +8,248 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.table import Table
 
+
 def sky_median_sig_clip(input_arr, sig_fract, percent_fract, max_iter=100):
-	"""Estimates median sky value for a given number of iterationsself.
+    """Estimates median sky value for a given number of iterationsself.
 
     Parameters
-	----------
-	input_arr: numpy array
-	   	Image data array
-	sig_fract: float
-	   	Fraction of sigma clipping.
-	percent_fract: float
+        ----------
+        input_arr: numpy array
+                Image data array
+        sig_fract: float
+                Fraction of sigma clipping.
+        percent_fract: float
         Convergence fraction.
-	max_iter: int, default ``100``
+        max_iter: int, default ``100``
         Maximum number of iterations.
 
     Returns
     -------
-	(new_sky, iteration): tuple
-		Median sky value and number of iteration.
-	"""
-	work_arr = np.ravel(input_arr)
-	old_sky = np.median(work_arr)
-	sig = work_arr.std()
-	upper_limit = old_sky + sig_fract * sig
-	lower_limit = old_sky - sig_fract * sig
-	indices = np.where((work_arr < upper_limit) & (work_arr > lower_limit))
-	work_arr = work_arr[indices]
-	new_sky = np.median(work_arr)
-	iteration = 0
+        (new_sky, iteration): tuple
+                Median sky value and number of iteration.
+    """
+    work_arr = np.ravel(input_arr)
+    old_sky = np.median(work_arr)
+    sig = work_arr.std()
+    upper_limit = old_sky + sig_fract * sig
+    lower_limit = old_sky - sig_fract * sig
+    indices = np.where((work_arr < upper_limit) & (work_arr > lower_limit))
+    work_arr = work_arr[indices]
+    new_sky = np.median(work_arr)
+    iteration = 0
 
-	while ((math.fabs(old_sky - new_sky)/new_sky) > percent_fract) and (iteration < max_iter) :
-		iteration += 1
-		old_sky = new_sky
-		sig = work_arr.std()
-		upper_limit = old_sky + sig_fract * sig
-		lower_limit = old_sky - sig_fract * sig
-		indices = np.where((work_arr < upper_limit) & (work_arr > lower_limit))
-		work_arr = work_arr[indices]
-		new_sky = np.median(work_arr)
+    while ((math.fabs(old_sky - new_sky) / new_sky) > percent_fract) and (
+        iteration < max_iter
+    ):
+        iteration += 1
+        old_sky = new_sky
+        sig = work_arr.std()
+        upper_limit = old_sky + sig_fract * sig
+        lower_limit = old_sky - sig_fract * sig
+        indices = np.where((work_arr < upper_limit) & (work_arr > lower_limit))
+        work_arr = work_arr[indices]
+        new_sky = np.median(work_arr)
 
-	return (new_sky, iteration)
+    return (new_sky, iteration)
+
 
 def sky_mean_sig_clip(input_arr, sig_fract, percent_fract, max_iter=100):
-	"""Estimates mean sky value for a given number of iterations.
+    """Estimates mean sky value for a given number of iterations.
 
-	Parameters
+        Parameters
     ----------
-	input_arr: numpy array
-		Image data array
-	sig_fract: float
-		Fraction of sigma clipping.
-	percent_fract: float
+        input_arr: numpy array
+                Image data array
+        sig_fract: float
+                Fraction of sigma clipping.
+        percent_fract: float
         Convergence fraction.
-	max_iter: int, default ``100``
+        max_iter: int, default ``100``
         Maximum number of iterations.
 
     Returns
     -------
-	(new_sky, iteration): tuple
-		Mean sky value and number of iteration.
-	"""
-	work_arr = np.ravel(input_arr)
-	old_sky = np.mean(work_arr)
-	sig = work_arr.std()
-	upper_limit = old_sky + sig_fract * sig
-	lower_limit = old_sky - sig_fract * sig
-	indices = np.where((work_arr < upper_limit) & (work_arr > lower_limit))
-	work_arr = work_arr[indices]
-	new_sky = np.mean(work_arr)
-	iteration = 0
+        (new_sky, iteration): tuple
+                Mean sky value and number of iteration.
+    """
+    work_arr = np.ravel(input_arr)
+    old_sky = np.mean(work_arr)
+    sig = work_arr.std()
+    upper_limit = old_sky + sig_fract * sig
+    lower_limit = old_sky - sig_fract * sig
+    indices = np.where((work_arr < upper_limit) & (work_arr > lower_limit))
+    work_arr = work_arr[indices]
+    new_sky = np.mean(work_arr)
+    iteration = 0
 
-	while ((math.fabs(old_sky - new_sky)/new_sky) > percent_fract) and (iteration < max_iter) :
-		iteration += 1
-		old_sky = new_sky
-		sig = work_arr.std()
-		upper_limit = old_sky + sig_fract * sig
-		lower_limit = old_sky - sig_fract * sig
-		indices = np.where((work_arr < upper_limit) & (work_arr > lower_limit))
-		work_arr = work_arr[indices]
-		new_sky = np.mean(work_arr)
+    while ((math.fabs(old_sky - new_sky) / new_sky) > percent_fract) and (
+        iteration < max_iter
+    ):
+        iteration += 1
+        old_sky = new_sky
+        sig = work_arr.std()
+        upper_limit = old_sky + sig_fract * sig
+        lower_limit = old_sky - sig_fract * sig
+        indices = np.where((work_arr < upper_limit) & (work_arr > lower_limit))
+        work_arr = work_arr[indices]
+        new_sky = np.mean(work_arr)
 
-	return (new_sky, iteration)
+    return (new_sky, iteration)
+
 
 def linear(inputArray, scale_min=None, scale_max=None):
-	"""Performs linear scaling of the input numpy array.
+    """Performs linear scaling of the input numpy array.
 
     Parameters
     ----------
-	inputArray: numpy array
-		Image data array.
-	scale_min: float, default ``None``
-		Minimum data value.
-	scale_max: float, default ``None``
-		Maximum data value.
+        inputArray: numpy array
+                Image data array.
+        scale_min: float, default ``None``
+                Minimum data value.
+        scale_max: float, default ``None``
+                Maximum data value.
 
     Returns
     -------
-	imageData: numpy array
-		Scaled image data array.
-	"""
-	imageData=np.array(inputArray, copy=True)
+        imageData: numpy array
+                Scaled image data array.
+    """
+    imageData = np.array(inputArray, copy=True)
 
-	if scale_min == None:
-		scale_min = np.nanmin(imageData)
-	if scale_max == None:
-		scale_max = np.nanmax(imageData)
+    if scale_min == None:
+        scale_min = np.nanmin(imageData)
+    if scale_max == None:
+        scale_max = np.nanmax(imageData)
 
-	imageData = imageData.clip(min=scale_min, max=scale_max)
-	imageData = (imageData -scale_min) / (scale_max - scale_min)
-	indices = np.where(imageData < 0)
-	imageData[indices] = 0.0
-	indices = np.where(imageData > 1)
-	imageData[indices] = 1.0
+    imageData = imageData.clip(min=scale_min, max=scale_max)
+    imageData = (imageData - scale_min) / (scale_max - scale_min)
+    indices = np.where(imageData < 0)
+    imageData[indices] = 0.0
+    indices = np.where(imageData > 1)
+    imageData[indices] = 1.0
 
-	return imageData
+    return imageData
+
 
 def sqrt(inputArray, scale_min=None, scale_max=None):
-	"""Performs :func:`sqrt` scaling of the input numpy array.
+    """Performs :func:`sqrt` scaling of the input numpy array.
 
-	Parameters
-	----------
-	inputArray: numpy array
-		Image data array.
-	scale_min: float, default ``None``
-		Minimum data value.
-	scale_max: float, default ``None``
-		Maximum data value.
+        Parameters
+        ----------
+        inputArray: numpy array
+                Image data array.
+        scale_min: float, default ``None``
+                Minimum data value.
+        scale_max: float, default ``None``
+                Maximum data value.
 
     Returns
     -------
-	imageData: numpy array
-		Scaled image data array.
-	"""
-	imageData=np.array(inputArray, copy=True)
+        imageData: numpy array
+                Scaled image data array.
+    """
+    imageData = np.array(inputArray, copy=True)
 
-	if scale_min == None:
-		scale_min = np.nanmin(imageData)
-	if scale_max == None:
-		scale_max = np.nanmax(imageData)
+    if scale_min == None:
+        scale_min = np.nanmin(imageData)
+    if scale_max == None:
+        scale_max = np.nanmax(imageData)
 
-	imageData = imageData.clip(min=scale_min, max=scale_max)
-	imageData = imageData - scale_min
-	indices = np.where(imageData < 0)
-	imageData[indices] = 0.0
-	imageData = np.sqrt(imageData)
-	imageData = imageData / math.sqrt(scale_max - scale_min)
+    imageData = imageData.clip(min=scale_min, max=scale_max)
+    imageData = imageData - scale_min
+    indices = np.where(imageData < 0)
+    imageData[indices] = 0.0
+    imageData = np.sqrt(imageData)
+    imageData = imageData / math.sqrt(scale_max - scale_min)
 
-	return imageData
+    return imageData
+
 
 def log(inputArray, scale_min=None, scale_max=None):
-	"""Performs :func:`log10` scaling of the input numpy array.
+    """Performs :func:`log10` scaling of the input numpy array.
 
-	Parameters
-	----------
-	inputArray: numpy array
-		Image data array.
-	scale_min: float, default ``None``
-		Minimum data value.
-	scale_max: float, default ``None``
-		Maximum data value.
+        Parameters
+        ----------
+        inputArray: numpy array
+                Image data array.
+        scale_min: float, default ``None``
+                Minimum data value.
+        scale_max: float, default ``None``
+                Maximum data value.
 
     Returns
     -------
-	imageData: numpy array
-		Scaled image data array.
-	"""
-	imageData=np.array(inputArray, copy=True)
+        imageData: numpy array
+                Scaled image data array.
+    """
+    imageData = np.array(inputArray, copy=True)
 
-	if scale_min == None:
-		scale_min = np.nanmin(imageData)
-	if scale_max == None:
-		scale_max = np.nanmax(imageData)
+    if scale_min == None:
+        scale_min = np.nanmin(imageData)
+    if scale_max == None:
+        scale_max = np.nanmax(imageData)
 
-	factor = math.log10(scale_max - scale_min)
-	indices0 = np.where(imageData < scale_min)
-	indices1 = np.where((imageData >= scale_min) & (imageData <= scale_max))
-	indices2 = np.where(imageData > scale_max)
-	imageData[indices0] = 0.0
-	imageData[indices2] = 1.0
-	try :
-		imageData[indices1] = np.log10(imageData[indices1])/factor
-	except :
-		print("Error on math.log10 for ", (imageData[indices1] - scale_min))
+    factor = math.log10(scale_max - scale_min)
+    indices0 = np.where(imageData < scale_min)
+    indices1 = np.where((imageData >= scale_min) & (imageData <= scale_max))
+    indices2 = np.where(imageData > scale_max)
+    imageData[indices0] = 0.0
+    imageData[indices2] = 1.0
+    try:
+        imageData[indices1] = np.log10(imageData[indices1]) / factor
+    except:
+        print("Error on math.log10 for ", (imageData[indices1] - scale_min))
 
-	return imageData
+    return imageData
+
 
 def asinh(inputArray, scale_min=None, scale_max=None, non_linear=2.0):
-	"""Performs :func:`asinh` scaling of the input numpy array.
+    """Performs :func:`asinh` scaling of the input numpy array.
 
     Parameters
     ----------
-	inputArray: numpy array
-		Image data array.
-	scale_min: float, default ``None``
-		Minimum data value.
-	scale_max: float, default ``None``
-		Maximum data value.
-	non_linear: float, default ``2.0``
-  		Non-linearity factor.
+        inputArray: numpy array
+                Image data array.
+        scale_min: float, default ``None``
+                Minimum data value.
+        scale_max: float, default ``None``
+                Maximum data value.
+        non_linear: float, default ``2.0``
+                Non-linearity factor.
 
     Returns
     -------
-	imageData: numpy array
-		Scaled image data array.
-	"""
-	imageData=np.array(inputArray, copy=True)
+        imageData: numpy array
+                Scaled image data array.
+    """
+    imageData = np.array(inputArray, copy=True)
 
-	if scale_min == None:
-		scale_min = np.nanmin(imageData)
-	if scale_max == None:
-		scale_max = np.nanmax(imageData)
+    if scale_min == None:
+        scale_min = np.nanmin(imageData)
+    if scale_max == None:
+        scale_max = np.nanmax(imageData)
 
-	factor = np.arcsinh((scale_max - scale_min)/non_linear)
-	indices0 = np.where(imageData < scale_min)
-	indices1 = np.where((imageData >= scale_min) & (imageData <= scale_max))
-	indices2 = np.where(imageData > scale_max)
-	imageData[indices0] = 0.0
-	imageData[indices2] = 1.0
-	imageData[indices1] = np.arcsinh((imageData[indices1] - \
-	scale_min)/non_linear)/factor
+    factor = np.arcsinh((scale_max - scale_min) / non_linear)
+    indices0 = np.where(imageData < scale_min)
+    indices1 = np.where((imageData >= scale_min) & (imageData <= scale_max))
+    indices2 = np.where(imageData > scale_max)
+    imageData[indices0] = 0.0
+    imageData[indices2] = 1.0
+    imageData[indices1] = (
+        np.arcsinh((imageData[indices1] - scale_min) / non_linear) / factor
+    )
 
-	return imageData
+    return imageData
 
-def create_RGB_image(outfile=None, survey='PS1', filters='zir', images_dir='',
-                                scaling='linear', scaling_params=None):
+
+def create_RGB_image(
+    outfile=None,
+    survey="PS1",
+    filters="zir",
+    images_dir="",
+    scaling="linear",
+    scaling_params=None,
+):
     """Creates an RGB image.
 
     Parameters
@@ -250,21 +268,23 @@ def create_RGB_image(outfile=None, survey='PS1', filters='zir', images_dir='',
         Dictionary with the parameters for the ``scaling`` function. If ``None``,
         use the default values.
 
-	Examples
-	--------
-	>>> # Example of scaling_params:
-	>>> scaling_params = {'R':{'min':r_med/100, 'max':r_med*30},
-					  'G':{'min':g_med/1000, 'max':g_med*150},
-					  'B':{'min':b_med/30, 'max':b_med*100}}
+        Examples
+        --------
+        >>> # Example of scaling_params:
+        >>> scaling_params = {'R':{'min':r_med/100, 'max':r_med*30},
+                                          'G':{'min':g_med/1000, 'max':g_med*150},
+                                          'B':{'min':b_med/30, 'max':b_med*100}}
     """
 
-    assert len(filters)==3, 'Three filters should be given.'
-    scalings = ['linear', 'sqrt', 'log', 'asinh']
-    assert scaling in scalings, f'Not a valid scaling (choose between {scalings})'
+    assert len(filters) == 3, "Three filters should be given."
+    scalings = ["linear", "sqrt", "log", "asinh"]
+    assert (
+        scaling in scalings
+    ), f"Not a valid scaling (choose between {scalings})"
 
     rgb_files = []
     for filt in filters:
-        filt_image = os.path.join(images_dir, f'{survey}_{filt}.fits')
+        filt_image = os.path.join(images_dir, f"{survey}_{filt}.fits")
         rgb_files.append(filt_image)
 
     r_img = fits.getdata(rgb_files[0], ext=0)
@@ -276,9 +296,10 @@ def create_RGB_image(outfile=None, survey='PS1', filters='zir', images_dir='',
     imgs = [r_img, g_img, b_img]
 
     if scaling_params is None:
-        scaling_params = {'R':{'min':r_med/100, 'max':r_med*30},
-                          'G':{'min':g_med/1000, 'max':g_med*150},
-                          'B':{'min':b_med/30, 'max':b_med*100}
+        scaling_params = {
+            "R": {"min": r_med / 100, "max": r_med * 30},
+            "G": {"min": g_med / 1000, "max": g_med * 150},
+            "B": {"min": b_med / 30, "max": b_med * 100},
         }
     scaling_func = eval(scaling)  # scaling function
 
@@ -286,16 +307,20 @@ def create_RGB_image(outfile=None, survey='PS1', filters='zir', images_dir='',
     for i, filt_img in enumerate(imgs):
         img_scalings = list(scaling_params.values())[i]
         scale_min, scale_max = img_scalings.values()
-        img[:,:,i] = scaling_func(filt_img, scale_min=scale_min, scale_max=scale_max)
+        img[:, :, i] = scaling_func(
+            filt_img, scale_min=scale_min, scale_max=scale_max
+        )
 
     fig = plt.figure(figsize=(12, 12))
     plt.clf()
-    plt.imshow(img, origin='lower')
-    plt.title(f'Blue = {filters[0]}, Green = {filters[1]}, Red = {filters[2]}')
+    plt.imshow(img, origin="lower")
+    plt.title(f"Blue = {filters[0]}, Green = {filters[1]}, Red = {filters[2]}")
     if outfile is not None:
         plt.savefig(outfile)
 
+
 # ---------------------------------------
+
 
 def get_PS1_url(ra, dec, size=600, filters="grizy", data_format="jpg"):
     """Get URL for the colour image.
@@ -318,33 +343,39 @@ def get_PS1_url(ra, dec, size=600, filters="grizy", data_format="jpg"):
     url: str
         The image's URL for a colour image.
     """
-    assert data_format in ["jpg","png"], ("format must be one of "
-                                                 "'jpg' or 'png'")
-    assert len(filters)>=3, "must choose at least 3 filters"
+    assert data_format in ["jpg", "png"], (
+        "format must be one of " "'jpg' or 'png'"
+    )
+    assert len(filters) >= 3, "must choose at least 3 filters"
 
     # get table with images
     service = "https://ps1images.stsci.edu/cgi-bin/ps1filenames.py"
-    table_url = (f"{service}?ra={ra}&dec={dec}&size={size}&format=fits&"
-           f"filters={filters}")
-    table = Table.read(table_url, format='ascii')
+    table_url = (
+        f"{service}?ra={ra}&dec={dec}&size={size}&format=fits&"
+        f"filters={filters}"
+    )
+    table = Table.read(table_url, format="ascii")
 
     # url for colour image
-    url = ("https://ps1images.stsci.edu/cgi-bin/fitscut.cgi?"
-           f"ra={ra}&dec={dec}&size={size}&format={data_format}"
-           f"&output_size={size}")
+    url = (
+        "https://ps1images.stsci.edu/cgi-bin/fitscut.cgi?"
+        f"ra={ra}&dec={dec}&size={size}&format={data_format}"
+        f"&output_size={size}"
+    )
 
     # sort filters from red to blue
-    flist = ["yzirg".find(x) for x in table['filter']]
+    flist = ["yzirg".find(x) for x in table["filter"]]
     table = table[np.argsort(flist)]
 
     if len(table) > 3:
         # pick only 3 filters
-        table = table[[0,len(table)//2,len(table)-1]]
+        table = table[[0, len(table) // 2, len(table) - 1]]
 
     for i, param in enumerate(["red", "green", "blue"]):
         url = url + f"&{param}={table['filename'][i]}"
 
     return url
+
 
 def get_PS1_RGB_image(outfile, ra, dec, size=600, filters="grizy"):
     """Downloads an RGB image from the PS1 server.
@@ -371,8 +402,9 @@ def get_PS1_RGB_image(outfile, ra, dec, size=600, filters="grizy"):
     remote_url = get_PS1_url(ra, dec, size, filters, data_format)
 
     data = requests.get(remote_url)
-    with open(outfile, 'wb')as file:
+    with open(outfile, "wb") as file:
         file.write(data.content)
+
 
 def get_SDSS_RGB_image(outfile, ra, dec, size=600):
     """Downloads an RGB image from the PS1 server.
@@ -394,10 +426,12 @@ def get_SDSS_RGB_image(outfile, ra, dec, size=600):
         The image's URL for a colour image.
     """
     scale = 0.396127
-    remote_url = ("http://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/"
-                  f"getjpeg?ra={ra}&dec={dec}&scale={scale}"
-                  f"&width={size}&height={size}")
+    remote_url = (
+        "http://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/"
+        f"getjpeg?ra={ra}&dec={dec}&scale={scale}"
+        f"&width={size}&height={size}"
+    )
 
     data = requests.get(remote_url)
-    with open(outfile, 'wb')as file:
+    with open(outfile, "wb") as file:
         file.write(data.content)
