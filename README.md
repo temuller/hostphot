@@ -23,6 +23,14 @@ conda activate hostphot
 pip install hostphot
 ```
 
+### Tests
+
+To run the tests, go to the parent directory and run the following command:
+
+```code
+pytest -v
+```
+
 ## Modules
 
 ### Cutouts
@@ -85,6 +93,15 @@ results = gp.multi_band_phot(name='SN2004eo', host_ra, host_dec, survey='PS1',
                             optimze_kronrad=True, save_plots=True)
 
 ```
+
+## Contributing
+
+To contribute, either open an issue or send a pull request (prefered option). You can also contact me directly.
+
+### Adding other surveys
+
+If you wish to add a survey not implemented in HostPhot, there are a few things needed: where to download the images from (optional), zero-points to convert the images's flux values into magnitudes (e.g. AB magnitudes), the scaling of the images (pixels/arcsec), the filters transmission functions and any other piece of information necessary to properly estimate magnitudes, errors, etc. 
+
 
 ## Citing HostPhot
 

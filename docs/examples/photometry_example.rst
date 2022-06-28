@@ -3,6 +3,8 @@
 Photometry
 ==========
 
+HostPhot can calculate the photometry of the entire galaxy (global) or in a given circular aperture (local). For this, the code heavily relies on `astropy` and `photutils`.
+
 Local Photometry
 ~~~~~~~~~~~~~~~~
 

@@ -2,7 +2,7 @@ images/
 src/hostphot/sfddata-master/
 .ipynb*
 
-*__pycache__*
+#*__pycache__*
 *egg*
 
 dist/

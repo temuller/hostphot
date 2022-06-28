@@ -19,7 +19,7 @@ class TestHostPhot(unittest.TestCase):
             survey=survey,
             use_mask=False,
             common_aperture=False,
-            optimze_kronrad=True,
+            optimize_kronrad=True,
             save_plots=True,
         )
 
