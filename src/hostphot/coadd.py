@@ -6,6 +6,9 @@ from reproject.mosaicking import reproject_and_coadd
 
 from hostphot._constants import __workdir__
 
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+
 # ----------------------------------------
 def _choose_workdir(workdir):
     """Updates the work directory.
@@ -47,9 +50,11 @@ def coadd_images(name, filters="riz", survey="PS1"):
 
     hdu_list = fits.HDUList(hdu_list)
     # use the last image as reference
-    coadd = reproject_and_coadd(
-        hdu_list, fits_image[0].header, reproject_function=reproject_interp
-    )
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', AstropyWarning)
+        coadd = reproject_and_coadd(
+            hdu_list, fits_image[0].header, reproject_function=reproject_interp
+        )
     fits_image[0].data = coadd[0]
     outfile = os.path.join(obj_dir, f"{survey}_{filters}.fits")
     fits_image.writeto(outfile, overwrite=True)

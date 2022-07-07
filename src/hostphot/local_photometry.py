@@ -16,7 +16,6 @@
 
 import os
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 
 import sep
@@ -38,9 +37,13 @@ from hostphot.utils import (
     get_image_gain,
     get_image_readnoise,
     check_work_dir,
+    update_axislabels
 )
 from hostphot.image_cleaning import remove_nan
 from hostphot.dust import calc_extinction
+
+import warnings
+from astropy.utils.exceptions import AstropyWarning
 
 H0 = 70
 Om0 = 0.3
@@ -131,7 +134,7 @@ def extract_aperture_flux(data, error, px, py, radius):
     return raw_flux, raw_flux_err
 
 
-def plot_aperture(data, px, py, radius_pix, outfile=None):
+def plot_aperture(data, px, py, radius_pix, img_wcs, outfile=None):
     """Plots the aperture for the given parameters.
 
     Parameters
@@ -144,11 +147,18 @@ def plot_aperture(data, px, py, radius_pix, outfile=None):
         Y-axis center of the aperture in pixels.
     radius_pix: float
         Aperture radius in pixels.
+    img_wcs: WCS
+        Image's WCS.
     outfile: str, default ``None``
         If given, path where to save the output figure.
     """
-    fig, ax = plt.subplots(figsize=(8, 8))
     m, s = np.nanmean(data), np.nanstd(data)
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = plt.subplot(projection=img_wcs)
+    overlay = update_axislabels(ax)
+    ax.scatter(px, py, marker='*', s=140, c='g')
+
     im = ax.imshow(
         data,
         interpolation="nearest",
@@ -158,11 +168,11 @@ def plot_aperture(data, px, py, radius_pix, outfile=None):
         origin="lower",
     )
 
-    circle = plt.Circle((px, py), radius_pix, color="r", fill=False)
+    circle = plt.Circle((px, py), radius_pix, color="r", fill=False, linewidth=1.5)
     ax.add_patch(circle)
 
     if outfile:
-        plt.tight_layout()
+        #plt.tight_layout()
         plt.savefig(outfile)
         plt.close(fig)
     else:
@@ -232,7 +242,9 @@ def photometry(
     exptime = float(header["EXPTIME"])
     gain = get_image_gain(header, survey)
     readnoise = get_image_readnoise(header, survey)
-    img_wcs = wcs.WCS(header, naxis=2)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', AstropyWarning)
+        img_wcs = wcs.WCS(header, naxis=2)
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
@@ -289,7 +301,7 @@ def photometry(
             outfile = os.path.join(
                 obj_dir, f"local_{survey}_{filt}_{ap_radius}kpc.jpg"
             )
-            plot_aperture(data_sub, px, py, radius_pix, outfile)
+            plot_aperture(data_sub, px, py, radius_pix, img_wcs, outfile)
 
     return mags, mags_err
 

@@ -5,8 +5,10 @@ from matplotlib.patches import Ellipse
 import sep
 from astroquery.gaia import Gaia
 from astroquery.mast import Catalogs
-from astropy import units as u, wcs
+from astropy import units as u
 from astropy.coordinates import SkyCoord
+
+from hostphot.utils import update_axislabels
 
 
 def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
@@ -37,7 +39,7 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
     # extract objects with Source Extractor
     objects = sep.extract(data, threshold, err=err)
 
-    gal_coords = SkyCoord(ra=host_ra * u.degree, dec=host_dec * u.degree)
+    gal_coords = SkyCoord(ra=host_ra * u.degree, dec=host_dec * u.degree, frame='icrs')
     gal_x, gal_y = img_wcs.world_to_pixel(gal_coords)
 
     # find the galaxy
@@ -123,7 +125,7 @@ def find_catalog_objects(ra, dec, img_wcs, rad=0.15):
     """
     coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs")
     cat_data = Catalogs.query_criteria(
-        catalog="Tic", radius=rad, coordinates=f"{ra} {dec}", objType="STAR"
+        catalog="Tic", radius=rad, coordinates=coord, objType="STAR"
     )
 
     cat_ra = np.array(cat_data["ra"].value)
@@ -172,7 +174,7 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
     return objs
 
 
-def plot_detected_objects(data, objects, scale, outfile=None):
+def plot_detected_objects(data, objects, scale, img_wcs, ra=None, dec=None, outfile=None):
     """Plots the objects extracted with :func:`sep.extract()``.
 
     Parameters
@@ -183,11 +185,21 @@ def plot_detected_objects(data, objects, scale, outfile=None):
         Objects detected with :func:`sep.extract()`.
     scale: float
         Scale of the ellipse's semi-mayor and semi-minor axes.
+    img_wcs: WCS
+        Image's WCS.
+    ra: float, default ``None´´
+       Right ascension of an object, in degrees. Used for plotting the position of the object.
+    dec: float, default ``None´´
+       Declination of an object, in degrees. Used for plotting the position of the object.
     outfile: str, default ``None``
         If given, path where to save the output figure.
     """
-    fig, ax = plt.subplots(figsize=(8, 8))
     m, s = np.nanmean(data), np.nanstd(data)
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = plt.subplot(projection=img_wcs)
+    overlay = update_axislabels(ax)
+
     im = ax.imshow(
         data,
         interpolation="nearest",
@@ -206,11 +218,16 @@ def plot_detected_objects(data, objects, scale, outfile=None):
 
     e.set_facecolor("none")
     e.set_edgecolor("red")
+    e.set_linewidth(1.5)
     ax.add_artist(e)
-    ax.set_title("Galaxy Aperture")
+
+    if (ra is not None) and (dec is not None):
+        coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame='icrs')
+        px, py = img_wcs.world_to_pixel(coord)
+        ax.scatter(px, py, marker='*', s=140, c='g')
 
     if outfile:
-        plt.tight_layout()
+        #plt.tight_layout()
         plt.savefig(outfile)
         plt.close(fig)
     else:

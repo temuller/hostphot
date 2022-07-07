@@ -2,6 +2,8 @@ import numpy as np
 from astropy import wcs
 from astropy.nddata.utils import Cutout2D
 
+import warnings
+from astropy.utils.exceptions import AstropyWarning
 
 def trim_images(fits_files, pos, size):
     """Trims the size of the given fits images.
@@ -25,7 +27,9 @@ def trim_images(fits_files, pos, size):
     for fits_file in fits_files:
         data = fits_file[0].data.copy()
         header = fits_file[0].header
-        img_wcs = wcs.WCS(header, naxis=2)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', AstropyWarning)
+            img_wcs = wcs.WCS(header, naxis=2)
 
         # trim data and update the header with the WCS
         trimmed_data = Cutout2D(data, pos, size, img_wcs)
@@ -54,7 +58,9 @@ def remove_nan(image):
     """
     header = image[0].header
     data = image[0].data
-    img_wcs = wcs.WCS(header, naxis=2)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', AstropyWarning)
+        img_wcs = wcs.WCS(header, naxis=2)
 
     mask = ~np.all(np.isnan(data), axis=0)
     x_size = np.sum(np.ones_like(data[0])[mask])

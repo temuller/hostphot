@@ -5,7 +5,8 @@ from matplotlib.patches import Ellipse
 
 import sep
 from astropy.io import fits
-from astropy import wcs
+from astropy import wcs, units as u
+from astropy.coordinates import SkyCoord, concatenate
 from astropy.convolution import (
     Gaussian2DKernel,
     convolve_fft,
@@ -20,7 +21,11 @@ from hostphot.objects_detect import (
     find_catalog_objects,
     cross_match,
 )
-from hostphot.utils import check_survey_validity, pixel2pixel
+from hostphot.utils import (check_survey_validity, pixel2pixel,
+                            update_axislabels)
+
+import warnings
+from astropy.utils.exceptions import AstropyWarning
 
 
 # ----------------------------------------
@@ -139,9 +144,11 @@ def create_mask(
     host_dec,
     filt,
     survey,
+    ra=None, dec=None,
     bkg_sub=False,
-    threshold=10,
-    sigma=20,
+    threshold=15,
+    sigma=8,
+    crossmatch=True,
     extract_params=False,
     common_params=None,
     save_plots=True,
@@ -153,20 +160,27 @@ def create_mask(
     name: str
         Name of the object to find the path of the fits file.
     host_ra: float
-        Host-galaxy Right ascension of the galaxy in degrees.
+        Host-galaxy right ascension in degrees.
     host_dec: float
-        Host-galaxy Declination of the galaxy in degrees.
+        Host-galaxy declination in degrees.
     filt: str
         Filter to use to load the fits file.
     survey: str
         Survey to use for the zero-points and correct filter path.
+    ra: float, default ``None´´
+       Right ascension of an object, in degrees. Used for plotting.
+    dec: float, default ``None´´
+       Declination of an object, in degrees. Used for plotting.
     bkg_sub: bool, default ``False``
         If ``True``, the image gets background subtracted.
-    threshold: float, default `10`
+    threshold: float, default `15`
         Threshold used by :func:`sep.extract()` to extract objects.
-    sigma: float, default ``20``
+    sigma: float, default ``8``
         Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
+    crossmatch: bool, default ``True``
+        If ``True``, the detected objects are cross-matched with a
+        Gaia catalog.
     extract_params: bool, default ``False``
         If ``True``, returns the parameters listed below.
     common_params: tuple, default ``None``
@@ -194,7 +208,9 @@ def create_mask(
 
     header = img[0].header
     data = img[0].data
-    img_wcs = wcs.WCS(header, naxis=2)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', AstropyWarning)
+        img_wcs = wcs.WCS(header, naxis=2)
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
@@ -210,9 +226,13 @@ def create_mask(
             data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs
         )
         # preprocessing: cross-match extracted objects with a catalog
-        # cat_coord = find_gaia_objects(host_ra, host_dec, img_wcs)
-        cat_coord = find_catalog_objects(host_ra, host_dec, img_wcs)
-        nogal_objs = cross_match(nogal_objs, img_wcs, cat_coord)
+        # using two Gaia catalogs as they do not always include the
+        # same objects.
+        if crossmatch:
+            cat_coord1 = find_gaia_objects(host_ra, host_dec, img_wcs)
+            cat_coord2 = find_catalog_objects(host_ra, host_dec, img_wcs)
+            cat_coord = concatenate([cat_coord1, cat_coord2])
+            nogal_objs = cross_match(nogal_objs, img_wcs, cat_coord)
     else:
         # use objects previously extracted
         # the pixels coordinates are updated accordingly
@@ -231,13 +251,14 @@ def create_mask(
 
     if save_plots:
         outfile = os.path.join(obj_dir, f"masked_{survey}_{filt}.jpg")
-        plot_masked_image(data_sub, masked_data, nogal_objs, outfile)
+        plot_masked_image(data_sub, masked_data, nogal_objs, img_wcs,
+                          ra, dec, outfile)
 
     if extract_params:
         return gal_obj, nogal_objs, img_wcs
 
 
-def plot_masked_image(data, masked_data, objects, outfile=None):
+def plot_masked_image(data, masked_data, objects, img_wcs, ra=None, dec=None, outfile=None):
     """Plots the masked image together with the original image and
     the detected objects.
 
@@ -249,14 +270,29 @@ def plot_masked_image(data, masked_data, objects, outfile=None):
          Masked image data.
     objects: array
         Objects extracted with :func:`sep.extract()`.
+    img_wcs: WCS
+        Image's WCS.
+    ra: float, default ``None´´
+       Right ascension of an object, in degrees. Used for plotting the position of the object.
+    dec: float, default ``None´´
+       Declination of an object, in degrees. Used for plotting the position of the object.
     outfile: str, default ``None``
         If given, path where to save the output figure.
     """
     r = 4  # scale
-    fig, ax = plt.subplots(1, 3, figsize=(20, 8))
     m, s = np.nanmean(data), np.nanstd(data)
-    for i in range(2):
-        ax[i].imshow(
+
+    fig = plt.figure(figsize=(24, 10))
+    ax0 = plt.subplot(131, projection=img_wcs)
+    ax1 = plt.subplot(132, projection=img_wcs)
+    ax2 = plt.subplot(133, projection=img_wcs)
+    axes = [ax0, ax1, ax2]
+
+    overlays = []
+    for ax in axes:
+        overlay = update_axislabels(ax)
+        overlays.append(overlay)
+        ax.imshow(
             data,
             interpolation="nearest",
             cmap="gray",
@@ -264,6 +300,9 @@ def plot_masked_image(data, masked_data, objects, outfile=None):
             vmax=m + s,
             origin="lower",
         )
+    for i in range(1, 3):
+        overlays[i][1].set_axislabel('')
+        overlays[i][1].set_ticklabel_visible(False)
 
     for i in range(len(objects)):
         e = Ellipse(
@@ -274,9 +313,10 @@ def plot_masked_image(data, masked_data, objects, outfile=None):
         )
         e.set_facecolor("none")
         e.set_edgecolor("red")
-        ax[1].add_artist(e)
+        e.set_linewidth(1.5)
+        ax1.add_artist(e)
 
-    ax[2].imshow(
+    ax2.imshow(
         masked_data,
         interpolation="nearest",
         cmap="gray",
@@ -285,13 +325,22 @@ def plot_masked_image(data, masked_data, objects, outfile=None):
         origin="lower",
     )
 
-    ax[0].set_title("Initial Image")
-    ax[1].set_title("Detected Objects")
-    ax[2].set_title("Masked Image")
+    ax0.set_title("Initial Image", fontsize=24)
+    ax1.set_title("Detected Objects", fontsize=24)
+    ax2.set_title("Masked Image", fontsize=24)
+
+    if (ra is not None) and (dec is not None):
+        coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame='icrs')
+        x, y = img_wcs.world_to_pixel(coord)
+        for ax in axes:
+            ax.scatter(x, y, marker='*', s=100, c='g')
 
     if outfile:
-        plt.tight_layout()
+        #plt.tight_layout()
         plt.savefig(outfile)
         plt.close(fig)
     else:
         plt.show()
+
+
+

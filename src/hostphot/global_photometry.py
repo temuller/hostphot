@@ -15,14 +15,12 @@
 # Some parts of this notebook are based on https://github.com/djones1040/PS1_surface_brightness/blob/master/Surface%20Brightness%20Tutorial.ipynb and codes from Lluís Galbany
 
 import os
-import inspect
 import numpy as np
-import pandas as pd
-import multiprocessing as mp
 
 import sep
+from astropy import wcs, units as u
 from astropy.io import fits
-from astropy import wcs
+from astropy.coordinates import SkyCoord
 
 from hostphot._constants import __workdir__
 from hostphot.utils import (
@@ -40,6 +38,7 @@ from hostphot.image_cleaning import remove_nan
 from hostphot.dust import calc_extinction
 
 import warnings
+from astropy.utils.exceptions import AstropyWarning
 
 sep.set_sub_object_limit(1e4)
 
@@ -112,7 +111,7 @@ def kron_flux(data, err, gain, objects, kronrad, scale):
     return flux, flux_err
 
 
-def optimize_kron_flux(data, err, gain, objects, eps=0.001):
+def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
     """Optimizes the Kron flux by iteration over different values.
     The stop condition is met when the change in flux is less that ``eps``.
 
@@ -126,7 +125,7 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.001):
         Gain value.
     objects: array
         Objects detected with :func:`sep.extract()`.
-    eps: float, default ``0.001``
+    eps: float, default ``0.0001`` (0.1%)
         Minimum percent change in flux allowed between iterations.
 
     Returns
@@ -192,11 +191,13 @@ def extract_kronparams(
     host_dec,
     filt,
     survey,
+    ra=None,
+    dec=None,
     bkg_sub=False,
     threshold=10,
     use_mask=True,
     optimize_kronrad=True,
-    eps=0.001,
+    eps=0.0001,
     save_plots=True,
 ):
     """Calculates the aperture parameters for common aperture.
@@ -213,6 +214,10 @@ def extract_kronparams(
         Filter to use to load the fits file.
     survey: str
         Survey to use for the zero-points and pixel scale.
+    ra: float, default ``None´´
+       Right ascension of an object, in degrees. Used for plotting the position of the object.
+    dec: float, default ``None´´
+       Declination of an object, in degrees. Used for plotting the position of the object.
     bkg_sub: bool, default `False`
         If `True`, the image gets background subtracted.
     threshold: float, default `10`
@@ -223,7 +228,7 @@ def extract_kronparams(
     optimize_kronrad: bool, default `True`
         If `True`, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
-    eps: float, default `0.001`
+    eps: float, default ``0.0001`` (0.1%)
         Minimum percent change in flux allowed between iterations
         when optimizing the Kron radius.
     save_plots: bool, default `False`
@@ -254,7 +259,9 @@ def extract_kronparams(
 
     header = img[0].header
     data = img[0].data
-    img_wcs = wcs.WCS(header, naxis=2)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', AstropyWarning)
+        img_wcs = wcs.WCS(header, naxis=2)
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
@@ -286,7 +293,7 @@ def extract_kronparams(
 
     if save_plots:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
-        plot_detected_objects(data_sub, gal_obj, scale * kronrad, outfile)
+        plot_detected_objects(data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile)
 
     return gal_obj, img_wcs, kronrad, scale
 
@@ -297,12 +304,14 @@ def photometry(
     host_dec,
     filt,
     survey,
+    ra=None,
+    dec=None,
     bkg_sub=False,
     threshold=10,
     use_mask=True,
     aperture_params=None,
     optimize_kronrad=True,
-    eps=0.001,
+    eps=0.0001,
     save_plots=True,
 ):
     """Calculates the global aperture photometry of a galaxy using
@@ -322,6 +331,10 @@ def photometry(
         Filter to use to load the fits file.
     survey: str
         Survey to use for the zero-points and pixel scale.
+    ra: float, default ``None´´
+       Right ascension of an object, in degrees. Used for plotting the position of the object.
+    dec: float, default ``None´´
+       Declination of an object, in degrees. Used for plotting the position of the object.
     bkg_sub: bool, default `False`
         If `True`, the image gets background subtracted.
     threshold: float, default `10`
@@ -336,7 +349,7 @@ def photometry(
     optimize_kronrad: bool, default `True`
         If `True`, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
-    eps: float, default `0.001`
+    eps: float, default ``0.0001`` (0.1%)
         Minimum percent change in flux allowed between iterations
         when optimizing the Kron radius.
     save_plots: bool, default `True`
@@ -366,7 +379,9 @@ def photometry(
     exptime = float(header["EXPTIME"])
     gain = get_image_gain(header, survey)
     readnoise = get_image_readnoise(header, survey)
-    img_wcs = wcs.WCS(header, naxis=2)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', AstropyWarning)
+        img_wcs = wcs.WCS(header, naxis=2)
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
@@ -438,7 +453,7 @@ def photometry(
 
     if save_plots:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
-        plot_detected_objects(data_sub, gal_obj, scale * kronrad, outfile)
+        plot_detected_objects(data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile)
 
     return mag, mag_err
 
@@ -449,13 +464,15 @@ def multi_band_phot(
     host_dec,
     filters=None,
     survey="PS1",
+    ra=None,
+    dec=None,
     bkg_sub=False,
     threshold=10,
     use_mask=True,
     common_aperture=True,
     coadd_filters="riz",
     optimize_kronrad=True,
-    eps=0.001,
+    eps=0.0001,
     save_plots=True,
 ):
     """Calculates multi-band aperture photometry of the host galaxy
@@ -474,6 +491,10 @@ def multi_band_phot(
         the filters of the given survey.
     survey: str, default ``PS1``
         Survey to use for the zero-points and pixel scale.
+    ra: float, default ``None´´
+       Right ascension of an object, in degrees. Used for plotting the position of the object.
+    dec: float, default ``None´´
+       Declination of an object, in degrees. Used for plotting the position of the object.
     bkg_sub: bool, default ``False``
         If `True`, the image gets background subtracted.
     threshold: float, default ``10``
@@ -488,7 +509,7 @@ def multi_band_phot(
     optimize_kronrad: bool, default ``True``
         If ``True``, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
-    eps: float, default ``0.001``
+    eps: float, default ``0.0001`` (0.1%)
         Minimum percent change in flux allowed between iterations
         when optimizing the Kron radius.
     save_plots: bool, default ``True``
@@ -519,6 +540,8 @@ def multi_band_phot(
             host_dec,
             coadd_filters,
             survey,
+            ra,
+            dec,
             bkg_sub,
             threshold,
             use_mask,
@@ -536,6 +559,7 @@ def multi_band_phot(
             host_dec,
             filt,
             survey,
+            ra, dec,
             bkg_sub,
             threshold,
             use_mask,

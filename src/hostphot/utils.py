@@ -1,13 +1,8 @@
 import os
-import sys
-import tarfile
 import numpy as np
 
-import sfdmap
-import extinction
 import hostphot
 
-from astropy import wcs
 from astropy.stats import sigma_clipped_stats
 from photutils.utils import calc_total_error
 
@@ -302,3 +297,39 @@ def clean_dir(dir):
         os.rmdir(dir)
     except:
         pass
+
+
+def update_axislabels(ax):
+    """Updates a plot to show the labels in RA and Dec.
+
+    Parameters
+    ----------
+    ax: `.axes.SubplotBase`.
+        The axis of a subplot.
+
+    Returns
+    -------
+    overlay: ax: `.axes.SubplotBase`-like object.
+        New axis of a subplot.
+    """
+    overlay = ax.get_coords_overlay('icrs')
+    for i in range(2):
+        ax.coords[i].set_axislabel('')
+        ax.coords[i].set_ticklabel_visible(False)
+        ax.coords[i].set_ticks_visible(False)
+        overlay[i].set_ticks_position('all')
+        overlay[i].set_ticklabel(size=16)
+        if i == 0:
+            overlay[i].set_axislabel('RA (°)',
+                                     fontsize=20)
+            overlay[i].set_ticklabel_position('b')
+            overlay[i].set_axislabel_position('b')
+            #overlay[i].set_ticklabel(rotation=20, pad=20)
+        else:
+            overlay[i].set_axislabel('Dec (°)',
+                                     fontsize=20)
+            overlay[i].set_ticklabel_position('l')
+            overlay[i].set_axislabel_position('l')
+            overlay[i].set_ticklabel(rotation=65)
+
+    return overlay
