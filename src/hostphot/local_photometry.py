@@ -156,7 +156,7 @@ def plot_aperture(data, px, py, radius_pix, img_wcs, outfile=None):
 
     fig = plt.figure(figsize=(10, 10))
     ax = plt.subplot(projection=img_wcs)
-    overlay = update_axislabels(ax)
+    update_axislabels(ax)
     ax.scatter(px, py, marker='*', s=140, c='g')
 
     im = ax.imshow(
@@ -172,8 +172,8 @@ def plot_aperture(data, px, py, radius_pix, img_wcs, outfile=None):
     ax.add_patch(circle)
 
     if outfile:
-        #plt.tight_layout()
-        plt.savefig(outfile)
+        plt.tight_layout()
+        plt.savefig(outfile, bbox_inches='tight')
         plt.close(fig)
     else:
         plt.show()

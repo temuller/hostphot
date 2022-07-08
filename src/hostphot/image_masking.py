@@ -148,7 +148,7 @@ def create_mask(
     bkg_sub=False,
     threshold=15,
     sigma=8,
-    crossmatch=True,
+    crossmatch=False,
     extract_params=False,
     common_params=None,
     save_plots=True,
@@ -178,7 +178,7 @@ def create_mask(
     sigma: float, default ``8``
         Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
-    crossmatch: bool, default ``True``
+    crossmatch: bool, default ``False``
         If ``True``, the detected objects are cross-matched with a
         Gaia catalog.
     extract_params: bool, default ``False``
@@ -290,8 +290,7 @@ def plot_masked_image(data, masked_data, objects, img_wcs, ra=None, dec=None, ou
 
     overlays = []
     for ax in axes:
-        overlay = update_axislabels(ax)
-        overlays.append(overlay)
+        update_axislabels(ax)
         ax.imshow(
             data,
             interpolation="nearest",
@@ -300,9 +299,9 @@ def plot_masked_image(data, masked_data, objects, img_wcs, ra=None, dec=None, ou
             vmax=m + s,
             origin="lower",
         )
-    for i in range(1, 3):
-        overlays[i][1].set_axislabel('')
-        overlays[i][1].set_ticklabel_visible(False)
+    for ax in axes[1:]:
+        ax.coords[1].set_axislabel('')
+        ax.coords[1].set_ticklabel_visible(False)
 
     for i in range(len(objects)):
         e = Ellipse(
@@ -336,8 +335,8 @@ def plot_masked_image(data, masked_data, objects, img_wcs, ra=None, dec=None, ou
             ax.scatter(x, y, marker='*', s=100, c='g')
 
     if outfile:
-        #plt.tight_layout()
-        plt.savefig(outfile)
+        plt.tight_layout()
+        plt.savefig(outfile, bbox_inches='tight')
         plt.close(fig)
     else:
         plt.show()

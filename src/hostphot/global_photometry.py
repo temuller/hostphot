@@ -179,6 +179,7 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
             warnings.warn("Warning: the aperture might not fit in the image!")
             break
         else:
+            opt_scale = scale
             opt_flux = flux
             opt_flux_err = flux_err
 

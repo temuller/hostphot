@@ -300,36 +300,19 @@ def clean_dir(dir):
 
 
 def update_axislabels(ax):
-    """Updates a plot to show the labels in RA and Dec.
+    """Updates the labels and ticks of a plot.
 
     Parameters
     ----------
     ax: `.axes.SubplotBase`.
         The axis of a subplot.
-
-    Returns
-    -------
-    overlay: ax: `.axes.SubplotBase`-like object.
-        New axis of a subplot.
     """
-    overlay = ax.get_coords_overlay('icrs')
     for i in range(2):
-        ax.coords[i].set_axislabel('')
-        ax.coords[i].set_ticklabel_visible(False)
-        ax.coords[i].set_ticks_visible(False)
-        overlay[i].set_ticks_position('all')
-        overlay[i].set_ticklabel(size=16)
+        ax.coords[i].set_ticklabel(size=16)
         if i == 0:
-            overlay[i].set_axislabel('RA (°)',
+            ax.coords[i].set_axislabel('RA (J2000)',
                                      fontsize=20)
-            overlay[i].set_ticklabel_position('b')
-            overlay[i].set_axislabel_position('b')
-            #overlay[i].set_ticklabel(rotation=20, pad=20)
         else:
-            overlay[i].set_axislabel('Dec (°)',
+            ax.coords[i].set_axislabel('Dec (2000)',
                                      fontsize=20)
-            overlay[i].set_ticklabel_position('l')
-            overlay[i].set_axislabel_position('l')
-            overlay[i].set_ticklabel(rotation=65)
-
-    return overlay
+            #ax.coords[i].set_ticklabel(rotation=65)
