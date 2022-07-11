@@ -10,4 +10,4 @@ build/
 docs/_build/
 tests/images/*
 
-.idea/workspace.xml
+.idea/
