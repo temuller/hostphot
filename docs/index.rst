@@ -48,18 +48,18 @@ HostPhot is being actively developed in `a public repository on GitHub
    :maxdepth: 2
    :caption: API User Guide
 
-   user/hostphot.rst
-   user/cutouts.rst
-   user/objects_detect.rst
-   user/rgb_images.rst
-   user/image_cleaning.rst
-   user/image_masking.rst
-   user/coadd.rst
-   user/dust.rst
-   user/local_photometry.rst
-   user/global_photometry.rst
-   user/interactive_aperture.rst
-   user/utils.rst
+   api/hostphot.rst
+   api/cutouts.rst
+   api/objects_detect.rst
+   api/rgb_images.rst
+   api/image_cleaning.rst
+   api/image_masking.rst
+   api/coadd.rst
+   api/dust.rst
+   api/local_photometry.rst
+   api/global_photometry.rst
+   api/interactive_aperture.rst
+   api/utils.rst
 
 
 .. toctree::

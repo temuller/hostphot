@@ -19,3 +19,4 @@ Other support functions are documented bellow:
 .. autofunction:: integrate_filter
 .. autofunction:: check_work_dir
 .. autofunction:: clean_dir
+.. autofunction:: update_axislabels

@@ -39,7 +39,11 @@ This module allows you to download image cutouts from `PS1`, `DES` and `SDSS`:
 
 ```python
 from hostphot.cutouts import download_images
-download_images(name='SN2004eo', ra=308.22579, dec=9.92853, survey='PS1')
+
+name = 'SN2004eo'
+host_ra, host_dec = 308.2092, 9.92755  # coords of host galaxy of SN2004eo
+survey = 'PS1'
+download_images(name, host_ra, host_dec, survey=survey)
 ```
 
 ### Image Pre-processing
@@ -50,22 +54,24 @@ Coadds can be created and stars can be masked out of the images:
 from hostphot.coadd import coadd_images
 
 coadd_filters = 'riz'
-survey = 'PS1'
-coadd_images('SN2004eo', coadd_filters, survey)   # creates a new fits file
+coadd_images(name, filters=coadd_filters, survey=survey)  # creates a new fits file
 ```
 
 ```python
 from hostphot.image_masking import create_mask
 
-host_ra, host_dec = 308.2092, 9.92755  # coods of host galaxy of SN2004eo
+# one can extract the mask parameters from the coadd
+# this also creates new fits files
 coadd_mask_params = create_mask(name, host_ra, host_dec,
-                                 filt=coadd_filters, survey=survey,
-                                 extract_params=True)  # we can extract the mask parameters from the coadd
+                                filt=coadd_filters, survey=survey,
+                                extract_params=True)  
 
 for filt in 'grizy':
     create_mask(name, host_ra, host_dec, filt, survey=survey,
                 common_params=coadd_mask_params)
 ```
+
+If the user is not happy with the result of the masking, there are a few parameters that can be adjusted. For instance, `threshold` sets the threshold used by `sep` for detecting objects. Lowering it will allow the detection of fainter objects. `sigma` is the width of the gaussian used for convolving the image and masking the detected objects. If `crossmatch` is set to `True`, the detected objects are cross-matched with the Gaia catalog and only those in common are kept. This is useful for very nearby host galaxies (e.g. that of SN 2011fe) so the structures of the galaxy are not maked out, artificially lowering its flux.
 
 ### Local Photometry
 
@@ -75,10 +81,16 @@ Local photometry can be obtained for multiple circular apertures:
 ```python
 import hostphot.local_photometry as lp
 
-ap_radii = [1, 2, 3, 4]  # in units of kpc
-results = lp.multi_band_phot(name='SN2004eo', ra=308.22579, dec=9.92853, z=0.0157,
-                   survey='PS1', ap_radii=ap_radii, use_mask=True, save_plots=True)
+ap_radii = [3, 4]  # aperture radii in units of kpc
+ra, dec =  308.22579, 9.92853 # coords of SN2004eo
+z = 0.0157  # redshift
+
+results = lp.multi_band_phot(name, ra, dec, z,
+                             survey=survey, ap_radii=ap_radii, 
+                             use_mask=True, save_plots=True)
 ```
+
+If the results return `NaN` values, this means that the flux is below the detection limit for the given survey.
 
 ### Global Photometry
 
@@ -87,11 +99,10 @@ Global photometry can be obtained in a similar way to local photometry, using co
 ```python
 import hostphot.global_photometry as gp
 
-host_ra, host_dec = 308.2092, 9.92755  # coods of host galaxy of SN2004eo
-results = gp.multi_band_phot(name='SN2004eo', host_ra, host_dec, survey='PS1',
-                            use_mask=True, common_aperture=True, coadd_filters='riz',
-                            optimze_kronrad=True, save_plots=True)
-
+results = gp.multi_band_phot(name, host_ra, host_dec, 
+                             survey=survey, ra=ra, dec=dec,
+                             use_mask=True, common_aperture=True, 
+                             coadd_filters='riz', save_plots=True)
 ```
 
 ## Contributing
