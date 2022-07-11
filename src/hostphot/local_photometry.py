@@ -259,14 +259,13 @@ def photometry(
         ap_radii = [ap_radii]
 
     mags, mags_err = [], []
+    px, py = img_wcs.wcs_world2pix(ra, dec, 1)
+    pixel_scale = survey_pixel_scale(survey)
+    error = calc_sky_unc(data_sub, exptime)
     for ap_radius in ap_radii:
         # aperture photometry
         radius_arcsec = calc_aperture_size(z, ap_radius)
-        pixel_scale = survey_pixel_scale(survey)
         radius_pix = radius_arcsec / pixel_scale
-
-        px, py = img_wcs.wcs_world2pix(ra, dec, 1)
-        error = calc_sky_unc(data_sub, exptime)
 
         flux, flux_err = extract_aperture_flux(
             data_sub, error, px, py, radius_pix
@@ -383,7 +382,7 @@ def multi_band_phot(
             save_plots,
         )
         for i, ap in enumerate(ap_radii):
-            results_dict[f"{filt}{ra}"] = mags[i]
-            results_dict[f"{filt}{ra}_err"] = mags_err[i]
+            results_dict[f"{filt}{ap}"] = mags[i]
+            results_dict[f"{filt}{ap}_err"] = mags_err[i]
 
     return results_dict

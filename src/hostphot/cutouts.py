@@ -24,6 +24,9 @@ from hostphot.utils import (
 )
 from hostphot.image_cleaning import trim_images
 
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+
 # ----------------------------------------
 def _choose_workdir(workdir):
     """Updates the work directory.
@@ -332,12 +335,14 @@ def match_wcs(fits_files):
     # some hdu have data + error
     # for i in range(len(matched_fits_files[0])):
     hdu0 = matched_fits_files[0][0]
-    wcs0 = wcs.WCS(hdu0.header)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', AstropyWarning)
+        wcs0 = wcs.WCS(hdu0.header)
 
-    for hdu in matched_fits_files[1:]:
-        data, footprint = reproject_interp(hdu[0], hdu0.header)
-        hdu[0].data = data
-        hdu[0].header.update(wcs0.to_header())
+        for hdu in matched_fits_files[1:]:
+            data, footprint = reproject_interp(hdu[0], hdu0.header)
+            hdu[0].data = data
+            hdu[0].header.update(wcs0.to_header())
 
     return matched_fits_files
 
