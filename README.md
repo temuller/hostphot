@@ -1,4 +1,4 @@
-# HostPhot
+<img src="docs/hostphot_logo.png" alt="drawing" width="300"/>
 
 Global and local photometry of galaxies hosting supernovae or other transients
 

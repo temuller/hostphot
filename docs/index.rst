@@ -6,6 +6,10 @@
 Welcome to HostPhot's documentation!
 ====================================
 
+.. image:: hostphot_logo.png
+   :scale: 50 %
+   :align: center
+
 Global and local photometry of galaxies hosting supernovae or other transients.
 
 HostPhot is being actively developed in `a public repository on GitHub
