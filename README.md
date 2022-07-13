@@ -1,4 +1,6 @@
-<img src="docs/hostphot_logo.png" alt="drawing" width="300"/>
+<p align="center">
+	<img src="docs/hostphot_logo.png" alt="drawing" width="300"/>
+</p>
 
 Global and local photometry of galaxies hosting supernovae or other transients
 
