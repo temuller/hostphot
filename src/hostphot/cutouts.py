@@ -336,7 +336,7 @@ def match_wcs(fits_files):
     # for i in range(len(matched_fits_files[0])):
     hdu0 = matched_fits_files[0][0]
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', AstropyWarning)
+        warnings.simplefilter("ignore", AstropyWarning)
         wcs0 = wcs.WCS(hdu0.header)
 
         for hdu in matched_fits_files[1:]:

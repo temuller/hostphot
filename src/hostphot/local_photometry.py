@@ -37,7 +37,7 @@ from hostphot.utils import (
     get_image_gain,
     get_image_readnoise,
     check_work_dir,
-    update_axislabels
+    update_axislabels,
 )
 from hostphot.image_cleaning import remove_nan
 from hostphot.dust import calc_extinction
@@ -157,7 +157,7 @@ def plot_aperture(data, px, py, radius_pix, img_wcs, outfile=None):
     fig = plt.figure(figsize=(10, 10))
     ax = plt.subplot(projection=img_wcs)
     update_axislabels(ax)
-    ax.scatter(px, py, marker='*', s=140, c='g')
+    ax.scatter(px, py, marker="*", s=140, c="g")
 
     im = ax.imshow(
         data,
@@ -168,12 +168,14 @@ def plot_aperture(data, px, py, radius_pix, img_wcs, outfile=None):
         origin="lower",
     )
 
-    circle = plt.Circle((px, py), radius_pix, color="r", fill=False, linewidth=1.5)
+    circle = plt.Circle(
+        (px, py), radius_pix, color="r", fill=False, linewidth=1.5
+    )
     ax.add_patch(circle)
 
     if outfile:
         plt.tight_layout()
-        plt.savefig(outfile, bbox_inches='tight')
+        plt.savefig(outfile, bbox_inches="tight")
         plt.close(fig)
     else:
         plt.show()
@@ -243,7 +245,7 @@ def photometry(
     gain = get_image_gain(header, survey)
     readnoise = get_image_readnoise(header, survey)
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', AstropyWarning)
+        warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(header, naxis=2)
 
     data = data.astype(np.float64)

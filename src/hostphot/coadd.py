@@ -51,7 +51,7 @@ def coadd_images(name, filters="riz", survey="PS1"):
     hdu_list = fits.HDUList(hdu_list)
     # use the last image as reference
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', AstropyWarning)
+        warnings.simplefilter("ignore", AstropyWarning)
         coadd = reproject_and_coadd(
             hdu_list, fits_image[0].header, reproject_function=reproject_interp
         )

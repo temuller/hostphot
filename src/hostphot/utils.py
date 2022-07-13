@@ -310,9 +310,7 @@ def update_axislabels(ax):
     for i in range(2):
         ax.coords[i].set_ticklabel(size=16)
         if i == 0:
-            ax.coords[i].set_axislabel('RA (J2000)',
-                                     fontsize=20)
+            ax.coords[i].set_axislabel("RA (J2000)", fontsize=20)
         else:
-            ax.coords[i].set_axislabel('Dec (J2000)',
-                                     fontsize=20)
-            #ax.coords[i].set_ticklabel(rotation=65)
+            ax.coords[i].set_axislabel("Dec (J2000)", fontsize=20)
+            # ax.coords[i].set_ticklabel(rotation=65)

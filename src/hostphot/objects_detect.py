@@ -39,7 +39,9 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
     # extract objects with Source Extractor
     objects = sep.extract(data, threshold, err=err)
 
-    gal_coords = SkyCoord(ra=host_ra * u.degree, dec=host_dec * u.degree, frame='icrs')
+    gal_coords = SkyCoord(
+        ra=host_ra * u.degree, dec=host_dec * u.degree, frame="icrs"
+    )
     gal_x, gal_y = img_wcs.world_to_pixel(gal_coords)
 
     # find the galaxy
@@ -174,7 +176,9 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
     return objs
 
 
-def plot_detected_objects(data, objects, scale, img_wcs, ra=None, dec=None, outfile=None):
+def plot_detected_objects(
+    data, objects, scale, img_wcs, ra=None, dec=None, outfile=None
+):
     """Plots the objects extracted with :func:`sep.extract()``.
 
     Parameters
@@ -222,13 +226,15 @@ def plot_detected_objects(data, objects, scale, img_wcs, ra=None, dec=None, outf
     ax.add_artist(e)
 
     if (ra is not None) and (dec is not None):
-        coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame='icrs')
+        coord = SkyCoord(
+            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
+        )
         px, py = img_wcs.world_to_pixel(coord)
-        ax.scatter(px, py, marker='*', s=140, c='g')
+        ax.scatter(px, py, marker="*", s=140, c="g")
 
     if outfile:
         plt.tight_layout()
-        plt.savefig(outfile, bbox_inches='tight')
+        plt.savefig(outfile, bbox_inches="tight")
         plt.close(fig)
     else:
         plt.show()

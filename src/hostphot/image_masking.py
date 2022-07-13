@@ -21,8 +21,11 @@ from hostphot.objects_detect import (
     find_catalog_objects,
     cross_match,
 )
-from hostphot.utils import (check_survey_validity, pixel2pixel,
-                            update_axislabels)
+from hostphot.utils import (
+    check_survey_validity,
+    pixel2pixel,
+    update_axislabels,
+)
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -144,7 +147,8 @@ def create_mask(
     host_dec,
     filt,
     survey,
-    ra=None, dec=None,
+    ra=None,
+    dec=None,
     bkg_sub=False,
     threshold=15,
     sigma=8,
@@ -209,7 +213,7 @@ def create_mask(
     header = img[0].header
     data = img[0].data
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', AstropyWarning)
+        warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(header, naxis=2)
 
     data = data.astype(np.float64)
@@ -251,14 +255,17 @@ def create_mask(
 
     if save_plots:
         outfile = os.path.join(obj_dir, f"masked_{survey}_{filt}.jpg")
-        plot_masked_image(data_sub, masked_data, nogal_objs, img_wcs,
-                          ra, dec, outfile)
+        plot_masked_image(
+            data_sub, masked_data, nogal_objs, img_wcs, ra, dec, outfile
+        )
 
     if extract_params:
         return gal_obj, nogal_objs, img_wcs
 
 
-def plot_masked_image(data, masked_data, objects, img_wcs, ra=None, dec=None, outfile=None):
+def plot_masked_image(
+    data, masked_data, objects, img_wcs, ra=None, dec=None, outfile=None
+):
     """Plots the masked image together with the original image and
     the detected objects.
 
@@ -300,7 +307,7 @@ def plot_masked_image(data, masked_data, objects, img_wcs, ra=None, dec=None, ou
             origin="lower",
         )
     for ax in axes[1:]:
-        ax.coords[1].set_axislabel('')
+        ax.coords[1].set_axislabel("")
         ax.coords[1].set_ticklabel_visible(False)
 
     for i in range(len(objects)):
@@ -329,17 +336,16 @@ def plot_masked_image(data, masked_data, objects, img_wcs, ra=None, dec=None, ou
     ax2.set_title("Masked Image", fontsize=24)
 
     if (ra is not None) and (dec is not None):
-        coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame='icrs')
+        coord = SkyCoord(
+            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
+        )
         x, y = img_wcs.world_to_pixel(coord)
         for ax in axes:
-            ax.scatter(x, y, marker='*', s=100, c='g')
+            ax.scatter(x, y, marker="*", s=100, c="g")
 
     if outfile:
         plt.tight_layout()
-        plt.savefig(outfile, bbox_inches='tight')
+        plt.savefig(outfile, bbox_inches="tight")
         plt.close(fig)
     else:
         plt.show()
-
-
-

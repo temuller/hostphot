@@ -261,7 +261,7 @@ def extract_kronparams(
     header = img[0].header
     data = img[0].data
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', AstropyWarning)
+        warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(header, naxis=2)
 
     data = data.astype(np.float64)
@@ -294,7 +294,9 @@ def extract_kronparams(
 
     if save_plots:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
-        plot_detected_objects(data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile)
+        plot_detected_objects(
+            data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile
+        )
 
     return gal_obj, img_wcs, kronrad, scale
 
@@ -381,7 +383,7 @@ def photometry(
     gain = get_image_gain(header, survey)
     readnoise = get_image_readnoise(header, survey)
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', AstropyWarning)
+        warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(header, naxis=2)
 
     data = data.astype(np.float64)
@@ -454,7 +456,9 @@ def photometry(
 
     if save_plots:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
-        plot_detected_objects(data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile)
+        plot_detected_objects(
+            data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile
+        )
 
     return mag, mag_err
 
@@ -560,7 +564,8 @@ def multi_band_phot(
             host_dec,
             filt,
             survey,
-            ra, dec,
+            ra,
+            dec,
             bkg_sub,
             threshold,
             use_mask,
