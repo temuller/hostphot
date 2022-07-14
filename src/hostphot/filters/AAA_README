@@ -1,4 +1,25 @@
-Each directory has a README file with some explanation, either from me or from where I took the files.
+Each directory has a README file with some explanation, either from me or from where I took the files from.
 
-by
-Tomás Müller
+The config.txt file contains all the necessary information, for each survey, to extract calibrated photometry: survey, filters (separated by commas if their names are more than one character long), zeropoint (separated by a comma if they are different for each filter), pixel scale of the image (in units of arcsec/pixel), magnitude system and magnitude system convertion factor (m_AB = m_VEGA + mag_sys_conv).
+
+For more info, check:
+
+DES: https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/processing
+
+PS1: https://outerspace.stsci.edu/display/PANSTARRS/PS1+Image+Cutout+Service#PS1ImageCutoutService-ImportantFITSimageformat,WCS,andflux-scalingnotes
+     https://outerspace.stsci.edu/display/PANSTARRS/PS1+Stack+images#PS1Stackimages-Photometriccalibration
+     
+SDSS: https://www.sdss.org/dr12/algorithms/fluxcal/#SDSStoAB
+      https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
+      
+GALEX: https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html
+
+2MASS: https://irsa.ipac.caltech.edu/applications/2MASS/LGA/calib.html
+       https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/
+       https://www.astronomy.ohio-state.edu/martini.10/usefuldata.html (for AB to Vega conversion)
+       
+WISE: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
+      https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4h.html
+
+README by
+Tomás E. Müller Bravo
