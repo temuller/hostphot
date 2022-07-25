@@ -33,7 +33,7 @@ def trim_images(fits_files, pos, size):
             img_wcs = wcs.WCS(header, naxis=2)
 
         # trim data and update the header with the WCS
-        trimmed_data = Cutout2D(data, pos, size, img_wcs)
+        trimmed_data = Cutout2D(data, pos, size, img_wcs, copy=True)
         fits_file[0].data = trimmed_data.data
         header.update(trimmed_data.wcs.to_header())
         header["COMMENT"] = "= Trimmed fits file (hostphot)"

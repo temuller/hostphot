@@ -302,7 +302,10 @@ class InteractiveAperture:
         """Calculates the magnitude within the aperture."""
         flux = self.flux_phot[self.filt]
         flux_err = self.flux_phot[f"{self.filt}_err"]
-        zp = survey_zp(self.survey) + 2.5 * np.log10(self.exptime)
+        zp_dict = survey_zp(self.survey)
+        zp = zp_dict[self.filt]
+        if self.survey=='PS1':
+            zp += 2.5 * np.log10(self.exptime)
 
         mag = -2.5 * np.log10(flux) + zp
         mag_err = 2.5 / np.log(10) * flux_err / flux

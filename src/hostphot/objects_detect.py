@@ -230,7 +230,7 @@ def plot_detected_objects(
             ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
         )
         px, py = img_wcs.world_to_pixel(coord)
-        ax.scatter(px, py, marker="*", s=140, c="g")
+        ax.scatter(px, py, marker="*", s=140, c="g", edgecolor='gold')
 
     if outfile:
         plt.tight_layout()

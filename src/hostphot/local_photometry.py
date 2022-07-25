@@ -36,8 +36,10 @@ from hostphot.utils import (
     survey_zp,
     get_image_gain,
     get_image_readnoise,
+    get_image_exptime,
     check_work_dir,
     update_axislabels,
+    uncertainty_calc,
 )
 from hostphot.image_cleaning import remove_nan
 from hostphot.dust import calc_extinction
@@ -157,7 +159,7 @@ def plot_aperture(data, px, py, radius_pix, img_wcs, outfile=None):
     fig = plt.figure(figsize=(10, 10))
     ax = plt.subplot(projection=img_wcs)
     update_axislabels(ax)
-    ax.scatter(px, py, marker="*", s=140, c="g")
+    ax.scatter(px, py, marker="*", s=140, c="g", edgecolor='gold')
 
     im = ax.imshow(
         data,
@@ -218,14 +220,14 @@ def photometry(
         If ``True``, the masked fits files are used. These must have
         been created beforehand.
     save_plots: bool, default ``True``
-        If ``True``, the a figure with the aperture is saved.
+        If ``True``, the figure with the aperture is saved.
 
     Returns
     -------
     mags: list
-        List of aperture magnitudes for the given aperture radii.
+        Aperture magnitudes for the given aperture radii.
     mags_err: list
-        List of aperture magnitude errors for the given aperture radii.
+        Aperture magnitude errors for the given aperture radii.
     """
     check_survey_validity(survey)
     check_work_dir(__workdir__)
@@ -241,9 +243,11 @@ def photometry(
 
     header = img[0].header
     data = img[0].data
-    exptime = float(header["EXPTIME"])
+
+    exptime = get_image_exptime(header, survey)
     gain = get_image_gain(header, survey)
     readnoise = get_image_readnoise(header, survey)
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(header, naxis=2)
@@ -257,7 +261,7 @@ def photometry(
         data_sub = np.copy(data)
 
     # turn float into a list
-    if isinstance(ap_radii, float):
+    if isinstance(ap_radii, (float, int)):
         ap_radii = [ap_radii]
 
     mags, mags_err = [], []
@@ -273,7 +277,8 @@ def photometry(
             data_sub, error, px, py, radius_pix
         )
 
-        zp = survey_zp(survey)
+        zp_dict = survey_zp(survey)
+        zp = zp_dict[filt]
         if survey == "PS1":
             zp += 2.5 * np.log10(exptime)
 
@@ -285,15 +290,9 @@ def photometry(
         mag -= A_ext
 
         # error budget
-        # 1.0857 = 2.5/ln(10)
-        if survey != "SDSS":
-            ap_area = 2 * np.pi * (radius_pix**2)
-            extra_err = (
-                1.0857
-                * np.sqrt(ap_area * (readnoise**2) + flux / gain)
-                / flux
-            )
-            mag_err = np.sqrt(mag_err**2 + extra_err**2)
+        ap_area = 2 * np.pi * (radius_pix ** 2)
+        extra_err = uncertainty_calc(flux, survey, filt, ap_area, readnoise, gain, exptime)
+        mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
 
         mags.append(mag)
         mags_err.append(mag_err)
@@ -359,7 +358,7 @@ def multi_band_phot(
         check_filters_validity(filters, survey)
 
     # turn float into a list
-    if isinstance(ap_radii, float):
+    if isinstance(ap_radii, (float, int)):
         ap_radii = [ap_radii]
 
     results_dict = {

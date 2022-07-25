@@ -11,12 +11,16 @@ from astropy.coordinates import SkyCoord
 
 from pyvo.dal import sia  # DES
 from astroquery.sdss import SDSS
+from astroquery.skyview import SkyView  # other surveys
+from astroquery.mast import Observations  # for GALEX EXPTIME
 
-from reproject import reproject_interp
+from reproject import reproject_interp, reproject_exact
+from reproject.mosaicking import find_optimal_celestial_wcs
 
 from hostphot._constants import __workdir__
 from hostphot.utils import (
     get_survey_filters,
+    survey_pixel_scale,
     clean_dir,
     check_work_dir,
     check_survey_validity,
@@ -42,7 +46,7 @@ def _choose_workdir(workdir):
 
 # PS1
 # ----------------------------------------
-def query_ps1(ra, dec, size=600, filters=None):
+def query_ps1(ra, dec, size=3, filters=None):
     """Query ps1filenames.py service to get a list of images
 
     Parameters
@@ -51,8 +55,8 @@ def query_ps1(ra, dec, size=600, filters=None):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default ``600``
-        Image size in pixels (0.25 arcsec/pixel).
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given the units are assumed to be in arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``grizy``.
 
@@ -61,13 +65,21 @@ def query_ps1(ra, dec, size=600, filters=None):
     table: astropy Table
         Astropy table with the results.
     """
-    check_filters_validity(filters, "PS1")
+    survey = 'PS1'
+    check_filters_validity(filters, survey)
     if filters is None:
-        filters = get_survey_filters("PS1")
+        filters = get_survey_filters(survey)
+
+    pixel_scale = survey_pixel_scale(survey)
+    if isinstance(size, (float, int)):
+        size_arcsec = (size * u.arcmin).to(u.arcsec).value
+    else:
+        size_arcsec = size.to(u.arcsec).value
+    size_pixels = int(size_arcsec / pixel_scale)
 
     service = "https://ps1images.stsci.edu/cgi-bin/ps1filenames.py"
     url = (
-        f"{service}?ra={ra}&dec={dec}&size={size}&format=fits&"
+        f"{service}?ra={ra}&dec={dec}&size={size_pixels}&format=fits&"
         f"filters={filters}"
     )
 
@@ -76,7 +88,7 @@ def query_ps1(ra, dec, size=600, filters=None):
     return table
 
 
-def get_PS1_urls(ra, dec, size=600, filters=None):
+def get_PS1_urls(ra, dec, size=3, filters=None):
     """Get URLs for images obtained with :func:`query_ps1()`.
 
     Parameters
@@ -85,8 +97,8 @@ def get_PS1_urls(ra, dec, size=600, filters=None):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default ``600``
-        Image size in pixels (0.25 arcsec/pixel).
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given the units are assumed to be in arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``grizy``.
 
@@ -95,14 +107,22 @@ def get_PS1_urls(ra, dec, size=600, filters=None):
     url_list: list
         List of URLs for the fits images.
     """
-    check_filters_validity(filters, "PS1")
+    survey = 'PS1'
+    check_filters_validity(filters, survey)
     if filters is None:
-        filters = get_survey_filters("PS1")
+        filters = get_survey_filters(survey)
+
+    pixel_scale = survey_pixel_scale(survey)
+    if isinstance(size, (float, int)):
+        size_arcsec = (size * u.arcmin).to(u.arcsec).value
+    else:
+        size_arcsec = size.to(u.arcsec).value
+    size_pixels = int(size_arcsec / pixel_scale)
 
     table = query_ps1(ra, dec, size=size, filters=filters)
     url = (
         "https://ps1images.stsci.edu/cgi-bin/fitscut.cgi?"
-        f"ra={ra}&dec={dec}&size={size}&format=fits"
+        f"ra={ra}&dec={dec}&size={size_pixels}&format=fits"
     )
 
     # sort filters from blue to red
@@ -117,7 +137,7 @@ def get_PS1_urls(ra, dec, size=600, filters=None):
     return url_list
 
 
-def get_PS1_images(ra, dec, size=600, filters=None):
+def get_PS1_images(ra, dec, size=3, filters=None):
     """Gets PS1 fits images for the given coordinates and
     filters.
 
@@ -127,8 +147,8 @@ def get_PS1_images(ra, dec, size=600, filters=None):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default ``600``
-        Image size in pixels.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given the units are assumed to be in arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``grizy``.
 
@@ -137,9 +157,10 @@ def get_PS1_images(ra, dec, size=600, filters=None):
     fits_files: list
         List of fits images.
     """
-    check_filters_validity(filters, "PS1")
+    survey = 'PS1'
+    check_filters_validity(filters, survey)
     if filters is None:
-        filters = get_survey_filters("PS1")
+        filters = get_survey_filters(survey)
 
     fits_url = get_PS1_urls(ra, dec, size, filters)
 
@@ -219,7 +240,7 @@ def get_DES_urls(ra, dec, fov, filters="grizY"):
     return url_list, url_w_list
 
 
-def get_DES_images(ra, dec, size=600, filters=None):
+def get_DES_images(ra, dec, size=3, filters=None):
     """Gets DES fits images for the given coordinates and
     filters.
 
@@ -229,8 +250,8 @@ def get_DES_images(ra, dec, size=600, filters=None):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default ``600``
-        Image size in pixels.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given the units are assumed to be in arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``grizY``.
 
@@ -239,11 +260,16 @@ def get_DES_images(ra, dec, size=600, filters=None):
     fits_files: list
         List of fits images.
     """
-    check_filters_validity(filters, "DES")
+    survey = 'DES'
+    check_filters_validity(filters, survey)
     if filters is None:
-        filters = get_survey_filters("DES")
+        filters = get_survey_filters(survey)
 
-    fov = size * 0.263 / 3600  # from pixels to degrees
+    if isinstance(size, (float, int)):
+        fov = (size * u.arcmin).to(u.degree).value
+    else:
+        fov = size.to(u.degree).value
+
     url_list, url_w_list = get_DES_urls(ra, dec, fov, filters)
 
     if url_list is None:
@@ -266,7 +292,7 @@ def get_DES_images(ra, dec, size=600, filters=None):
 
 # SDSS
 # ----------------------------------------
-def get_SDSS_images(ra, dec, size=600, filters=None):
+def get_SDSS_images(ra, dec, size=3, filters=None):
     """Downloads a set of SDSS fits images for a given set
     of coordinates and filters using astroquery.
 
@@ -276,8 +302,8 @@ def get_SDSS_images(ra, dec, size=600, filters=None):
         Right ascension in degrees.
     dec: str or float
         Declination in degrees.
-    size: int, default ``600``
-        Image size in pixels.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given the units are assumed to be in arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``ugriz``.
 
@@ -291,9 +317,12 @@ def get_SDSS_images(ra, dec, size=600, filters=None):
     if filters is None:
         filters = get_survey_filters("SDSS")
 
+    if isinstance(size, (float, int)):
+        size = size * u.arcmin
+
     # query sky region
     pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
-    for radius in np.arange(1, 10):
+    for radius in np.arange(2, 100, 2):
         ids = SDSS.query_region(pos, radius=radius * u.arcsec)
         if ids is not None:
             break
@@ -309,8 +338,117 @@ def get_SDSS_images(ra, dec, size=600, filters=None):
         sub_id = ids[fits_id - 1 : fits_id]  # get the one in the middle
         fits_files = SDSS.get_images(matches=sub_id, band=filters)
 
-    # SDSS images are large so need to be trimmed
-    fits_files = trim_images(fits_files, pos, size)
+    return fits_files
+
+# GALEX
+# ----------------------------------------
+def get_used_image(header):
+    """Obtains the GALEX name of the image downloaded by SkyView.
+
+    Parameters
+    ----------
+    header: fits header
+        Header of an image.
+
+    Returns
+    -------
+    used_image: str
+        Galex name of the image.
+    """
+    image_line = header['HISTORY'][-3]
+    used_image = image_line.split('/')[-1].split('-')[0]
+
+    return used_image
+
+def get_exptime(used_image, obs_table, filt):
+    """Obtains the exposure time for a GALEX image downloaded
+    with SkyView.
+
+    Parameters
+    ----------
+    used_image: str
+        GALEX name of the image downloaded by SkyView
+    obs_table: astropy.Table
+        Table obtained with astroquery.Observations.
+    filt: str
+        GALEX filter: 'NUV' or 'FUV'.
+
+    Returns
+    -------
+    texp: float
+        Exposure time.
+    """
+    galex_df = obs_table.to_pandas()
+    galex_df = galex_df[galex_df.filters == filt]
+    urls = galex_df.dataURL.values
+    t_exptime = galex_df.t_exptime.values
+
+    texp = 0
+    for url, t in zip(urls, t_exptime):
+        if used_image in url:
+            texp = t
+            break
+
+    if texp == 0:
+        raise valueError('Galex image not found.')
+
+    return texp
+
+def get_GALEX_images(ra, dec, size=3, filters=None):
+    """Downloads a set of GALEX fits images for a given set
+    of coordinates and filters using SkyView.
+
+    Parameters
+    ----------
+    ra: str or float
+        Right ascension in degrees.
+    dec: str or float
+        Declination in degrees.
+    size: int, default ``3``
+        Image size in arcmin.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``FUV, NUV``.
+
+    Return
+    ------
+    fits_files: list
+        List with fits images for the given filters.
+        `None` is returned if no image is found.
+    """
+    check_filters_validity(filters, "GALEX")
+    if filters is None:
+        filters = get_survey_filters("GALEX")
+
+    # SkyView calls the filters in a different way
+    filters_dict = {'NUV': 'GALEX Near UV',
+                    'FUV': 'GALEX Far UV'}
+    skyview_filters = [filters_dict[filt] for filt in filters]
+
+    if isinstance(size, (float, int)):
+        size_arcsec = (size * u.arcmin).to(u.arcsec)
+    else:
+        size_arcsec = size.to(u.arcsec)
+    size_pixels = int(size_arcsec.value / 1.5)
+
+    fits_files = []
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', AstropyWarning)
+        coords = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame='icrs')
+        obs_table = Observations.query_criteria(coordinates=coords, radius=size_arcsec,
+                                                obs_collection=['GALEX'])
+        for filt, skyview_filter in zip(filters, skyview_filters):
+            fits_file = SkyView.get_images(position=coords,
+                                           coordinates='icrs', pixels=str(size_pixels),
+                                           survey=skyview_filter, width=size_arcsec,
+                                           height=size_arcsec)
+
+            # add exposure time
+            used_image = get_used_image(fits_file[0][0].header)
+            texp = get_exptime(used_image, obs_table, 'NUV')
+            fits_file[0][0].header['EXPTIME'] = texp
+            fits_file[0][0].header['COMMENT'] = "EXPTIME added by HostPhot"
+
+            fits_files.append(fits_file[0])
 
     return fits_files
 
@@ -333,7 +471,6 @@ def match_wcs(fits_files):
     """
     matched_fits_files = copy.deepcopy(fits_files)
     # some hdu have data + error
-    # for i in range(len(matched_fits_files[0])):
     hdu0 = matched_fits_files[0][0]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
@@ -350,7 +487,7 @@ def match_wcs(fits_files):
 # Master Function
 # ----------------------------------------
 def download_images(
-    name, ra, dec, size=600, filters=None, overwrite=False, survey="PS1"
+    name, ra, dec, size=3, filters=None, overwrite=False, survey="PS1"
 ):
     """Download images for a given object in the given filters of a
     given survey.
@@ -364,8 +501,8 @@ def download_images(
         Right ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default ``600``
-        Image size in pixels.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given the units are assumed to be in arcmin.
     filters: str, default ``None``
         Filters for the images.
     overwrite: bool, default ``False``
@@ -385,16 +522,37 @@ def download_images(
     if not os.path.isdir(obj_dir):
         os.mkdir(obj_dir)
 
+    # download fits files
     if survey == "PS1":
         fits_files = get_PS1_images(ra, dec, size, filters)
     elif survey == "DES":
         fits_files = get_DES_images(ra, dec, size, filters)
     elif survey == "SDSS":
         fits_files = get_SDSS_images(ra, dec, size, filters)
+        # SDSS images are large so need to be trimmed
+        fits_files = trim_images(fits_files, pos, size)
+    elif survey == "GALEX":
+        fits_files = get_GALEX_images(ra, dec, size, filters)
 
     if fits_files:
+        if survey == "SDSS":
+            # SDSS images are large so need to be trimmed
+            pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
+            fits_files = trim_images(fits_files, pos, size)
+
         # this corrects any possible shifts between the images
         fits_files = match_wcs(fits_files)
+
+        # fix wcs (some have rotated wcs)
+        if survey in ['DES', 'SDSS']:
+            for fits_file in fits_files:
+                fits_file = fits_file[0]
+                wcs_out, shape_out = find_optimal_celestial_wcs([fits_file], auto_rotate=True)
+                fixed_data, footprint = reproject_exact(fits_file, wcs_out, shape_out=shape_out)
+                fits_file.header.update(wcs_out.to_header())
+                fits_file.data = fixed_data
+
+
         for fits_file, filt in zip(fits_files, filters):
             outfile = os.path.join(obj_dir, f"{survey}_{filt}.fits")
             if not os.path.isfile(outfile):

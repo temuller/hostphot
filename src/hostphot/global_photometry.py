@@ -18,9 +18,8 @@ import os
 import numpy as np
 
 import sep
-from astropy import wcs, units as u
+from astropy import wcs
 from astropy.io import fits
-from astropy.coordinates import SkyCoord
 
 from hostphot._constants import __workdir__
 from hostphot.utils import (
@@ -30,8 +29,10 @@ from hostphot.utils import (
     survey_zp,
     get_image_gain,
     get_image_readnoise,
+    get_image_exptime,
     pixel2pixel,
     check_work_dir,
+    uncertainty_calc,
 )
 from hostphot.objects_detect import extract_objects, plot_detected_objects
 from hostphot.image_cleaning import remove_nan
@@ -117,9 +118,9 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
 
     Parameters
     ----------
-    data: 2D array
+    data: ndarray
         Data of an image.
-    err: float or 2D array
+    err: float or ndarray
         Background error of the images.
     gain: float
         Gain value.
@@ -150,13 +151,13 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
             objects["theta"],
             r,
         )
-        if ~np.isnan(kronrad):
-            opt_kronrad = kronrad
+        opt_kronrad = kronrad
+        if ~np.isnan(opt_kronrad):
             break
-    if np.isnan(kronrad):
-        print(f"kronrad = {kronrad}")
+
+    if np.isnan(opt_kronrad):
         raise ValueError(
-            "The Kron radius cannot be calculated " "(something went wrong!)"
+            "The Kron radius cannot be calculated. The image might have NaNs or the aperture is too close to the edge."
         )
 
     opt_flux = 0.0
@@ -169,19 +170,15 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
         flux, flux_err = flux[0], flux_err[0]
 
         calc_eps = np.abs(opt_flux - flux) / flux
+        opt_flux, opt_flux_err = flux, flux_err
+        opt_scale = scale
         if calc_eps < eps:
             opt_scale = scale
-            opt_flux = flux
-            opt_flux_err = flux_err
             break
         elif np.isnan(calc_eps):
             opt_scale = scales[-2]
             warnings.warn("Warning: the aperture might not fit in the image!")
             break
-        else:
-            opt_scale = scale
-            opt_flux = flux
-            opt_flux_err = flux_err
 
     return opt_flux, opt_flux_err, opt_kronrad, opt_scale
 
@@ -379,9 +376,11 @@ def photometry(
 
     header = img[0].header
     data = img[0].data
-    exptime = float(header["EXPTIME"])
+
+    exptime = get_image_exptime(header, survey)
     gain = get_image_gain(header, survey)
     readnoise = get_image_readnoise(header, survey)
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(header, naxis=2)
@@ -433,7 +432,8 @@ def photometry(
             )
             flux, flux_err = flux[0], flux_err[0]
 
-    zp = survey_zp(survey)
+    zp_dict = survey_zp(survey)
+    zp = zp_dict[filt]
     if survey == "PS1":
         zp += 2.5 * np.log10(exptime)
 
@@ -445,14 +445,9 @@ def photometry(
     mag -= A_ext
 
     # error budget
-    # 1.0857 = 2.5/ln(10)
-    if survey != "SDSS":
-        # ellipse area = pi*a*b
-        ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
-        extra_err = (
-            1.0857 * np.sqrt(ap_area * (readnoise**2) + flux / gain) / flux
-        )
-        mag_err = np.sqrt(mag_err**2 + extra_err**2)
+    ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
+    extra_err = uncertainty_calc(flux, survey, filt, ap_area, readnoise, gain, exptime)
+    mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
 
     if save_plots:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")

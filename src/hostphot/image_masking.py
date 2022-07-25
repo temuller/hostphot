@@ -25,6 +25,7 @@ from hostphot.utils import (
     check_survey_validity,
     pixel2pixel,
     update_axislabels,
+    survey_pixel_scale,
 )
 
 import warnings
@@ -202,6 +203,8 @@ def create_mask(
         Non-galaxy objects.
     img_wcs: WCS
         Image's WCS.
+    pixel_scale: float
+        Pixel scale for the survey.
     """
     check_survey_validity(survey)
 
@@ -224,6 +227,8 @@ def create_mask(
     else:
         data_sub = np.copy(data)
 
+    pixel_scale = survey_pixel_scale(survey)
+
     if common_params is None:
         # extract objects
         gal_obj, nogal_objs = extract_objects(
@@ -240,13 +245,23 @@ def create_mask(
     else:
         # use objects previously extracted
         # the pixels coordinates are updated accordingly
-        gal_obj, nogal_objs, img_wcs0 = common_params
+        gal_obj, nogal_objs, img_wcs0, pixel_scale0 = common_params
+        # make copies to prevent altering the initial values
+        gal_obj = gal_obj.copy()
+        nogal_objs = nogal_objs.copy()
+        scale = pixel_scale0/pixel_scale
+
         gal_obj["x"], gal_obj["y"] = pixel2pixel(
             gal_obj["x"], gal_obj["y"], img_wcs0, img_wcs
         )
+        gal_obj["a"] *= scale
+        gal_obj["b"] *= scale
+
         nogal_objs["x"], nogal_objs["y"] = pixel2pixel(
             nogal_objs["x"], nogal_objs["y"], img_wcs0, img_wcs
         )
+        nogal_objs["a"] *= scale
+        nogal_objs["b"] *= scale
 
     masked_data = mask_image(data_sub, nogal_objs, sigma=sigma)
     img[0].data = masked_data
@@ -260,7 +275,7 @@ def create_mask(
         )
 
     if extract_params:
-        return gal_obj, nogal_objs, img_wcs
+        return gal_obj, nogal_objs, img_wcs, pixel_scale
 
 
 def plot_masked_image(
@@ -341,7 +356,7 @@ def plot_masked_image(
         )
         x, y = img_wcs.world_to_pixel(coord)
         for ax in axes:
-            ax.scatter(x, y, marker="*", s=100, c="g")
+            ax.scatter(x, y, marker="*", s=100, c="g", edgecolor='gold')
 
     if outfile:
         plt.tight_layout()

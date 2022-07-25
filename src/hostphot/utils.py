@@ -1,10 +1,20 @@
 import os
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
-import hostphot
-
+from astropy import wcs
+from astropy.io import fits
 from astropy.stats import sigma_clipped_stats
 from photutils.utils import calc_total_error
+
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+
+import hostphot
+hostphot_path = hostphot.__path__[0]
+config_file = os.path.join(hostphot_path, 'filters', 'config.txt')
+config_df = pd.read_csv(config_file, delim_whitespace=True)
 
 
 def calc_sky_unc(image, exptime):
@@ -13,7 +23,7 @@ def calc_sky_unc(image, exptime):
 
     Parameters
     ----------
-    image: 2D array
+    image: ndarray
         Image in a 2D numpy array.
     exptime: float
         Exposure time of the image.
@@ -23,8 +33,8 @@ def calc_sky_unc(image, exptime):
     error: float
         Estimated error of the image.
     """
-
-    avg, sky, sky_std = sigma_clipped_stats(image[(image != 0)], sigma=3.0)
+    mask = image != 0
+    avg, sky, sky_std = sigma_clipped_stats(image[mask], sigma=3.0)
     error = calc_total_error(image, sky_std, exptime)
 
     return error
@@ -45,11 +55,12 @@ def check_survey_validity(survey):
     Parameters
     ----------
     survey: str
-        Survey name: ``PS1``, ``DES`` or ``SDSS``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
     """
-    valid_surveys = ["PS1", "DES", "SDSS"]
-    assert survey in valid_surveys, (
-        f"survey '{survey}' not" f" in {valid_surveys}"
+    global config_df
+    surveys = list(config_df.survey)
+    assert survey in surveys, (
+        f"survey '{survey}' not" f" in {surveys}"
     )
 
 
@@ -59,7 +70,7 @@ def get_survey_filters(survey):
     Parameters
     ----------
     survey: str
-        Survey name: ``PS1``, ``DES`` or ``SDSS``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
 
     Returns
     -------
@@ -67,8 +78,13 @@ def get_survey_filters(survey):
         Filters for the given survey.
     """
     check_survey_validity(survey)
-    filters_dict = {"PS1": "grizy", "DES": "grizY", "SDSS": "ugriz"}
-    filters = filters_dict[survey]
+
+    global config_df
+    survey_df = config_df[config_df.survey == survey]
+    filters = survey_df.filters.values[0]
+
+    if ',' in filters:
+        filters = filters.split(',')
 
     return filters
 
@@ -82,24 +98,33 @@ def survey_zp(survey):
     Parameters
     ----------
     survey: str
-        Survey name: ``PS1``, ``DES`` or ``SDSS``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
 
     Returns
     -------
-    zp: float
-        Zero-point.
+    zp_dict: dict
+        Zero-points for all the filters in the given survey.
     """
     check_survey_validity(survey)
-    zp_dict = {"PS1": 25, "DES": 30, "SDSS": 22.5}  # + 2.5*np.log10(exptime)
-    zp = zp_dict[survey]
+    filters = get_survey_filters(survey)
 
-    return zp
+    global config_df
+    survey_df = config_df[config_df.survey == survey]
+    zps = survey_df.zp.values[0]
+
+    if ',' in zps:
+        zps = zps.split(',')
+        zp_dict = {filt: float(zp) for filt, zp in zip(filters, zps)}
+    else:
+        zp_dict = {filt: float(zps) for filt in filters}
+
+    return zp_dict
 
 
 def get_image_gain(header, survey):
     """Returns the gain from an image's header.
 
-    **Note:** for ``SDSS`` this is assumed to be zero
+    **Note:** for ``SDSS`` this is assumed to be one
     as it should already be included.
 
     Parameters
@@ -107,7 +132,7 @@ def get_image_gain(header, survey):
     header: fits header
         Header of an image.
     survey: str
-        Survey name: ``PS1``, ``DES`` or ``SDSS``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
 
     Returns
     -------
@@ -120,7 +145,9 @@ def get_image_gain(header, survey):
     elif survey == "DES":
         gain = header["GAIN"]
     elif survey == "SDSS":
-        gain = 0.0
+        gain = 1.0
+    else:
+        gain = 1.0
 
     return gain
 
@@ -137,7 +164,7 @@ def get_image_readnoise(header, survey):
     header: fits header
         Header of an image.
     survey: str
-        Survey name: ``PS1``, ``DES`` or ``SDSS``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
 
     Returns
     -------
@@ -152,8 +179,80 @@ def get_image_readnoise(header, survey):
         readnoise = 7.0  # electrons per pixel
     elif survey == "SDSS":
         readnoise = 0.0
+    else:
+        readnoise = 0.0
 
     return readnoise
+
+def get_image_exptime(header, survey):
+    """Returns the exposure time from an image's header.
+
+    Parameters
+    ----------
+    header: fits header
+        Header of an image.
+    survey: str
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
+
+    Returns
+    -------
+    exptime: float
+        Exposure time in seconds.
+    """
+    check_survey_validity(survey)
+    if survey in ["PS1", "DES", "GALEX"]:
+        exptime = float(header["EXPTIME"])
+    else:
+        exptime = 0.0
+
+    return exptime
+
+def uncertainty_calc(flux, survey, filt=None, ap_area=0.0, readnoise=0.0, gain=1.0, exptime=0.0):
+    """Calculates the uncertainty propagation.
+
+    Parameters
+    ----------
+    flux: float
+        Aperture flux.
+    survey: str
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
+    filt: str, default ``None``
+        Survey-specific filter.
+    ap_area: float, default ``0.0``
+        Aperture area.
+    readnoise: float, default ``0.0``
+        Image readnoise.
+    gain: str, default ``1.0``
+        Image gain.
+    exptime: str, default ``0.0``
+        Image exposure time.
+
+    Returns
+    -------
+    mag_err: float
+        Extra uncertainty in magnitudes.
+    """
+    mag_err = 0.0
+    if survey in ["PS1", "DES", "SDSS"]:
+        # 1.0857 = 2.5/ln(10)
+        extra_err = (
+                1.0857
+                * np.sqrt(ap_area * (readnoise ** 2) + flux / gain)
+                / flux
+        )
+        mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
+
+    elif survey=="GALEX":
+        CPS = flux.copy()
+        if filt == 'FUV':
+            uv_err = -2.5 * (
+                        np.log10(CPS) - np.log10(CPS + (CPS * exptime + (0.050 * CPS * exptime) ** 2) ** 0.5 / exptime))
+        elif filt == 'NUV':
+            uv_err = -2.5 * (
+                        np.log10(CPS) - np.log10(CPS + (CPS * exptime + (0.027 * CPS * exptime) ** 2) ** 0.5 / exptime))
+        mag_err = np.sqrt(mag_err ** 2 + uv_err ** 2)
+
+    return mag_err
 
 
 def survey_pixel_scale(survey):
@@ -162,17 +261,18 @@ def survey_pixel_scale(survey):
     Parameters
     ----------
     survey: str
-        Survey name: ``PS1``, ``DES`` or ``SDSS``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
 
     Returns
     -------
     pixel_scale: float
-        Pixel scale.
+        Pixel scale in units of arcsec/pixel.
     """
     check_survey_validity(survey)
-    # units of arcsec/pix
-    pixel_scale_dict = {"PS1": 0.25, "DES": 0.263, "SDSS": 0.396}
-    pixel_scale = pixel_scale_dict[survey]
+
+    global config_df
+    survey_df = config_df[config_df.survey == survey]
+    pixel_scale = survey_df.pixel_scale.values[0]
 
     return pixel_scale
 
@@ -186,7 +286,7 @@ def check_filters_validity(filters, survey):
     filters: str
         Filters to use, e,g, ``griz``.
     survey: str
-        Survey name: ``PS1``, ``DES`` or ``SDSS``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
     """
     if filters is not None:
         valid_filters = get_survey_filters(survey)
@@ -222,7 +322,7 @@ def extract_filters(filters, survey):
     filters_path = os.path.join(hostphot.__path__[0], "filters", survey)
 
     for filt in filters:
-        filt_file = os.path.join(filters_path, f"{survey.lower()}_{filt}.dat")
+        filt_file = os.path.join(filters_path, f"{survey.upper()}_{filt}.dat")
         wave, transmission = np.loadtxt(filt_file).T
 
         filters_dict[filt] = {"wave": wave, "transmission": transmission}
@@ -263,11 +363,11 @@ def integrate_filter(
     interp_response = np.interp(
         spectrum_wave, filter_wave, filter_response, left=0.0, right=0.0
     )
-    I1 = np.trapz(
+    int1 = np.trapz(
         spectrum_flux * interp_response * spectrum_wave, spectrum_wave
     )
-    I2 = np.trapz(filter_response * filter_wave, filter_wave)
-    flux_filter = I1 / I2
+    int2 = np.trapz(filter_response * filter_wave, filter_wave)
+    flux_filter = int1 / int2
 
     return flux_filter
 
@@ -285,18 +385,51 @@ def check_work_dir(wokrdir):
         os.mkdir(wokrdir)
 
 
-def clean_dir(dir):
+def clean_dir(directory):
     """Removes the directory if it is empty.
 
     Parameters
     ----------
-    dir: str
+    directory: str
         Directory path.
     """
     try:
-        os.rmdir(dir)
+        os.rmdir(directory)
     except:
         pass
+
+def plot_fits(fits_file):
+    """Plots a fits file.
+
+    Parameters
+    ----------
+    fits_file: str
+        Path to fits file.
+    """
+    img = fits.open(fits_file)
+    header = img[0].header
+    data = img[0].data
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        img_wcs = wcs.WCS(header, naxis=2)
+
+    m, s = np.nanmean(data), np.nanstd(data)
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = plt.subplot(projection=img_wcs)
+    update_axislabels(ax)
+
+    im = ax.imshow(
+        data,
+        interpolation="nearest",
+        cmap="gray",
+        vmin=m - s,
+        vmax=m + s,
+        origin="lower",
+    )
+
+    plt.show()
 
 
 def update_axislabels(ax):
