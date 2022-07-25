@@ -1,6 +1,7 @@
 pip
 numpy
 pandas
+matplotlib
 astropy
 reproject
 photutils
@@ -9,7 +10,6 @@ extinction
 sfdmap
 pyvo
 sep
-jupyterlab
 ipywidgets
 ipympl
-
+pytest

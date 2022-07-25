@@ -38,9 +38,12 @@ The major novelty of `HostPhot` is dealing with low-redshift galaxies (z$<$0.1) 
 [^1]: https://hostphot.readthedocs.io/en/latest/
 [^2]: https://hostflows.github.io/
 
-Apart from `Astropy` and `Photutils` [@photutils], `HostPhot` also relies on `sep` [@sep] for global photometry, `Astroquery` [@astroquery] for cross-matching with catalogs, reproject[^3] for the coadds and `extinction` [@extinction] for extinction correction.
+Apart from `Astropy` and `Photutils` [@photutils], `HostPhot` also relies on `sep` [@sep] for global photometry, `Astroquery` [@astroquery] for image downloading and cross-matching with catalogs, reproject[^3] for the coadds, `extinction` [@extinction] and sfdmap[^4] for extinction correction. Finally, `HostPhot` makes use of the following packages as well: numpy [@numpy], matplotlib [@matplotlib], pandas [@pandas], pyvo [@pyvo], ipywidgets[^5] and ipympl[^6].
 
 [^3]: https://pypi.org/project/reproject/
+[^4]: https://github.com/kbarbary/sfdmap
+[^5]: https://github.com/jupyter-widgets/ipywidgets
+[^6]: https://github.com/matplotlib/ipympl
 
 # Acknowledgements
 

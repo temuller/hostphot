@@ -25,6 +25,27 @@ conda activate hostphot
 pip install hostphot
 ```
 
+### Requirements
+
+HostPhot has the following requirements:
+
+```code
+numpy
+pandas
+matplotlib
+astropy
+reproject
+photutils
+astroquery
+extinction
+sfdmap
+pyvo
+sep
+ipywidgets (optional: for interactive aperture)
+ipympl (optional: for interactive aperture)
+pytest (optional: for testing the code)
+```
+
 ### Tests
 
 To run the tests, go to the parent directory and run the following command:
@@ -109,11 +130,11 @@ results = gp.multi_band_phot(name, host_ra, host_dec,
 
 ## Contributing
 
-To contribute, either open an issue or send a pull request (prefered option). You can also contact me directly.
+To contribute, either open an issue or send a pull request (prefered option). You can also contact me directly (check my profile: https://github.com/temuller).
 
 ### Adding other surveys
 
-If you wish to add a survey not implemented in HostPhot, there are a few things needed: where to download the images from (optional), zero-points to convert the images's flux values into magnitudes (e.g. AB magnitudes), the scaling of the images (pixels/arcsec), the filters transmission functions and any other piece of information necessary to properly estimate magnitudes, errors, etc. 
+If you wish a survey to be added to HostPhot, there are a couple of ways of doing it. 1) You can do a pull request, following the same structure as used for the surveys that are already implemented, or 2) open an issue asking for a survey to be added. Either way, there are a fews things needed to add a survey: where to download the images from (e.g., using astroquery), zero-points to convert the images's flux values into magnitudes (e.g. AB magnitudes), the magnitude system, the scaling of the images (pixels/arcsec), the filters transmission functions and any other piece of information necessary to properly estimate magnitudes, errors, etc. If you open an issue asking for a survey to be added, please include all this information.
 
 
 ## Citing HostPhot
