@@ -159,9 +159,9 @@ def get_PS1_images(ra, dec, size=3, filters=None):
         List of fits images.
     """
     survey = 'PS1'
-    check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
 
     fits_url = get_PS1_urls(ra, dec, size, filters)
 
@@ -197,9 +197,9 @@ def get_DES_urls(ra, dec, fov, filters="grizY"):
     url_w_list: list
         List of URLs with DES images weights.
     """
-    check_filters_validity(filters, "DES")
     if filters is None:
         filters = get_survey_filters("DES")
+    check_filters_validity(filters, "DES")
 
     des_access_url = "https://datalab.noirlab.edu/sia/des_dr1"
     svc = sia.SIAService(des_access_url)
@@ -262,9 +262,9 @@ def get_DES_images(ra, dec, size=3, filters=None):
         List of fits images.
     """
     survey = 'DES'
-    check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
 
     if isinstance(size, (float, int)):
         fov = (size * u.arcmin).to(u.degree).value
@@ -315,9 +315,9 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
         `None` is returned if no image is found.
     """
     survey = "SDSS"
-    check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
 
     # SkyView calls the filters in a different way
     filters_dict = {'u': 'SDSSu',
@@ -391,16 +391,11 @@ def get_exptime(used_image, obs_table, filt):
     """
     galex_df = obs_table.to_pandas()
     galex_df = galex_df[galex_df.filters == filt]
-    urls = galex_df.dataURL.values
-    t_exptime = galex_df.t_exptime.values
 
-    texp = 0
-    for url, t in zip(urls, t_exptime):
-        if used_image in url:
-            texp = t
-            break
+    target_df = galex_df[galex_df.target_name==used_image]
+    texp = target_df.t_exptime.values[0]
 
-    if texp == 0:
+    if texp is None:
         raise valueError('Galex image not found.')
 
     return texp
@@ -427,9 +422,9 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
         `None` is returned if no image is found.
     """
     survey = "GALEX"
-    check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
 
     # SkyView calls the filters in a different way
     filters_dict = {'NUV': 'GALEX Near UV',
@@ -444,25 +439,26 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
     pixel_scale = survey_pixel_scale(survey)
     size_pixels = int(size_arcsec.value / pixel_scale)
 
-    fits_files = []
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', AstropyWarning)
         coords = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame='icrs')
         obs_table = Observations.query_criteria(coordinates=coords, radius=size_arcsec,
                                                 obs_collection=[survey])
-        for filt, skyview_filter in zip(filters, skyview_filters):
-            fits_file = SkyView.get_images(position=coords,
+
+        skyview_fits = SkyView.get_images(position=coords,
                                            coordinates='icrs', pixels=str(size_pixels),
-                                           survey=skyview_filter, width=size_arcsec,
+                                           survey=skyview_filters, width=size_arcsec,
                                            height=size_arcsec)
 
+        fits_files = []
+        for filt, fits_file in zip(filters, skyview_fits):
             # add exposure time
-            used_image = get_used_image(fits_file[0][0].header)
-            texp = get_exptime(used_image, obs_table, skyview_filter)
-            fits_file[0][0].header['EXPTIME'] = texp
-            fits_file[0][0].header['COMMENT'] = "EXPTIME added by HostPhot"
+            used_image = get_used_image(fits_file[0].header)
+            texp = get_exptime(used_image, obs_table, filt)
+            fits_file[0].header['EXPTIME'] = texp
+            fits_file[0].header['COMMENT'] = "EXPTIME added by HostPhot"
 
-            fits_files.append(fits_file[0])
+            fits_files.append(fits_file)
 
     return fits_files
 
@@ -490,9 +486,9 @@ def get_WISE_images(ra, dec, size=3, filters=None):
         `None` is returned if no image is found.
     """
     survey = "WISE"
-    check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
 
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec)
@@ -506,11 +502,11 @@ def get_WISE_images(ra, dec, size=3, filters=None):
         warnings.simplefilter('ignore', AstropyWarning)
         coords = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame='icrs')
 
-        fits_file = SkyView.get_images(position=coords,
+        skyview_fits = SkyView.get_images(position=coords,
                                        coordinates='icrs', pixels=str(size_pixels),
                                        survey="WISE 3.4", width=size_arcsec,
                                        height=size_arcsec)
-        header = fits_file[0][0].header
+        header = skyview_fits[0][0].header
 
         coadd_id = get_used_image(header)
         coadd_id1 = coadd_id[:4]
@@ -555,9 +551,9 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
         `None` is returned if no image is found.
     """
     survey = "2MASS"
-    check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
 
     if isinstance(size, (float, int)):
         size_degree = (size * u.arcmin).to(u.degree)
@@ -682,16 +678,16 @@ def download_images(
     elif survey == "GALEX":
         fits_files = get_GALEX_images(ra, dec, size, filters)
     elif survey == "WISE":
-        fits_files = get_GALEX_images(ra, dec, size, filters)
+        fits_files = get_WISE_images(ra, dec, size, filters)
     elif survey == "2MASS":
-        fits_files = get_GALEX_images(ra, dec, size, filters)
+        fits_files = get_2MASS_images(ra, dec, size, filters)
 
     if fits_files:
         # this corrects any possible shifts between the images
         # fits_files = match_wcs(fits_files)
 
         # fix wcs (some have rotated wcs)
-        if survey in ['DES']:
+        if survey in ['XXX']:
             for fits_file in fits_files:
                 fits_file = fits_file[0]
                 wcs_out, shape_out = find_optimal_celestial_wcs([fits_file], auto_rotate=True)
