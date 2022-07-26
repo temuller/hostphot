@@ -32,19 +32,20 @@ Requirements
 
 HostPhot has the following requirements:
 
-```code
-numpy
-pandas
-matplotlib
-astropy
-reproject
-photutils
-astroquery
-extinction
-sfdmap
-pyvo
-sep
-ipywidgets (optional: for interactive aperture)
-ipympl (optional: for interactive aperture)
-pytest (optional: for testing the code)
-```
+.. code::
+
+	numpy
+	pandas
+	matplotlib
+	astropy
+	reproject
+	photutils
+	astroquery
+	extinction
+	sfdmap
+	pyvo
+	sep
+	ipywidgets (optional: for interactive aperture)
+	ipympl (optional: for interactive aperture)
+	pytest (optional: for testing the code)
+

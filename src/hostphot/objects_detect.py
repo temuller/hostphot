@@ -191,9 +191,9 @@ def plot_detected_objects(
         Scale of the ellipse's semi-mayor and semi-minor axes.
     img_wcs: WCS
         Image's WCS.
-    ra: float, default ``None´´
+    ra: float, default ``None``
        Right ascension of an object, in degrees. Used for plotting the position of the object.
-    dec: float, default ``None´´
+    dec: float, default ``None``
        Declination of an object, in degrees. Used for plotting the position of the object.
     outfile: str, default ``None``
         If given, path where to save the output figure.

@@ -11,7 +11,7 @@ class TestHostPhot(unittest.TestCase):
         z = 0.0015972039982078844
         survey = "PS1"
 
-        ap_radii = [1, 2, 3, 4]  # in units of kpc
+        ap_radii = [3, 4]  # in units of kpc
         download_images(sn_name, ra, dec, survey=survey)
         lp.multi_band_phot(
             sn_name,

@@ -172,9 +172,9 @@ def create_mask(
         Filter to use to load the fits file.
     survey: str
         Survey to use for the zero-points and correct filter path.
-    ra: float, default ``None´´
+    ra: float, default ``None``
        Right ascension of an object, in degrees. Used for plotting.
-    dec: float, default ``None´´
+    dec: float, default ``None``
        Declination of an object, in degrees. Used for plotting.
     bkg_sub: bool, default ``False``
         If ``True``, the image gets background subtracted.
@@ -294,9 +294,9 @@ def plot_masked_image(
         Objects extracted with :func:`sep.extract()`.
     img_wcs: WCS
         Image's WCS.
-    ra: float, default ``None´´
+    ra: float, default ``None``
        Right ascension of an object, in degrees. Used for plotting the position of the object.
-    dec: float, default ``None´´
+    dec: float, default ``None``
        Declination of an object, in degrees. Used for plotting the position of the object.
     outfile: str, default ``None``
         If given, path where to save the output figure.

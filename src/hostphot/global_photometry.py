@@ -212,9 +212,9 @@ def extract_kronparams(
         Filter to use to load the fits file.
     survey: str
         Survey to use for the zero-points and pixel scale.
-    ra: float, default ``None´´
+    ra: float, default ``None``
        Right ascension of an object, in degrees. Used for plotting the position of the object.
-    dec: float, default ``None´´
+    dec: float, default ``None``
        Declination of an object, in degrees. Used for plotting the position of the object.
     bkg_sub: bool, default `False`
         If `True`, the image gets background subtracted.
@@ -331,9 +331,9 @@ def photometry(
         Filter to use to load the fits file.
     survey: str
         Survey to use for the zero-points and pixel scale.
-    ra: float, default ``None´´
+    ra: float, default ``None``
        Right ascension of an object, in degrees. Used for plotting the position of the object.
-    dec: float, default ``None´´
+    dec: float, default ``None``
        Declination of an object, in degrees. Used for plotting the position of the object.
     bkg_sub: bool, default `False`
         If `True`, the image gets background subtracted.
@@ -433,7 +433,10 @@ def photometry(
             flux, flux_err = flux[0], flux_err[0]
 
     zp_dict = survey_zp(survey)
-    zp = zp_dict[filt]
+    if zp_dict=='header':
+        zp = header['MAGZP']
+    else:
+        zp = zp_dict[filt]
     if survey == "PS1":
         zp += 2.5 * np.log10(exptime)
 
@@ -491,9 +494,9 @@ def multi_band_phot(
         the filters of the given survey.
     survey: str, default ``PS1``
         Survey to use for the zero-points and pixel scale.
-    ra: float, default ``None´´
+    ra: float, default ``None``
        Right ascension of an object, in degrees. Used for plotting the position of the object.
-    dec: float, default ``None´´
+    dec: float, default ``None``
        Declination of an object, in degrees. Used for plotting the position of the object.
     bkg_sub: bool, default ``False``
         If `True`, the image gets background subtracted.
@@ -519,6 +522,17 @@ def multi_band_phot(
     -------
     results_dict: dict
         Dictionary with the object's photometry and other info.
+
+    Examples
+    --------
+    >>> import hostphot.global_photometry as gp
+    >>> name = 'SN2004eo'
+    >>> host_ra, host_dec = 308.2092, 9.92755  # coords of host galaxy of SN2004eo
+    >>> ra, dec =  308.22579, 9.92853 # coords of SN2004eo
+    >>> results = gp.multi_band_phot(name, host_ra, host_dec,
+                            survey=survey, ra=ra, dec=dec,
+                            use_mask=True, common_aperture=True,
+                            coadd_filters='riz', save_plots=True)
     """
     check_survey_validity(survey)
     if filters is None:

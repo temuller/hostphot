@@ -10,23 +10,23 @@ from astropy.table import Table
 
 
 def sky_median_sig_clip(input_arr, sig_fract, percent_fract, max_iter=100):
-    """Estimates median sky value for a given number of iterationsself.
+    """Estimates median sky value for a given number of iterations.
 
     Parameters
-        ----------
-        input_arr: numpy array
-                Image data array
-        sig_fract: float
-                Fraction of sigma clipping.
-        percent_fract: float
-        Convergence fraction.
-        max_iter: int, default ``100``
-        Maximum number of iterations.
+    ----------
+    input_arr: numpy array
+            Image data array
+    sig_fract: float
+            Fraction of sigma clipping.
+    percent_fract: float
+    Convergence fraction.
+    max_iter: int, default ``100``
+    Maximum number of iterations.
 
     Returns
     -------
-        (new_sky, iteration): tuple
-                Median sky value and number of iteration.
+    (new_sky, iteration): tuple
+            Median sky value and number of iteration.
     """
     work_arr = np.ravel(input_arr)
     old_sky = np.median(work_arr)
@@ -56,21 +56,21 @@ def sky_median_sig_clip(input_arr, sig_fract, percent_fract, max_iter=100):
 def sky_mean_sig_clip(input_arr, sig_fract, percent_fract, max_iter=100):
     """Estimates mean sky value for a given number of iterations.
 
-        Parameters
+    Parameters
     ----------
-        input_arr: numpy array
-                Image data array
-        sig_fract: float
-                Fraction of sigma clipping.
-        percent_fract: float
-        Convergence fraction.
-        max_iter: int, default ``100``
-        Maximum number of iterations.
+    input_arr: numpy array
+            Image data array
+    sig_fract: float
+            Fraction of sigma clipping.
+    percent_fract: float
+    Convergence fraction.
+    max_iter: int, default ``100``
+    Maximum number of iterations.
 
     Returns
     -------
-        (new_sky, iteration): tuple
-                Mean sky value and number of iteration.
+    (new_sky, iteration): tuple
+            Mean sky value and number of iteration.
     """
     work_arr = np.ravel(input_arr)
     old_sky = np.mean(work_arr)
@@ -102,17 +102,17 @@ def linear(inputArray, scale_min=None, scale_max=None):
 
     Parameters
     ----------
-        inputArray: numpy array
-                Image data array.
-        scale_min: float, default ``None``
-                Minimum data value.
-        scale_max: float, default ``None``
-                Maximum data value.
+    inputArray: numpy array
+            Image data array.
+    scale_min: float, default ``None``
+            Minimum data value.
+    scale_max: float, default ``None``
+            Maximum data value.
 
     Returns
     -------
-        imageData: numpy array
-                Scaled image data array.
+    imageData: numpy array
+            Scaled image data array.
     """
     imageData = np.array(inputArray, copy=True)
 
@@ -134,19 +134,19 @@ def linear(inputArray, scale_min=None, scale_max=None):
 def sqrt(inputArray, scale_min=None, scale_max=None):
     """Performs :func:`sqrt` scaling of the input numpy array.
 
-        Parameters
-        ----------
-        inputArray: numpy array
-                Image data array.
-        scale_min: float, default ``None``
-                Minimum data value.
-        scale_max: float, default ``None``
-                Maximum data value.
+    Parameters
+    ----------
+    inputArray: numpy array
+            Image data array.
+    scale_min: float, default ``None``
+            Minimum data value.
+    scale_max: float, default ``None``
+            Maximum data value.
 
     Returns
     -------
-        imageData: numpy array
-                Scaled image data array.
+    imageData: numpy array
+            Scaled image data array.
     """
     imageData = np.array(inputArray, copy=True)
 
@@ -168,19 +168,19 @@ def sqrt(inputArray, scale_min=None, scale_max=None):
 def log(inputArray, scale_min=None, scale_max=None):
     """Performs :func:`log10` scaling of the input numpy array.
 
-        Parameters
-        ----------
-        inputArray: numpy array
-                Image data array.
-        scale_min: float, default ``None``
-                Minimum data value.
-        scale_max: float, default ``None``
-                Maximum data value.
+    Parameters
+    ----------
+    inputArray: numpy array
+            Image data array.
+    scale_min: float, default ``None``
+            Minimum data value.
+    scale_max: float, default ``None``
+            Maximum data value.
 
     Returns
     -------
-        imageData: numpy array
-                Scaled image data array.
+    imageData: numpy array
+            Scaled image data array.
     """
     imageData = np.array(inputArray, copy=True)
 
@@ -208,19 +208,19 @@ def asinh(inputArray, scale_min=None, scale_max=None, non_linear=2.0):
 
     Parameters
     ----------
-        inputArray: numpy array
-                Image data array.
-        scale_min: float, default ``None``
-                Minimum data value.
-        scale_max: float, default ``None``
-                Maximum data value.
-        non_linear: float, default ``2.0``
-                Non-linearity factor.
+    inputArray: numpy array
+            Image data array.
+    scale_min: float, default ``None``
+            Minimum data value.
+    scale_max: float, default ``None``
+            Maximum data value.
+    non_linear: float, default ``2.0``
+            Non-linearity factor.
 
     Returns
     -------
-        imageData: numpy array
-                Scaled image data array.
+    imageData: numpy array
+            Scaled image data array.
     """
     imageData = np.array(inputArray, copy=True)
 
@@ -268,12 +268,12 @@ def create_RGB_image(
         Dictionary with the parameters for the ``scaling`` function. If ``None``,
         use the default values.
 
-        Examples
-        --------
-        >>> # Example of scaling_params:
-        >>> scaling_params = {'R':{'min':r_med/100, 'max':r_med*30},
-                                          'G':{'min':g_med/1000, 'max':g_med*150},
-                                          'B':{'min':b_med/30, 'max':b_med*100}}
+    Examples
+    --------
+    >>> # Example of scaling_params:
+    >>> scaling_params = {'R':{'min':r_med/100, 'max':r_med*30},
+                                      'G':{'min':g_med/1000, 'max':g_med*150},
+                                      'B':{'min':b_med/30, 'max':b_med*100}}
     """
 
     assert len(filters) == 3, "Three filters should be given."
@@ -326,7 +326,7 @@ def get_PS1_url(ra, dec, size=600, filters="grizy", data_format="jpg"):
     """Get URL for the colour image.
 
     Parameters
-    ==========
+    ----------
     ra: float
         Right Ascension in degrees.
     dec: float
@@ -339,7 +339,7 @@ def get_PS1_url(ra, dec, size=600, filters="grizy", data_format="jpg"):
         Data format (options are ``jpg`` or ``png``).
 
     Returns
-    =======
+    -------
     url: str
         The image's URL for a colour image.
     """
@@ -381,8 +381,8 @@ def get_PS1_RGB_image(outfile, ra, dec, size=600, filters="grizy"):
     """Downloads an RGB image from the PS1 server.
 
     Parameters
-    ==========
-    remote_url: str
+    ----------
+    outfile: str
         URL of the image to be downloaded
     ra: float
         Right Ascension in degrees.
@@ -394,7 +394,7 @@ def get_PS1_RGB_image(outfile, ra, dec, size=600, filters="grizy"):
         Filters to include.
 
     Returns
-    =======
+    -------
     url: str
         The image's URL for a colour image.
     """
@@ -410,7 +410,7 @@ def get_SDSS_RGB_image(outfile, ra, dec, size=600):
     """Downloads an RGB image from the PS1 server.
 
     Parameters
-    ==========
+    ----------
     remote_url: str
         URL of the image to be downloaded
     ra: float
@@ -421,7 +421,7 @@ def get_SDSS_RGB_image(outfile, ra, dec, size=600):
         Image size in pixels (0.396127 arcsec/pixel).
 
     Returns
-    =======
+    -------
     url: str
         The image's URL for a colour image.
     """

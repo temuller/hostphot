@@ -278,7 +278,10 @@ def photometry(
         )
 
         zp_dict = survey_zp(survey)
-        zp = zp_dict[filt]
+        if zp_dict == 'header':
+            zp = header['MAGZP']
+        else:
+            zp = zp_dict[filt]
         if survey == "PS1":
             zp += 2.5 * np.log10(exptime)
 
@@ -350,6 +353,17 @@ def multi_band_phot(
     -------
     results_dict: dict
         Dictionary with the object's photometry and other info.
+
+    Examples
+    --------
+    >>> import hostphot.local_photometry as lp
+    >>> ap_radii = [3, 4]  # aperture radii in units of kpc
+    >>> ra, dec =  308.22579, 9.92853 # coords of SN2004eo
+    >>> z = 0.0157  # redshift
+    >>> survey = 'PS1'
+    >>> results = lp.multi_band_phot(name, ra, dec, z,
+                            survey=survey, ap_radii=ap_radii,
+                            use_mask=True, save_plots=True)
     """
     check_survey_validity(survey)
     if filters is None:

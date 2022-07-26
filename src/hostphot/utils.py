@@ -55,7 +55,7 @@ def check_survey_validity(survey):
     Parameters
     ----------
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
     """
     global config_df
     surveys = list(config_df.survey)
@@ -70,7 +70,7 @@ def get_survey_filters(survey):
     Parameters
     ----------
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
 
     Returns
     -------
@@ -98,12 +98,13 @@ def survey_zp(survey):
     Parameters
     ----------
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
 
     Returns
     -------
-    zp_dict: dict
-        Zero-points for all the filters in the given survey.
+    zp_dict: dict or str
+        Zero-points for all the filters in the given survey. If the survey zero-point
+        is different for each image, the string ``header`` is returned.
     """
     check_survey_validity(survey)
     filters = get_survey_filters(survey)
@@ -111,6 +112,9 @@ def survey_zp(survey):
     global config_df
     survey_df = config_df[config_df.survey == survey]
     zps = survey_df.zp.values[0]
+
+    if zps=='header':
+        return zps
 
     if ',' in zps:
         zps = zps.split(',')
@@ -132,7 +136,7 @@ def get_image_gain(header, survey):
     header: fits header
         Header of an image.
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
 
     Returns
     -------
@@ -164,7 +168,7 @@ def get_image_readnoise(header, survey):
     header: fits header
         Header of an image.
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
 
     Returns
     -------
@@ -192,7 +196,7 @@ def get_image_exptime(header, survey):
     header: fits header
         Header of an image.
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
 
     Returns
     -------
@@ -215,7 +219,7 @@ def uncertainty_calc(flux, survey, filt=None, ap_area=0.0, readnoise=0.0, gain=1
     flux: float
         Aperture flux.
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
     filt: str, default ``None``
         Survey-specific filter.
     ap_area: float, default ``0.0``
@@ -261,7 +265,7 @@ def survey_pixel_scale(survey):
     Parameters
     ----------
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
 
     Returns
     -------
@@ -286,7 +290,7 @@ def check_filters_validity(filters, survey):
     filters: str
         Filters to use, e,g, ``griz``.
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``.
+        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
     """
     if filters is not None:
         valid_filters = get_survey_filters(survey)

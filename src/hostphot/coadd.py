@@ -37,6 +37,14 @@ def coadd_images(name, filters="riz", survey="PS1"):
         Filters to use for the coadd image.
     survey: str, default ``PS1``
         Survey to use as prefix for the images.
+
+    Examples
+    --------
+    >>> from hostphot.coadd import coadd_images
+    >>> name = 'SN2004eo'
+    >>> survey = 'PS1'
+    >>> coadd_filters = 'riz'
+    >>> coadd_images(name, filters=coadd_filters, survey=survey)  # creates a new fits file
     """
     obj_dir = os.path.join(__workdir__, name)
     fits_files = [
