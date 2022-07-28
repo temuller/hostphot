@@ -5,10 +5,10 @@ import hostphot.local_photometry as lp
 
 class TestHostPhot(unittest.TestCase):
     def test_local_phot(self):
-        sn_name = "SN2011fe"
-        ra = 210.77420833333332
-        dec = 54.273719444444446
-        z = 0.0015972039982078844
+        sn_name = "2002fk"
+        ra = 50.52379
+        dec = -15.40089
+        z = 0.007482
         survey = "PS1"
 
         ap_radii = [3, 4]  # in units of kpc

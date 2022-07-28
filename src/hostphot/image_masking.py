@@ -33,19 +33,6 @@ from astropy.utils.exceptions import AstropyWarning
 
 
 # ----------------------------------------
-def _choose_workdir(workdir):
-    """Updates the work directory.
-
-    Parameters
-    ----------
-    workdir: str
-        Path to the work directory.
-    """
-    global __workdir__
-    __workdir__ = workdir
-
-
-# ----------------------------------------
 def create_circular_mask(h, w, centre, radius):
     """Creates a circular mask of an image.
 

@@ -5,9 +5,9 @@ from hostphot.interactive_aperture import InteractiveAperture
 
 class TestHostPhot(unittest.TestCase):
     def test_interactivity(self):
-        sn_name = "SN2004eo"
-        ra = 308.22579
-        dec = 9.92853
+        sn_name = "2002fk"
+        ra = 50.527333
+        dec = -15.400056
         survey = "PS1"
 
         download_images(sn_name, ra, dec, survey=survey)

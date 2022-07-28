@@ -4,13 +4,12 @@ from hostphot.cutouts import download_images
 
 class TestHostPhot(unittest.TestCase):
     def test_cutouts(self):
-        sn_name = "SN2004ey"
-        ra = 327.28254
-        dec = 0.44422
-        size = 100
+        sn_name = "2002fk"
+        ra = 50.527333
+        dec = -15.400056
+        size = 3  # arcmin
 
-        # SDSS always fails in the tests
-        for survey in ["PS1"]:
+        for survey in ["PS1", "DES", "SDSS", "GALEX", "WISE", "2MASS"]:
             download_images(
                 sn_name, ra, dec, overwrite=True, size=size, survey=survey
             )

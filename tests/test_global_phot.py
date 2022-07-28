@@ -5,10 +5,9 @@ import hostphot.global_photometry as gp
 
 class TestHostPhot(unittest.TestCase):
     def test_global_phot(self):
-        sn_name = "SN2004eo"
-        host_ra = 308.2092
-        host_dec = 9.92755
-        z = 0.0157
+        sn_name = "2002fk"
+        host_ra = 50.527333
+        host_dec = -15.400056
         survey = "PS1"
 
         download_images(sn_name, host_ra, host_dec, survey=survey)

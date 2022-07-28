@@ -11,7 +11,6 @@ from astropy.coordinates import SkyCoord
 
 import pyvo  # 2MASS
 from pyvo.dal import sia  # DES
-from astroquery.sdss import SDSS
 from astroquery.skyview import SkyView  # other surveys
 from astroquery.mast import Observations  # for GALEX EXPTIME
 
@@ -27,22 +26,9 @@ from hostphot.utils import (
     check_filters_validity,
     survey_pixel_scale,
 )
-from hostphot.image_cleaning import trim_images
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
-
-# ----------------------------------------
-def _choose_workdir(workdir):
-    """Updates the work directory.
-
-    Parameters
-    ----------
-    workdir: str
-        Path to the work directory.
-    """
-    global __workdir__
-    __workdir__ = workdir
 
 
 # PS1
@@ -303,8 +289,8 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
         Right ascension in degrees.
     dec: str or float
         Declination in degrees.
-    size: int, default ``3``
-        Image size in arcmin.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``ugriz``.
 
@@ -662,7 +648,6 @@ def download_images(
     if filters is None:
         filters = get_survey_filters(survey)
 
-    global __workdir__
     check_work_dir(__workdir__)
     obj_dir = os.path.join(__workdir__, name)
     if not os.path.isdir(obj_dir):

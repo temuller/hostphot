@@ -53,18 +53,6 @@ __cosmo__ = FlatLambdaCDM(H0, Om0)
 sep.set_sub_object_limit(1e4)
 
 # ----------------------------------------
-def _choose_workdir(workdir):
-    """Updates the work directory.
-
-    Parameters
-    ----------
-    workdir: str
-        Path to the work directory.
-    """
-    global __workdir__
-    __workdir__ = workdir
-
-
 def choose_cosmology(cosmo):
     """Updates the cosmology used to calculate the aperture size.
 

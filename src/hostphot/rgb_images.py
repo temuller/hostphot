@@ -6,7 +6,10 @@ import requests
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
+from astropy import units as u
 from astropy.table import Table
+
+from hostphot.utils import survey_pixel_scale
 
 
 def sky_median_sig_clip(input_arr, sig_fract, percent_fract, max_iter=100):
@@ -322,7 +325,7 @@ def create_RGB_image(
 # ---------------------------------------
 
 
-def get_PS1_url(ra, dec, size=600, filters="grizy", data_format="jpg"):
+def get_PS1_url(ra, dec, size=3, filters="grizy", data_format="jpg"):
     """Get URL for the colour image.
 
     Parameters
@@ -331,8 +334,8 @@ def get_PS1_url(ra, dec, size=600, filters="grizy", data_format="jpg"):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default ``600``
-        Image size in pixels (0.25 arcsec/pixel).
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
     filters: str
         Filters to include.
     data_format: str
@@ -348,10 +351,17 @@ def get_PS1_url(ra, dec, size=600, filters="grizy", data_format="jpg"):
     )
     assert len(filters) >= 3, "must choose at least 3 filters"
 
+    pixel_scale = survey_pixel_scale("PS1")
+    if isinstance(size, (float, int)):
+        size_arcsec = (size * u.arcmin).to(u.arcsec).value
+    else:
+        size_arcsec = size.to(u.arcsec).value
+    size_pixels = int(size_arcsec / pixel_scale)
+
     # get table with images
     service = "https://ps1images.stsci.edu/cgi-bin/ps1filenames.py"
     table_url = (
-        f"{service}?ra={ra}&dec={dec}&size={size}&format=fits&"
+        f"{service}?ra={ra}&dec={dec}&size={size_pixels}&format=fits&"
         f"filters={filters}"
     )
     table = Table.read(table_url, format="ascii")
@@ -359,8 +369,8 @@ def get_PS1_url(ra, dec, size=600, filters="grizy", data_format="jpg"):
     # url for colour image
     url = (
         "https://ps1images.stsci.edu/cgi-bin/fitscut.cgi?"
-        f"ra={ra}&dec={dec}&size={size}&format={data_format}"
-        f"&output_size={size}"
+        f"ra={ra}&dec={dec}&size={size_pixels}&format={data_format}"
+        f"&output_size={size_pixels}"
     )
 
     # sort filters from red to blue
@@ -377,7 +387,7 @@ def get_PS1_url(ra, dec, size=600, filters="grizy", data_format="jpg"):
     return url
 
 
-def get_PS1_RGB_image(outfile, ra, dec, size=600, filters="grizy"):
+def get_PS1_RGB_image(outfile, ra, dec, size=3, filters="grizy"):
     """Downloads an RGB image from the PS1 server.
 
     Parameters
@@ -388,8 +398,8 @@ def get_PS1_RGB_image(outfile, ra, dec, size=600, filters="grizy"):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default ``600``
-        Image size in pixels (0.25 arcsec/pixel).
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
     filters: str
         Filters to include.
 
@@ -406,8 +416,8 @@ def get_PS1_RGB_image(outfile, ra, dec, size=600, filters="grizy"):
         file.write(data.content)
 
 
-def get_SDSS_RGB_image(outfile, ra, dec, size=600):
-    """Downloads an RGB image from the PS1 server.
+def get_SDSS_RGB_image(outfile, ra, dec, size=3):
+    """Downloads an RGB image from the SDSS server.
 
     Parameters
     ----------
@@ -417,19 +427,26 @@ def get_SDSS_RGB_image(outfile, ra, dec, size=600):
         Right Ascension in degrees.
     dec: float
         Declination in degrees.
-    size: int, default ``600``
-        Image size in pixels (0.396127 arcsec/pixel).
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
 
     Returns
     -------
     url: str
         The image's URL for a colour image.
     """
-    scale = 0.396127
+    pixel_scale = survey_pixel_scale("SDSS")
+    if isinstance(size, (float, int)):
+        size_arcsec = (size * u.arcmin).to(u.arcsec).value
+    else:
+        size_arcsec = size.to(u.arcsec).value
+
+    size_pixels = int(size_arcsec/pixel_scale)
+
     remote_url = (
         "http://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/"
-        f"getjpeg?ra={ra}&dec={dec}&scale={scale}"
-        f"&width={size}&height={size}"
+        f"getjpeg?ra={ra}&dec={dec}&scale={pixel_scale}"
+        f"&width={size_pixels}&height={size_pixels}"
     )
 
     data = requests.get(remote_url)
