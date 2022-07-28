@@ -11,7 +11,7 @@ Global and local photometry of galaxies hosting supernovae or other transients
 ![Python Version](https://img.shields.io/badge/Python-3.8%2B-blue)
 [![PyPI](https://img.shields.io/pypi/v/hostphot?label=PyPI&logo=pypi&logoColor=white)](https://pypi.org/project/hostphot/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6469981.svg)](https://doi.org/10.5281/zenodo.6469981)
-.. image:: https://raw.githubusercontent.com/temuller/hostphot/main/coverage.svg
+.. image:: https://raw.githubusercontent.com/temuller/hostphot/dev/coverage.svg
     :alt: Coverage badge
 
 
