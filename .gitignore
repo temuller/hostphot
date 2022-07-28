@@ -1,6 +1,8 @@
 images/
 src/hostphot/sfddata-master/
 .ipynb*
+PS1.jpg
+SDSS.jpg
 
 *__pycache__*
 *egg*

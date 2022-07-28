@@ -33,59 +33,6 @@ from astropy.utils.exceptions import AstropyWarning
 
 
 # ----------------------------------------
-def create_circular_mask(h, w, centre, radius):
-    """Creates a circular mask of an image.
-
-    Parameters
-    ----------
-    h: int
-        Image height.
-    w: int
-        Image width.
-    centre: tuple-like
-        Centre of the circular mask.
-    radius: float
-        Radius of the circular mask.
-
-    Returns
-    -------
-    mask: 2D bool-array
-        Circular mask (inside the circle = ``True``).
-    """
-    Y, X = np.ogrid[:h, :w]
-    dist_from_center = np.sqrt((X - centre[0]) ** 2 + (Y - centre[1]) ** 2)
-    mask = dist_from_center <= radius
-
-    return mask
-
-
-def inside_galaxy(star_center, gal_center, gal_r):
-    """Checks whether a star is inside a galaxy.
-
-    Parameters
-    ----------
-    star_center: tuple-like
-        Centre of the star.
-    gal_center: tuple-like
-        Centre of the galaxy.
-    gal_r: float
-        Radius to define the galaxy size.
-
-    Returns
-    -------
-    condition: bool
-        ``True`` if the star is inside the galaxy,
-        ``False`` otherwise.
-    """
-    dist_from_center = np.sqrt(
-        (star_center[0] - gal_center[0]) ** 2
-        + (star_center[1] - gal_center[1]) ** 2
-    )
-    condition = dist_from_center <= gal_r
-
-    return condition
-
-
 def mask_image(data, objects, r=5, sigma=20):
     """Masks objects in an image (2D array) by convolving it with
     a 2D Gaussian kernel.
