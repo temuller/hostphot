@@ -276,14 +276,25 @@ def photometry(
         mag = -2.5 * np.log10(flux) + zp
         mag_err = 2.5 / np.log(10) * flux_err / flux
 
+        if survey == "WISE":
+            # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#circ
+            apcor_dict = {'W1': 0.222, 'W2': 0.280, 'W3': 0.665, 'W4': 0.616}  # in mags
+            m_apcor = apcor_dict[filt]
+            mag += m_apcor
+            mag_err = 0.0  # flux_err already propagated below for this survey
+
         # correct extinction
         A_ext = calc_extinction(filt, survey, ra, dec)
         mag -= A_ext
 
         # error budget
         ap_area = 2 * np.pi * (radius_pix ** 2)
-        extra_err = uncertainty_calc(flux, survey, filt, ap_area, readnoise, gain, exptime)
+        extra_err = uncertainty_calc(flux, flux_err, survey, filt, ap_area, readnoise, gain, exptime, bkg_rms)
         mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
+
+        if survey == 'WISE':
+            zp_unc = header['MAGZPUNC']
+            mag_err = np.sqrt(mag_err ** 2 + zp_unc ** 2)
 
         mags.append(mag)
         mags_err.append(mag_err)

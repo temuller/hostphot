@@ -150,6 +150,9 @@ def get_image_gain(header, survey):
         gain = header["GAIN"]
     elif survey == "SDSS":
         gain = 1.0
+    elif survey == "2MASS":
+        # https://iopscience.iop.org/article/10.1086/498708/pdf
+        gain = 8.0
     else:
         gain = 1.0
 
@@ -183,6 +186,10 @@ def get_image_readnoise(header, survey):
         readnoise = 7.0  # electrons per pixel
     elif survey == "SDSS":
         readnoise = 0.0
+    elif survey=="2MASS":
+        # https://iopscience.iop.org/article/10.1086/498708/pdf
+        # 6 combined images
+        readnoise = 4.5*np.sqrt(6)  # not used
     else:
         readnoise = 0.0
 
@@ -206,12 +213,22 @@ def get_image_exptime(header, survey):
     check_survey_validity(survey)
     if survey in ["PS1", "DES", "GALEX"]:
         exptime = float(header["EXPTIME"])
+    elif survey=="WISE":
+        # see: https://wise2.ipac.caltech.edu/docs/release/allsky/
+        # and https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec1_1.html
+        if header["BAND"] in [1, 2]:
+            exptime = 7.7
+        elif header["BAND"] in [3, 4]:
+            exptime = 8.8
+    elif survey == "2MASS":
+        # https://iopscience.iop.org/article/10.1086/498708/pdf
+        exptime = 7.8
     else:
-        exptime = 0.0
+        exptime = 1.0
 
     return exptime
 
-def uncertainty_calc(flux, survey, filt=None, ap_area=0.0, readnoise=0.0, gain=1.0, exptime=0.0):
+def uncertainty_calc(flux, flux_err, survey, filt=None, ap_area=0.0, readnoise=0.0, gain=1.0, exptime=0.0, bkg_rms=0.0):
     """Calculates the uncertainty propagation.
 
     Parameters
@@ -226,10 +243,12 @@ def uncertainty_calc(flux, survey, filt=None, ap_area=0.0, readnoise=0.0, gain=1
         Aperture area.
     readnoise: float, default ``0.0``
         Image readnoise.
-    gain: str, default ``1.0``
+    gain: float, default ``1.0``
         Image gain.
-    exptime: str, default ``0.0``
+    exptime: float, default ``0.0``
         Image exposure time.
+    bkg_rms: float, default ``0.0``
+        Background noise.
 
     Returns
     -------
@@ -247,7 +266,7 @@ def uncertainty_calc(flux, survey, filt=None, ap_area=0.0, readnoise=0.0, gain=1
         mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
 
     elif survey=="GALEX":
-        CPS = flux.copy()
+        CPS = flux
         if filt == 'FUV':
             uv_err = -2.5 * (
                         np.log10(CPS) - np.log10(CPS + (CPS * exptime + (0.050 * CPS * exptime) ** 2) ** 0.5 / exptime))
@@ -255,6 +274,39 @@ def uncertainty_calc(flux, survey, filt=None, ap_area=0.0, readnoise=0.0, gain=1
             uv_err = -2.5 * (
                         np.log10(CPS) - np.log10(CPS + (CPS * exptime + (0.027 * CPS * exptime) ** 2) ** 0.5 / exptime))
         mag_err = np.sqrt(mag_err ** 2 + uv_err ** 2)
+
+    elif survey=="2MASS":
+        # see: https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/
+        S = flux
+        N_c = 6  # number of coadd pixels
+        k_z = 1.7  # kernel smoothing factor
+        n_f = ap_area  # number of frame pixels in the aperture; aprox. as aperture area
+        n_c = 4*n_f  # number of coadd pixels in the aperture
+        sigma_c = bkg_rms  # coadd noise; assumed to be ~background noise
+
+        SNR = S/np.sqrt(S/(gain*N_c) + n_c * (2*k_z*sigma_c)**2 + (n_c*0.024*sigma_c)**2)
+        mag_err = 1.0857/SNR
+
+    elif survey=="WISE":
+        # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
+        # and also: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#circ
+        apcor_dict = {'W1':0.222, 'W2':0.280, 'W3':0.665, 'W4':0.616}  # in mags
+        m_apcor = apcor_dict[filt]
+        f_apcor = 10**(-0.4*m_apcor)
+        F_src = f_apcor*flux
+
+        N_p = ap_area  # effective number of noise-pixels characterizing the PRF
+        # ratio of input (detector) pixel scale to output (Atlas Image) pixel scale
+        pixel_scale_ratios = {'W1':2, 'W2':2, 'W3':2, 'W4':4}
+        Sin_Sout = pixel_scale_ratios[filt]
+        F_corr = N_p * Sin_Sout**2
+
+        k = 1
+        N_A = N_B = ap_area
+        sigma_conf = flux_err  # assumed to be the ~error in the aperture sum
+        sigma_src = np.sqrt(f_apcor**2 * F_corr * (flux_err**2 + k * (N_A**2)/N_B * bkg_rms**2) + sigma_conf**2)
+
+        mag_err = np.sqrt(1.179* sigma_src**2/F_src**2)
 
     return mag_err
 
