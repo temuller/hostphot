@@ -15,24 +15,25 @@ class TestHostPhot(unittest.TestCase):
         ap_radii = [3, 4]  # in units of kpc
         download_images(sn_name, ra, dec, survey=survey)
         phot = lp.multi_band_phot(
-                sn_name,
-                ra,
-                dec,
-                z,
-                survey="PS1",
-                filters="grizy",
-                ap_radii=ap_radii,
-                use_mask=False,
-                save_plots=True,
-            )
-        mags = [phot[filt] for filt in ['g4', 'r4', 'i4', 'z4']]
+            sn_name,
+            ra,
+            dec,
+            z,
+            survey="PS1",
+            filters="grizy",
+            ap_radii=ap_radii,
+            use_mask=False,
+            save_plots=True,
+        )
+        mags = [phot[filt] for filt in ["g4", "r4", "i4", "z4"]]
         # pre-calculated magnitudes
         ref_mags = [12.26, 11.89, 11.72, 11.57]
 
-        err_msg = 'Large difference between calculated and reference magnitudes'
-        np.testing.assert_allclose(mags, ref_mags,
-                                   rtol=0.03,
-                                   err_msg=err_msg)
+        err_msg = (
+            "Large difference between calculated and reference magnitudes"
+        )
+        np.testing.assert_allclose(mags, ref_mags, rtol=0.03, err_msg=err_msg)
+
 
 if __name__ == "__main__":
     unittest.main()

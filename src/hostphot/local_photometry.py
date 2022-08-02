@@ -147,7 +147,7 @@ def plot_aperture(data, px, py, radius_pix, img_wcs, outfile=None):
     fig = plt.figure(figsize=(10, 10))
     ax = plt.subplot(projection=img_wcs)
     update_axislabels(ax)
-    ax.scatter(px, py, marker="*", s=140, c="g", edgecolor='gold')
+    ax.scatter(px, py, marker="*", s=140, c="g", edgecolor="gold")
 
     im = ax.imshow(
         data,
@@ -266,8 +266,8 @@ def photometry(
         )
 
         zp_dict = survey_zp(survey)
-        if zp_dict == 'header':
-            zp = header['MAGZP']
+        if zp_dict == "header":
+            zp = header["MAGZP"]
         else:
             zp = zp_dict[filt]
         if survey == "PS1":
@@ -278,7 +278,12 @@ def photometry(
 
         if survey == "WISE":
             # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#circ
-            apcor_dict = {'W1': 0.222, 'W2': 0.280, 'W3': 0.665, 'W4': 0.616}  # in mags
+            apcor_dict = {
+                "W1": 0.222,
+                "W2": 0.280,
+                "W3": 0.665,
+                "W4": 0.616,
+            }  # in mags
             m_apcor = apcor_dict[filt]
             mag += m_apcor
             mag_err = 0.0  # flux_err already propagated below for this survey
@@ -288,13 +293,23 @@ def photometry(
         mag -= A_ext
 
         # error budget
-        ap_area = 2 * np.pi * (radius_pix ** 2)
-        extra_err = uncertainty_calc(flux, flux_err, survey, filt, ap_area, readnoise, gain, exptime, bkg_rms)
-        mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
+        ap_area = 2 * np.pi * (radius_pix**2)
+        extra_err = uncertainty_calc(
+            flux,
+            flux_err,
+            survey,
+            filt,
+            ap_area,
+            readnoise,
+            gain,
+            exptime,
+            bkg_rms,
+        )
+        mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-        if survey == 'WISE':
-            zp_unc = header['MAGZPUNC']
-            mag_err = np.sqrt(mag_err ** 2 + zp_unc ** 2)
+        if survey == "WISE":
+            zp_unc = header["MAGZPUNC"]
+            mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
         mags.append(mag)
         mags_err.append(mag_err)

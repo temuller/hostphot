@@ -4,8 +4,6 @@ RGB Images
 ==========
 
 .. currentmodule:: hostphot.rgb_images
-.. autofunction:: sky_median_sig_clip
-.. autofunction:: sky_mean_sig_clip
 .. autofunction:: linear
 .. autofunction:: sqrt
 .. autofunction:: log

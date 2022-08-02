@@ -183,7 +183,7 @@ def create_mask(
         # make copies to prevent altering the initial values
         gal_obj = gal_obj.copy()
         nogal_objs = nogal_objs.copy()
-        scale = pixel_scale0/pixel_scale
+        scale = pixel_scale0 / pixel_scale
 
         gal_obj["x"], gal_obj["y"] = pixel2pixel(
             gal_obj["x"], gal_obj["y"], img_wcs0, img_wcs
@@ -290,7 +290,7 @@ def plot_masked_image(
         )
         x, y = img_wcs.world_to_pixel(coord)
         for ax in axes:
-            ax.scatter(x, y, marker="*", s=100, c="g", edgecolor='gold')
+            ax.scatter(x, y, marker="*", s=100, c="g", edgecolor="gold")
 
     if outfile:
         plt.tight_layout()

@@ -1,8 +1,10 @@
 import unittest
 from hostphot.cutouts import download_images
-from hostphot.rgb_images import (create_RGB_image,
-                                 get_PS1_RGB_image,
-                                 get_SDSS_RGB_image)
+from hostphot.rgb_images import (
+    create_RGB_image,
+    get_PS1_RGB_image,
+    get_SDSS_RGB_image,
+)
 
 
 class TestHostPhot(unittest.TestCase):
@@ -12,7 +14,7 @@ class TestHostPhot(unittest.TestCase):
         dec = -15.400056
         download_images(sn_name, ra, dec, survey="PS1")
 
-        images_dir = 'images/2002fk'
+        images_dir = "images/2002fk"
         for scaling in ["linear", "sqrt", "log", "asinh"]:
             create_RGB_image(images_dir=images_dir, scaling=scaling)
 

@@ -12,4 +12,5 @@ pyvo
 sep
 ipywidgets
 ipympl
+ipython
 pytest

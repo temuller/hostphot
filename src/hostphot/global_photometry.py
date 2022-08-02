@@ -421,8 +421,8 @@ def photometry(
             flux, flux_err = flux[0], flux_err[0]
 
     zp_dict = survey_zp(survey)
-    if zp_dict=='header':
-        zp = header['MAGZP']
+    if zp_dict == "header":
+        zp = header["MAGZP"]
     else:
         zp = zp_dict[filt]
     if survey == "PS1":
@@ -431,9 +431,14 @@ def photometry(
     mag = -2.5 * np.log10(flux) + zp
     mag_err = 2.5 / np.log(10) * flux_err / flux
 
-    if survey=="WISE":
+    if survey == "WISE":
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#circ
-        apcor_dict = {'W1':0.222, 'W2':0.280, 'W3':0.665, 'W4':0.616}  # in mags
+        apcor_dict = {
+            "W1": 0.222,
+            "W2": 0.280,
+            "W3": 0.665,
+            "W4": 0.616,
+        }  # in mags
         m_apcor = apcor_dict[filt]
         mag += m_apcor
         mag_err = 0.0  # flux_err already propagated below for this survey
@@ -444,12 +449,22 @@ def photometry(
 
     # error budget
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
-    extra_err = uncertainty_calc(flux, flux_err, survey, filt, ap_area, readnoise, gain, exptime, bkg_rms)
-    mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
+    extra_err = uncertainty_calc(
+        flux,
+        flux_err,
+        survey,
+        filt,
+        ap_area,
+        readnoise,
+        gain,
+        exptime,
+        bkg_rms,
+    )
+    mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-    if survey=='WISE':
-        zp_unc = header['MAGZPUNC']
-        mag_err = np.sqrt(mag_err ** 2 + zp_unc ** 2)
+    if survey == "WISE":
+        zp_unc = header["MAGZPUNC"]
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
     if save_plots:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")

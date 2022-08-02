@@ -52,7 +52,7 @@ def query_ps1(ra, dec, size=3, filters=None):
     table: astropy Table
         Astropy table with the results.
     """
-    survey = 'PS1'
+    survey = "PS1"
     check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
@@ -94,7 +94,7 @@ def get_PS1_urls(ra, dec, size=3, filters=None):
     url_list: list
         List of URLs for the fits images.
     """
-    survey = 'PS1'
+    survey = "PS1"
     check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
@@ -144,7 +144,7 @@ def get_PS1_images(ra, dec, size=3, filters=None):
     fits_files: list
         List of fits images.
     """
-    survey = 'PS1'
+    survey = "PS1"
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
@@ -247,7 +247,7 @@ def get_DES_images(ra, dec, size=3, filters=None):
     fits_files: list
         List of fits images.
     """
-    survey = 'DES'
+    survey = "DES"
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
@@ -306,12 +306,13 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
     check_filters_validity(filters, survey)
 
     # SkyView calls the filters in a different way
-    filters_dict = {'u': 'SDSSu',
-                    'g': 'SDSSg',
-                    'r': 'SDSSr',
-                    'i': 'SDSSi',
-                    'z': 'SDSSz',
-                    }
+    filters_dict = {
+        "u": "SDSSu",
+        "g": "SDSSg",
+        "r": "SDSSr",
+        "i": "SDSSi",
+        "z": "SDSSz",
+    }
     skyview_filters = [filters_dict[filt] for filt in filters]
 
     if isinstance(size, (float, int)):
@@ -324,18 +325,25 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
 
     fits_files = []
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', AstropyWarning)
-        coords = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame='icrs')
+        warnings.simplefilter("ignore", AstropyWarning)
+        coords = SkyCoord(
+            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
+        )
 
         for filt, skyview_filter in zip(filters, skyview_filters):
-            fits_file = SkyView.get_images(position=coords,
-                                           coordinates='icrs', pixels=str(size_pixels),
-                                           survey=skyview_filter, width=size_arcsec,
-                                           height=size_arcsec)
+            fits_file = SkyView.get_images(
+                position=coords,
+                coordinates="icrs",
+                pixels=str(size_pixels),
+                survey=skyview_filter,
+                width=size_arcsec,
+                height=size_arcsec,
+            )
 
             fits_files.append(fits_file[0])
 
     return fits_files
+
 
 # GALEX
 # ----------------------------------------
@@ -352,10 +360,11 @@ def get_used_image(header):
     used_image: str
         Name of the image.
     """
-    image_line = header['HISTORY'][-3]
-    used_image = image_line.split('/')[-1].split('-')[0]
+    image_line = header["HISTORY"][-3]
+    used_image = image_line.split("/")[-1].split("-")[0]
 
     return used_image
+
 
 def get_exptime(used_image, obs_table, filt):
     """Obtains the exposure time for a GALEX image downloaded
@@ -378,13 +387,11 @@ def get_exptime(used_image, obs_table, filt):
     galex_df = obs_table.to_pandas()
     galex_df = galex_df[galex_df.filters == filt]
 
-    target_df = galex_df[galex_df.target_name==used_image]
+    target_df = galex_df[galex_df.target_name == used_image]
     texp = target_df.t_exptime.values[0]
 
-    if texp is None:
-        raise valueError('Galex image not found.')
-
     return texp
+
 
 def get_GALEX_images(ra, dec, size=3, filters=None):
     """Downloads a set of GALEX fits images for a given set
@@ -396,8 +403,8 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
         Right ascension in degrees.
     dec: str or float
         Declination in degrees.
-    size: int, default ``3``
-        Image size in arcmin.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``FUV, NUV``.
 
@@ -413,8 +420,7 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
     check_filters_validity(filters, survey)
 
     # SkyView calls the filters in a different way
-    filters_dict = {'NUV': 'GALEX Near UV',
-                    'FUV': 'GALEX Far UV'}
+    filters_dict = {"NUV": "GALEX Near UV", "FUV": "GALEX Far UV"}
     skyview_filters = [filters_dict[filt] for filt in filters]
 
     if isinstance(size, (float, int)):
@@ -426,27 +432,37 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
     size_pixels = int(size_arcsec.value / pixel_scale)
 
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', AstropyWarning)
-        coords = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame='icrs')
-        obs_table = Observations.query_criteria(coordinates=coords, radius=size_arcsec,
-                                                obs_collection=[survey])
+        warnings.simplefilter("ignore", AstropyWarning)
+        coords = SkyCoord(
+            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
+        )
+        obs_table = Observations.query_criteria(
+            coordinates=coords, radius=size_arcsec, obs_collection=[survey]
+        )
 
-        skyview_fits = SkyView.get_images(position=coords,
-                                           coordinates='icrs', pixels=str(size_pixels),
-                                           survey=skyview_filters, width=size_arcsec,
-                                           height=size_arcsec)
+        skyview_fits = SkyView.get_images(
+            position=coords,
+            coordinates="icrs",
+            pixels=str(size_pixels),
+            survey=skyview_filters,
+            width=size_arcsec,
+            height=size_arcsec,
+        )
 
         fits_files = []
         for filt, fits_file in zip(filters, skyview_fits):
             # add exposure time
             used_image = get_used_image(fits_file[0].header)
             texp = get_exptime(used_image, obs_table, filt)
-            fits_file[0].header['EXPTIME'] = texp
-            fits_file[0].header['COMMENT'] = "EXPTIME added by HostPhot"
+            if texp is None:
+                return None
+            fits_file[0].header["EXPTIME"] = texp
+            fits_file[0].header["COMMENT"] = "EXPTIME added by HostPhot"
 
             fits_files.append(fits_file)
 
     return fits_files
+
 
 # WISE
 # ----------------------------------------
@@ -460,8 +476,8 @@ def get_WISE_images(ra, dec, size=3, filters=None):
         Right ascension in degrees.
     dec: str or float
         Declination in degrees.
-    size: int, default ``3``
-        Image size in arcmin.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``FUV, NUV``.
 
@@ -485,13 +501,19 @@ def get_WISE_images(ra, dec, size=3, filters=None):
     size_pixels = int(size_arcsec.value / pixel_scale)
 
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', AstropyWarning)
-        coords = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame='icrs')
+        warnings.simplefilter("ignore", AstropyWarning)
+        coords = SkyCoord(
+            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
+        )
 
-        skyview_fits = SkyView.get_images(position=coords,
-                                       coordinates='icrs', pixels=str(size_pixels),
-                                       survey="WISE 3.4", width=size_arcsec,
-                                       height=size_arcsec)
+        skyview_fits = SkyView.get_images(
+            position=coords,
+            coordinates="icrs",
+            pixels=str(size_pixels),
+            survey="WISE 3.4",
+            width=size_arcsec,
+            height=size_arcsec,
+        )
         header = skyview_fits[0][0].header
 
         coadd_id = get_used_image(header)
@@ -499,7 +521,9 @@ def get_WISE_images(ra, dec, size=3, filters=None):
         coadd_id2 = coadd_id1[:2]
 
         # for more info: https://irsa.ipac.caltech.edu/ibe/docs/wise/allwise/p3am_cdd/#sample_code
-        base_url = "http://irsa.ipac.caltech.edu/ibe/data/wise/allwise/p3am_cdd/"
+        base_url = (
+            "http://irsa.ipac.caltech.edu/ibe/data/wise/allwise/p3am_cdd/"
+        )
         coadd_url = os.path.join(coadd_id2, coadd_id1, coadd_id)
         params_url = f"center={ra},{dec}&size={size_arcsec.value}arcsec&gzip=0"  # center and size of the image
 
@@ -507,13 +531,16 @@ def get_WISE_images(ra, dec, size=3, filters=None):
         for filt in filters:
             i = filt[-1]
             band_url = f"{coadd_id}-w{i}-int-3.fits"
-            url = os.path.join(base_url, coadd_url, band_url + "?" + params_url)
+            url = os.path.join(
+                base_url, coadd_url, band_url + "?" + params_url
+            )
             fits_file = fits.open(url)
             fits_files.append(fits_file)
 
     return fits_files
 
-# WISE
+
+# 2MASS
 # ----------------------------------------
 def get_2MASS_images(ra, dec, size=3, filters=None):
     """Downloads a set of 2MASS fits images for a given set
@@ -525,8 +552,8 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
         Right ascension in degrees.
     dec: str or float
         Declination in degrees.
-    size: int, default ``3``
-        Image size in arcmin.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``FUV, NUV``.
 
@@ -548,21 +575,27 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
     size_degree = size_degree.value
 
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', AstropyWarning)
-        coords = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame='icrs')
+        warnings.simplefilter("ignore", AstropyWarning)
+        coords = SkyCoord(
+            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
+        )
 
-        twomass_services = pyvo.regsearch(servicetype='image', keywords=['2mass'])
+        twomass_services = pyvo.regsearch(
+            servicetype="image", keywords=["2mass"]
+        )
         table = twomass_services[0].search(pos=coords, size=size_degree)
         twomass_df = table.to_table().to_pandas()
-        twomass_df = twomass_df[twomass_df.format=='image/fits']
+        twomass_df = twomass_df[twomass_df.format == "image/fits"]
 
         # for more info: https://irsa.ipac.caltech.edu/ibe/docs/twomass/allsky/allsky/#main
-        base_url = "https://irsa.ipac.caltech.edu/ibe/data/twomass/allsky/allsky"
+        base_url = (
+            "https://irsa.ipac.caltech.edu/ibe/data/twomass/allsky/allsky"
+        )
 
         fits_files = []
         for i, filt in enumerate(filters):
-            band_df = twomass_df[twomass_df.band==filt]
-            fname = band_df.download.values[0].split('=')[-1]
+            band_df = twomass_df[twomass_df.band == filt]
+            fname = band_df.download.values[0].split("=")[-1]
             hemisphere = band_df.hem.values[0]
             ordate = band_df.date.values[0]
             scanno = band_df.scan.values[0]
@@ -576,6 +609,102 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
             fits_files.append(fits_file)
 
     return fits_files
+
+
+# HST
+# ----------------------------------------
+def get_HST_images(ra, dec, size=3, filters=None):
+    """Downloads a set of HST fits images for a given set
+    of coordinates and filters using SkyView.
+
+    Parameters
+    ----------
+    ra: str or float
+        Right ascension in degrees.
+    dec: str or float
+        Declination in degrees.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
+    filters: str, default ``None``
+        Filters to use.
+
+    Return
+    ------
+    fits_files: list
+        List with fits images for the given filters.
+        `None` is returned if no image is found.
+    """
+    survey = "HST"
+    if filters is None:
+        filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
+
+    if isinstance(size, (float, int)):
+        size_degree = (size * u.arcmin).to(u.degree)
+    else:
+        size_degree = size.to(u.degree)
+    size_degree = size_degree.value
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        coords = SkyCoord(
+            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
+        )
+
+    obs_table = Observations.query_criteria(
+        coordinates=coords, radius=size_degree, obs_collection=["HST"]
+    )
+    obs_df = obs_table.to_pandas()
+
+    df_list = []
+    for inst in obs_df.instrument_name.unique():
+        inst_df = obs_df[obs_df.instrument_name == inst]
+
+        for filt in inst_df.filters.unique():
+            if not filt.startswith("F") or ";" in filt:
+                continue  # skip these odd filters
+            filt_df = inst_df[inst_df.filters == filt]
+
+            dist = np.sqrt(
+                (filt_df.s_dec.values - dec) ** 2
+                + (filt_df.s_ra.values - ra) ** 2
+            )
+            filt_df = filt_df[
+                dist == dist.min()
+            ]  # take the most centred image
+            filt_df = filt_df[:1]  # take first image
+            df_list.append(filt_df)
+    obs_df = pd.concat(df_list)
+
+    # identify products to download
+    data_products = Observations.get_product_list(Table.from_pandas(obs_df))
+    dp_df = data_products.to_pandas()
+    dp_df = dp_df[dp_df.productType == "SCIENCE"]
+
+    df_list = []
+    for filt in obs_df.filters.unique():
+        if filt.lower() in dp_df.dataURI.values:
+            filt_df = dp_df[dp_df.dataURI.contains(filt.lower())]
+        elif filt.upper() in dp_df.dataURI.values:
+            filt_df = dp_df[dp_df.dataURI.contains(filt.upper())]
+        else:
+            continue
+
+        if "HLA" in filt_df.obs_collection:
+            # choose images from the legacy archive
+            filt_df = filt_df[filt_df.obs_collection == "HLA"]
+
+        filt_df = filt_df[:1]  # take first image
+        df_list.append(filt_df)
+    dp_df = pd.concat(df_list)
+
+    # download images
+    Observations.download_products(
+        Table.from_pandas(dp_df), productType="SCIENCE", extension="fits"
+    )
+
+    return fits_files
+
 
 # Check orientation
 # ------------------
@@ -672,14 +801,17 @@ def download_images(
         # fits_files = match_wcs(fits_files)
 
         # fix wcs (some have rotated wcs)
-        if survey in ['XXX']:
+        if survey in ["XXX"]:
             for fits_file in fits_files:
                 fits_file = fits_file[0]
-                wcs_out, shape_out = find_optimal_celestial_wcs([fits_file], auto_rotate=True)
-                fixed_data, footprint = reproject_exact(fits_file, wcs_out, shape_out=shape_out)
+                wcs_out, shape_out = find_optimal_celestial_wcs(
+                    [fits_file], auto_rotate=True
+                )
+                fixed_data, footprint = reproject_exact(
+                    fits_file, wcs_out, shape_out=shape_out
+                )
                 fits_file.header.update(wcs_out.to_header())
                 fits_file.data = fixed_data
-
 
         for fits_file, filt in zip(fits_files, filters):
             outfile = os.path.join(obj_dir, f"{survey}_{filt}.fits")

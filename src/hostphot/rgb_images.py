@@ -353,7 +353,7 @@ def get_SDSS_RGB_image(outfile, ra, dec, size=3):
     else:
         size_arcsec = size.to(u.arcsec).value
 
-    size_pixels = int(size_arcsec/pixel_scale)
+    size_pixels = int(size_arcsec / pixel_scale)
 
     remote_url = (
         "http://skyserver.sdss.org/dr16/SkyServerWS/ImgCutout/"

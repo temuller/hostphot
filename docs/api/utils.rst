@@ -13,6 +13,8 @@ Other support functions are documented bellow:
 .. autofunction:: survey_zp
 .. autofunction:: get_image_gain
 .. autofunction:: get_image_readnoise
+.. autofunction:: get_image_exptime
+.. autofunction:: uncertainty_calc
 .. autofunction:: survey_pixel_scale
 .. autofunction:: check_filters_validity
 .. autofunction:: extract_filters

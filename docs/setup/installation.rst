@@ -47,5 +47,6 @@ HostPhot has the following requirements:
 	sep
 	ipywidgets (optional: for interactive aperture)
 	ipympl (optional: for interactive aperture)
+	ipython (optional: for interactive aperture)
 	pytest (optional: for testing the code)
 

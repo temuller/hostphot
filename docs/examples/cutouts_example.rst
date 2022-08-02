@@ -3,7 +3,7 @@
 Cutouts
 =======
 
-This module allows you to download image cutouts from :code:`PS1`, :code:`DES` and :code:`SDSS` (and maybe other surveys in the future). For this, the user can use :func:`download_images` and use the coordinates of an object:
+This module allows you to download image cutouts from :code:`PS1`, :code:`DES`, :code:`SDSS`, :code:`GALEX`, :code:`2MASS` and :code:`WISE` (and maybe other surveys in the future). For this, the user can use :func:`download_images` and use the coordinates of an object:
 
 .. code:: python
 

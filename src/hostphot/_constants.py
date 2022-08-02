@@ -1,3 +1,3 @@
 # -*- coding: utf-8 -*-
 
-__workdir__ = 'images'
+__workdir__ = "images"

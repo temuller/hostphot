@@ -12,8 +12,9 @@ import warnings
 from astropy.utils.exceptions import AstropyWarning
 
 import hostphot
+
 hostphot_path = hostphot.__path__[0]
-config_file = os.path.join(hostphot_path, 'filters', 'config.txt')
+config_file = os.path.join(hostphot_path, "filters", "config.txt")
 config_df = pd.read_csv(config_file, delim_whitespace=True)
 
 
@@ -59,9 +60,7 @@ def check_survey_validity(survey):
     """
     global config_df
     surveys = list(config_df.survey)
-    assert survey in surveys, (
-        f"survey '{survey}' not" f" in {surveys}"
-    )
+    assert survey in surveys, f"survey '{survey}' not" f" in {surveys}"
 
 
 def get_survey_filters(survey):
@@ -83,8 +82,8 @@ def get_survey_filters(survey):
     survey_df = config_df[config_df.survey == survey]
     filters = survey_df.filters.values[0]
 
-    if ',' in filters:
-        filters = filters.split(',')
+    if "," in filters:
+        filters = filters.split(",")
 
     return filters
 
@@ -113,11 +112,11 @@ def survey_zp(survey):
     survey_df = config_df[config_df.survey == survey]
     zps = survey_df.zp.values[0]
 
-    if zps=='header':
+    if zps == "header":
         return zps
 
-    if ',' in zps:
-        zps = zps.split(',')
+    if "," in zps:
+        zps = zps.split(",")
         zp_dict = {filt: float(zp) for filt, zp in zip(filters, zps)}
     else:
         zp_dict = {filt: float(zps) for filt in filters}
@@ -186,14 +185,15 @@ def get_image_readnoise(header, survey):
         readnoise = 7.0  # electrons per pixel
     elif survey == "SDSS":
         readnoise = 0.0
-    elif survey=="2MASS":
+    elif survey == "2MASS":
         # https://iopscience.iop.org/article/10.1086/498708/pdf
         # 6 combined images
-        readnoise = 4.5*np.sqrt(6)  # not used
+        readnoise = 4.5 * np.sqrt(6)  # not used
     else:
         readnoise = 0.0
 
     return readnoise
+
 
 def get_image_exptime(header, survey):
     """Returns the exposure time from an image's header.
@@ -213,7 +213,7 @@ def get_image_exptime(header, survey):
     check_survey_validity(survey)
     if survey in ["PS1", "DES", "GALEX"]:
         exptime = float(header["EXPTIME"])
-    elif survey=="WISE":
+    elif survey == "WISE":
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/
         # and https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec1_1.html
         if header["BAND"] in [1, 2]:
@@ -228,7 +228,18 @@ def get_image_exptime(header, survey):
 
     return exptime
 
-def uncertainty_calc(flux, flux_err, survey, filt=None, ap_area=0.0, readnoise=0.0, gain=1.0, exptime=0.0, bkg_rms=0.0):
+
+def uncertainty_calc(
+    flux,
+    flux_err,
+    survey,
+    filt=None,
+    ap_area=0.0,
+    readnoise=0.0,
+    gain=1.0,
+    exptime=0.0,
+    bkg_rms=0.0,
+):
     """Calculates the uncertainty propagation.
 
     Parameters
@@ -259,54 +270,80 @@ def uncertainty_calc(flux, flux_err, survey, filt=None, ap_area=0.0, readnoise=0
     if survey in ["PS1", "DES", "SDSS"]:
         # 1.0857 = 2.5/ln(10)
         extra_err = (
-                1.0857
-                * np.sqrt(ap_area * (readnoise ** 2) + flux / gain)
-                / flux
+            1.0857 * np.sqrt(ap_area * (readnoise**2) + flux / gain) / flux
         )
-        mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
+        mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-    elif survey=="GALEX":
+    elif survey == "GALEX":
         CPS = flux
-        if filt == 'FUV':
+        if filt == "FUV":
             uv_err = -2.5 * (
-                        np.log10(CPS) - np.log10(CPS + (CPS * exptime + (0.050 * CPS * exptime) ** 2) ** 0.5 / exptime))
-        elif filt == 'NUV':
+                np.log10(CPS)
+                - np.log10(
+                    CPS
+                    + (CPS * exptime + (0.050 * CPS * exptime) ** 2) ** 0.5
+                    / exptime
+                )
+            )
+        elif filt == "NUV":
             uv_err = -2.5 * (
-                        np.log10(CPS) - np.log10(CPS + (CPS * exptime + (0.027 * CPS * exptime) ** 2) ** 0.5 / exptime))
-        mag_err = np.sqrt(mag_err ** 2 + uv_err ** 2)
+                np.log10(CPS)
+                - np.log10(
+                    CPS
+                    + (CPS * exptime + (0.027 * CPS * exptime) ** 2) ** 0.5
+                    / exptime
+                )
+            )
+        mag_err = np.sqrt(mag_err**2 + uv_err**2)
 
-    elif survey=="2MASS":
+    elif survey == "2MASS":
         # see: https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/
         S = flux
         N_c = 6  # number of coadd pixels
         k_z = 1.7  # kernel smoothing factor
         n_f = ap_area  # number of frame pixels in the aperture; aprox. as aperture area
-        n_c = 4*n_f  # number of coadd pixels in the aperture
+        n_c = 4 * n_f  # number of coadd pixels in the aperture
         sigma_c = bkg_rms  # coadd noise; assumed to be ~background noise
 
-        SNR = S/np.sqrt(S/(gain*N_c) + n_c * (2*k_z*sigma_c)**2 + (n_c*0.024*sigma_c)**2)
-        mag_err = 1.0857/SNR
+        SNR = S / np.sqrt(
+            S / (gain * N_c)
+            + n_c * (2 * k_z * sigma_c) ** 2
+            + (n_c * 0.024 * sigma_c) ** 2
+        )
+        mag_err = 1.0857 / SNR
 
-    elif survey=="WISE":
+    elif survey == "WISE":
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
         # and also: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#circ
-        apcor_dict = {'W1':0.222, 'W2':0.280, 'W3':0.665, 'W4':0.616}  # in mags
+        apcor_dict = {
+            "W1": 0.222,
+            "W2": 0.280,
+            "W3": 0.665,
+            "W4": 0.616,
+        }  # in mags
         m_apcor = apcor_dict[filt]
-        f_apcor = 10**(-0.4*m_apcor)
-        F_src = f_apcor*flux
+        f_apcor = 10 ** (-0.4 * m_apcor)
+        F_src = f_apcor * flux
 
-        N_p = ap_area  # effective number of noise-pixels characterizing the PRF
+        N_p = (
+            ap_area  # effective number of noise-pixels characterizing the PRF
+        )
         # ratio of input (detector) pixel scale to output (Atlas Image) pixel scale
-        pixel_scale_ratios = {'W1':2, 'W2':2, 'W3':2, 'W4':4}
+        pixel_scale_ratios = {"W1": 2, "W2": 2, "W3": 2, "W4": 4}
         Sin_Sout = pixel_scale_ratios[filt]
         F_corr = N_p * Sin_Sout**2
 
         k = 1
         N_A = N_B = ap_area
         sigma_conf = flux_err  # assumed to be the ~error in the aperture sum
-        sigma_src = np.sqrt(f_apcor**2 * F_corr * (flux_err**2 + k * (N_A**2)/N_B * bkg_rms**2) + sigma_conf**2)
+        sigma_src = np.sqrt(
+            f_apcor**2
+            * F_corr
+            * (flux_err**2 + k * (N_A**2) / N_B * bkg_rms**2)
+            + sigma_conf**2
+        )
 
-        mag_err = np.sqrt(1.179* sigma_src**2/F_src**2)
+        mag_err = np.sqrt(1.179 * sigma_src**2 / F_src**2)
 
     return mag_err
 
@@ -453,6 +490,7 @@ def clean_dir(directory):
         os.rmdir(directory)
     except:
         pass
+
 
 def plot_fits(fits_file):
     """Plots a fits file.

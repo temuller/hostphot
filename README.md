@@ -44,6 +44,7 @@ pyvo
 sep
 ipywidgets (optional: for interactive aperture)
 ipympl (optional: for interactive aperture)
+ipython (optional: for interactive aperture)
 pytest (optional: for testing the code)
 ```
 
@@ -59,7 +60,7 @@ pytest -v
 
 ### Cutouts
 
-This module allows you to download image cutouts from `PS1`, `DES` and `SDSS`:
+This module allows you to download image cutouts from different surveys (e.g. `PS1`):
 
 ```python
 from hostphot.cutouts import download_images

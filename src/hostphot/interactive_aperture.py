@@ -12,28 +12,16 @@ from matplotlib.patches import Ellipse
 import sep
 from astropy.io import fits
 
-
+from hostphot._constants import __workdir__
 from hostphot.utils import (
+    get_image_exptime,
     get_image_gain,
     get_image_readnoise,
     survey_zp,
     get_survey_filters,
     check_filters_validity,
+    uncertainty_calc,
 )
-from hostphot.image_cleaning import remove_nan
-from hostphot._constants import __workdir__
-
-# ----------------------------------------
-def _choose_workdir(workdir):
-    """Updates the work directory.
-
-    Parameters
-    ----------
-    workdir: str
-        Path to the work directory.
-    """
-    global __workdir__
-    __workdir__ = workdir
 
 
 # ----------------------------------------
@@ -44,8 +32,6 @@ class InteractiveAperture:
     ----------
     name: str
         Name of the object to find the path of the fits file.
-    filt: str, default, `g`
-        Filter used to initiate the plot.
     filters: str, default, `None`
         Filters to use to load the fits files. If `None` use all
         the filters of the given survey.
@@ -53,26 +39,34 @@ class InteractiveAperture:
         Survey to use for the zero-points and pixel scale.
     masked: bool, default `True`
         If `True`, uses masked images.
+    masked: bool, default `False`
+        If `True`, the images are background subtracted.
     """
 
     def __init__(
-        self, name, filt="g", survey="PS1", filters=None, masked=True
+        self,
+        name,
+        survey="PS1",
+        filters=None,
+        masked=True,
+        bkg_sub=False,
     ):
         self.name = name
-        self.filt = filt
         self.survey = survey
         if not filters:
             self.filters = get_survey_filters(survey)
         else:
             check_filters_validity(filters, survey)
             self.filters = filters
+        self.filt = self.filters[0]
 
         if masked:
             self.masked = "masked_"
         else:
             self.masked = ""
+        self.bkg_sub = bkg_sub
 
-        base_file = os.path.join(f"{self.masked}{survey}_{filt}.fits")
+        base_file = os.path.join(f"{self.masked}{survey}_{self.filt}.fits")
         self.fits_file = os.path.join(__workdir__, name, base_file)
 
         self.ellipse_parameters = ["x", "y", "width", "height", "angle"]
@@ -82,6 +76,7 @@ class InteractiveAperture:
         self.flux_phot.update({f"{f}_err": np.nan for f in self.filters})
         self.mag_phot = {f: np.nan for f in self.filters}
         self.mag_phot.update({f"{f}_err": np.nan for f in self.filters})
+        self.phot_df = None
 
         # initiate plots + widgets
         self._initiate_plots()
@@ -102,9 +97,11 @@ class InteractiveAperture:
             origin="lower",
         )
 
-    def _change_image(self, filt):
+    def _change_image(self):
         """Changes the plotted image."""
-        base_file = os.path.join(f"{self.masked}{self.survey}_{filt}.fits")
+        base_file = os.path.join(
+            f"{self.masked}{self.survey}_{self.filt}.fits"
+        )
         self.fits_file = os.path.join(__workdir__, self.name, base_file)
         img = fits.open(self.fits_file)
 
@@ -113,9 +110,12 @@ class InteractiveAperture:
         self.data = self.data.astype(np.float64)
 
         self.bkg = sep.Background(self.data)
-        self.err = self.bkg.globalrms
+        self.bkg_rms = self.bkg.globalrms
 
-        self.exptime = float(self.header["EXPTIME"])
+        if self.bkg_sub:
+            self.data = np.copy(self.data - self.bkg)
+
+        self.exptime = get_image_exptime(self.header, self.survey)
         self.gain = get_image_gain(self.header, self.survey)
         self.readnoise = get_image_readnoise(self.header, self.survey)
 
@@ -126,7 +126,7 @@ class InteractiveAperture:
 
     def _button_update_image(self, button):
         self.filt = button.description
-        self._change_image(self.filt)
+        self._change_image()
 
     # -------
     # Ellipse
@@ -134,17 +134,19 @@ class InteractiveAperture:
         """Updates the parameters of the plotted ellipse"""
         slider = change.owner
         if slider.description == "x":
-            self.e.center = (change.new, self.e.center[1])
+            self.ell.center = (change.new, self.ell.center[1])
         elif slider.description == "y":
-            self.e.center = (self.e.center[0], change.new)
+            self.ell.center = (self.ell.center[0], change.new)
         else:
-            self.e.update({slider.description: change.new})
+            self.ell.update({slider.description: change.new})
+
+        self.eparams[slider.description]["value"] = change.new
 
         # removes previous ellipse
         self.ax.clear()
-        self.ax.add_patch(self.e)
+        self.ax.add_patch(self.ell)
         self.ax.set_title(self.title)
-        self.im = self._draw_image()
+        self._draw_image()
 
     def _get_init_eparams(self):
         """Gets initial ellipse parameters."""
@@ -160,9 +162,9 @@ class InteractiveAperture:
 
     def _get_eparams(self):
         """Gets the ellipse parameters."""
-        self.eparams = {}
+        # self.eparams = {}
         for key, slider in self.sliders.items():
-            self.eparams[key] = slider.value
+            self.eparams[key]["value"] = slider.value
 
     def _onclick(self, event):
         """Updates the ellipse's center with a mouse click."""
@@ -176,11 +178,7 @@ class InteractiveAperture:
         """Initiates the plot with the image and
         aperture (ellipse)."""
         self.fig, self.ax = plt.subplots(figsize=(6, 6))
-
-        self.title = f"{self.name} (${self.filt}$-band)"
-        self.ax.set_title(self.title)
-
-        self._change_image(self.filt)
+        self._change_image()
 
         # ellipse
         self._get_init_eparams()
@@ -189,11 +187,11 @@ class InteractiveAperture:
         height = self.eparams["height"]["value"]
         angle = self.eparams["angle"]["value"]
 
-        self.e = Ellipse(xy=xy, width=width, height=height, angle=angle)
+        self.ell = Ellipse(xy=xy, width=width, height=height, angle=angle)
 
-        self.e.set_facecolor("none")
-        self.e.set_edgecolor("red")
-        self.ax.add_patch(self.e)
+        self.ell.set_facecolor("none")
+        self.ell.set_edgecolor("red")
+        self.ax.add_patch(self.ell)
 
     # ---------- Widgets -------------
     # -------
@@ -204,12 +202,12 @@ class InteractiveAperture:
         for key in self.ellipse_parameters:
             if self.eparams:
                 value = self.eparams[key]["value"]
-                min = self.eparams[key]["min"]
-                max = self.eparams[key]["max"]
+                min_val = self.eparams[key]["min"]
+                max_val = self.eparams[key]["max"]
             else:
-                value, min, max = 1, 0, 180
+                value, min_val, max_val = 1, 0, 180
             self.sliders[key] = widgets.IntSlider(
-                value, min, max, step=1, description=key
+                value, min_val, max_val, step=1, description=key
             )
 
     def _create_textboxes(self):
@@ -277,9 +275,11 @@ class InteractiveAperture:
     # Photometry
     def _calculate_flux(self):
         """Calculates the flux within the aperture."""
-        x, y = [self.eparams["x"]], [self.eparams["y"]]
-        a, b = [self.eparams["width"]], [self.eparams["height"]]
-        theta = [self.eparams["angle"] * (np.pi / 180)]  # in radians
+        x = [self.eparams["x"]["value"]]
+        y = [self.eparams["y"]["value"]]
+        a = [self.eparams["width"]["value"]]
+        b = [self.eparams["height"]["value"]]
+        theta = [self.eparams["angle"]["value"] * (np.pi / 180)]  # in radians
 
         scale = 1  # fixed
         flux, flux_err, flag = sep.sum_ellipse(
@@ -290,7 +290,7 @@ class InteractiveAperture:
             b,
             theta,
             scale,
-            self.err,
+            self.bkg_rms,
             subpix=5,
             gain=self.gain,
         )
@@ -302,22 +302,52 @@ class InteractiveAperture:
         """Calculates the magnitude within the aperture."""
         flux = self.flux_phot[self.filt]
         flux_err = self.flux_phot[f"{self.filt}_err"]
+
         zp_dict = survey_zp(self.survey)
-        zp = zp_dict[self.filt]
-        if self.survey=='PS1':
+        if zp_dict == "header":
+            zp = self.header["MAGZP"]
+        else:
+            zp = zp_dict[self.filt]
+        if self.survey == "PS1":
             zp += 2.5 * np.log10(self.exptime)
 
         mag = -2.5 * np.log10(flux) + zp
         mag_err = 2.5 / np.log(10) * flux_err / flux
 
-        # ellipse area = pi*a*b
-        ap_area = np.pi * self.eparams["width"] * self.eparams["height"]
-        extra_err = (
-            1.0857
-            * np.sqrt(ap_area * (self.readnoise**2) + flux / self.gain)
-            / flux
+        if self.survey == "WISE":
+            # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#circ
+            apcor_dict = {
+                "W1": 0.222,
+                "W2": 0.280,
+                "W3": 0.665,
+                "W4": 0.616,
+            }  # in mags
+            m_apcor = apcor_dict[self.filt]
+            mag += m_apcor
+            mag_err = 0.0  # flux_err already propagated below for this survey
+
+        # error budget
+        ap_area = (
+            np.pi
+            * self.eparams["width"]["value"]
+            * self.eparams["height"]["value"]
+        )
+        extra_err = uncertainty_calc(
+            flux,
+            flux_err,
+            self.survey,
+            self.filt,
+            ap_area,
+            self.readnoise,
+            self.gain,
+            self.exptime,
+            self.bkg_rms,
         )
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
+
+        if self.survey == "WISE":
+            zp_unc = self.header["MAGZPUNC"]
+            mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
         self.mag_phot[self.filt] = mag
         self.mag_phot[f"{self.filt}_err"] = mag_err
