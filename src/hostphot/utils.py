@@ -412,10 +412,12 @@ def extract_filters(filters, survey):
     check_filters_validity(filters, survey)
 
     filters_dict = {filt: None for filt in filters}
+    if "WISE" in survey:
+        survey == "WISE"  # for unWISE to use the same filters as WISE
     filters_path = os.path.join(hostphot.__path__[0], "filters", survey)
 
     for filt in filters:
-        filt_file = os.path.join(filters_path, f"{survey.upper()}_{filt}.dat")
+        filt_file = os.path.join(filters_path, f"{survey}_{filt}.dat")
         wave, transmission = np.loadtxt(filt_file).T
 
         filters_dict[filt] = {"wave": wave, "transmission": transmission}

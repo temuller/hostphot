@@ -1,5 +1,7 @@
 import os
 import copy
+import tarfile
+import requests
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
@@ -151,12 +153,12 @@ def get_PS1_images(ra, dec, size=3, filters=None):
 
     fits_url = get_PS1_urls(ra, dec, size, filters)
 
-    fits_files = []
+    hdu_list = []
     for url, filt in zip(fits_url, filters):
-        fits_file = fits.open(url)
-        fits_files.append(fits_file)
+        hdu = fits.open(url)
+        hdu_list.append(hdu)
 
-    return fits_files
+    return hdu_list
 
 
 # DES
@@ -244,7 +246,7 @@ def get_DES_images(ra, dec, size=3, filters=None):
 
     Returns
     -------
-    fits_files: list
+    hdu_list: list
         List of fits images.
     """
     survey = "DES"
@@ -262,19 +264,19 @@ def get_DES_images(ra, dec, size=3, filters=None):
     if url_list is None:
         return None
 
-    fits_files = []
+    hdu_list = []
     for url, url_w in zip(url_list, url_w_list):
         # combine image+weights on a single fits file
-        image_fits = fits.open(url)
-        weight_fits = fits.open(url_w)
-        hdu = fits.PrimaryHDU(image_fits[0].data, header=image_fits[0].header)
+        image_hdu = fits.open(url)
+        weight_hdu = fits.open(url_w)
+        hdu = fits.PrimaryHDU(image_hdu[0].data, header=image_hdu[0].header)
         hdu_err = fits.ImageHDU(
-            weight_fits[0].data, header=weight_fits[0].header
+            weight_hdu[0].data, header=weight_hdu[0].header
         )
-        hdu_list = fits.HDUList([hdu, hdu_err])
-        fits_files.append(hdu_list)
+        hdu_sublist = fits.HDUList([hdu, hdu_err])
+        hdu_list.append(hdu_sublist)
 
-    return fits_files
+    return hdu_list
 
 
 # SDSS
@@ -296,7 +298,7 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
 
     Return
     ------
-    fits_files: list
+    hdu_list: list
         List with fits images for the given filters.
         `None` is returned if no image is found.
     """
@@ -323,15 +325,15 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
     pixel_scale = survey_pixel_scale(survey)
     size_pixels = int(size_arcsec.value / pixel_scale)
 
-    fits_files = []
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         coords = SkyCoord(
             ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
         )
 
+        hdu_list = []
         for filt, skyview_filter in zip(filters, skyview_filters):
-            fits_file = SkyView.get_images(
+            hdu = SkyView.get_images(
                 position=coords,
                 coordinates="icrs",
                 pixels=str(size_pixels),
@@ -340,9 +342,9 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
                 height=size_arcsec,
             )
 
-            fits_files.append(fits_file[0])
+            hdu_list.append(hdu[0])
 
-    return fits_files
+    return hdu_list
 
 
 # GALEX
@@ -410,7 +412,7 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
 
     Return
     ------
-    fits_files: list
+    hdu_list: list
         List with fits images for the given filters.
         `None` is returned if no image is found.
     """
@@ -440,7 +442,7 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
             coordinates=coords, radius=size_arcsec, obs_collection=[survey]
         )
 
-        skyview_fits = SkyView.get_images(
+        skyview_hdu_list = SkyView.get_images(
             position=coords,
             coordinates="icrs",
             pixels=str(size_pixels),
@@ -449,19 +451,19 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
             height=size_arcsec,
         )
 
-        fits_files = []
-        for filt, fits_file in zip(filters, skyview_fits):
+        hdu_list = []
+        for filt, hdu in zip(filters, skyview_hdu_list):
             # add exposure time
-            used_image = get_used_image(fits_file[0].header)
+            used_image = get_used_image(hdu[0].header)
             texp = get_exptime(used_image, obs_table, filt)
             if texp is None:
                 return None
-            fits_file[0].header["EXPTIME"] = texp
-            fits_file[0].header["COMMENT"] = "EXPTIME added by HostPhot"
+            hdu[0].header["EXPTIME"] = texp
+            hdu[0].header["COMMENT"] = "EXPTIME added by HostPhot"
 
-            fits_files.append(fits_file)
+            hdu_list.append(hdu)
 
-    return fits_files
+    return hdu_list
 
 
 # WISE
@@ -479,11 +481,11 @@ def get_WISE_images(ra, dec, size=3, filters=None):
     size: float or ~astropy.units.Quantity, default ``3``
         Image size. If a float is given, the units are assumed to be arcmin.
     filters: str, default ``None``
-        Filters to use. If ``None``, uses ``FUV, NUV``.
+        Filters to use. If ``None``, uses all WISE filters.
 
     Return
     ------
-    fits_files: list
+    hdu_list: list
         List with fits images for the given filters.
         `None` is returned if no image is found.
     """
@@ -527,17 +529,87 @@ def get_WISE_images(ra, dec, size=3, filters=None):
         coadd_url = os.path.join(coadd_id2, coadd_id1, coadd_id)
         params_url = f"center={ra},{dec}&size={size_arcsec.value}arcsec&gzip=0"  # center and size of the image
 
-        fits_files = []
+        hdu_list = []
         for filt in filters:
             i = filt[-1]
             band_url = f"{coadd_id}-w{i}-int-3.fits"
             url = os.path.join(
                 base_url, coadd_url, band_url + "?" + params_url
             )
-            fits_file = fits.open(url)
-            fits_files.append(fits_file)
+            hdu = fits.open(url)
+            hdu_list.append(hdu)
 
-    return fits_files
+    return hdu_list
+
+def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
+    """Downloads a set of unWISE fits images for a given set
+    of coordinates and filters using SkyView.
+
+    Parameters
+    ----------
+    ra: str or float
+        Right ascension in degrees.
+    dec: str or float
+        Declination in degrees.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses all WISE filters.
+    version: str, default ``allwise``
+        Version of the unWISE images. Either ``allwise``, ``neo1`` or ``neo2``.
+
+    Return
+    ------
+    hdu_list: list
+        List with fits images for the given filters.
+        `None` is returned if no image is found.
+    """
+    survey = f"unWISE{version}"
+    if filters is None:
+        filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
+
+    if version in ["neo1", "neo2"]:
+        # these only have W1 and W2 data
+        if "W3" in filters:
+            filters.remove("W3")
+        if "W4" in filters:
+            filters.remove("W4")
+
+    if isinstance(size, (float, int)):
+        size_arcsec = (size * u.arcmin).to(u.arcsec)
+    else:
+        size_arcsec = size.to(u.arcsec)
+
+    pixel_scale = survey_pixel_scale(survey)
+    size_pixels = int(size_arcsec.value / pixel_scale)
+    assert size_pixels <= 1024, "Maximum cutout size for unWISE is 1024 pixels"
+
+    bands = ''.join(filt[-1] for filt in filters)  # e.g. 1234
+
+    # for more info: http://unwise.me/imgsearch/
+    base_url = "http://unwise.me/cutout_fits?"
+    params_url = f"version={version}&ra={ra}&dec={dec}&size={size_pixels}&bands={bands}"
+    master_url = os.path.join(base_url, params_url)
+
+    response = requests.get(master_url, stream=True)
+    target_file = 'unWISE_images.tar.gz'  # current directory
+    if response.status_code == 200:
+        with open(target_file, 'wb') as f:
+            f.write(response.raw.read())
+
+    hdu_list = []
+    with tarfile.open(target_file) as tar_file:
+        for filt in filters:
+            fits_file = f'*{filt.lower()}-img-m.fits'
+            tar_file.extract(fits_file, '.')
+            hdu = fits.open(fits_file)
+            hdu_list.append(hdu)
+            os.remove(fits_file)
+
+    os.remove(target_file)
+
+    return hdu_list
 
 
 # 2MASS
@@ -559,7 +631,7 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
 
     Return
     ------
-    fits_files: list
+    hdu_list: list
         List with fits images for the given filters.
         `None` is returned if no image is found.
     """
@@ -592,7 +664,7 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
             "https://irsa.ipac.caltech.edu/ibe/data/twomass/allsky/allsky"
         )
 
-        fits_files = []
+        hdu_list = []
         for i, filt in enumerate(filters):
             band_df = twomass_df[twomass_df.band == filt]
             fname = band_df.download.values[0].split("=")[-1]
@@ -605,10 +677,10 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
             params_url = f"center={ra},{dec}&size={size_degree}degree&gzip=0"  # center and size of the image
 
             url = os.path.join(base_url, tile_url, fits_url + "?" + params_url)
-            fits_file = fits.open(url)
-            fits_files.append(fits_file)
+            hdu = fits.open(url)
+            hdu_list.append(hdu)
 
-    return fits_files
+    return hdu_list
 
 
 # HST
@@ -630,7 +702,7 @@ def get_HST_images(ra, dec, size=3, filters=None):
 
     Return
     ------
-    fits_files: list
+    hdu_list: list
         List with fits images for the given filters.
         `None` is returned if no image is found.
     """
@@ -703,7 +775,7 @@ def get_HST_images(ra, dec, size=3, filters=None):
         Table.from_pandas(dp_df), productType="SCIENCE", extension="fits"
     )
 
-    return fits_files
+    return hdu_list
 
 
 # Check orientation
@@ -784,26 +856,31 @@ def download_images(
 
     # download fits files
     if survey == "PS1":
-        fits_files = get_PS1_images(ra, dec, size, filters)
+        hdu_list = get_PS1_images(ra, dec, size, filters)
     elif survey == "DES":
-        fits_files = get_DES_images(ra, dec, size, filters)
+        hdu_list = get_DES_images(ra, dec, size, filters)
     elif survey == "SDSS":
-        fits_files = get_SDSS_images(ra, dec, size, filters)
+        hdu_list = get_SDSS_images(ra, dec, size, filters)
     elif survey == "GALEX":
-        fits_files = get_GALEX_images(ra, dec, size, filters)
-    elif survey == "WISE":
-        fits_files = get_WISE_images(ra, dec, size, filters)
+        hdu_list = get_GALEX_images(ra, dec, size, filters)
+    elif "WISE" in survey:
+        if survey == "WISE":
+            hdu_list = get_WISE_images(ra, dec, size, filters)
+        else:
+            wise_version = survey.split("WISE")[-1]
+            hdu_list = get_unWISE_images(ra, dec, size,
+                                           filters, wise_version)
     elif survey == "2MASS":
-        fits_files = get_2MASS_images(ra, dec, size, filters)
+        hdu_list = get_2MASS_images(ra, dec, size, filters)
 
-    if fits_files:
+    if hdu_list:
         # this corrects any possible shifts between the images
         # fits_files = match_wcs(fits_files)
 
         # fix wcs (some have rotated wcs)
         if survey in ["XXX"]:
-            for fits_file in fits_files:
-                fits_file = fits_file[0]
+            for hdu in hdu_list:
+                fits_file = hdu[0]
                 wcs_out, shape_out = find_optimal_celestial_wcs(
                     [fits_file], auto_rotate=True
                 )
@@ -813,13 +890,13 @@ def download_images(
                 fits_file.header.update(wcs_out.to_header())
                 fits_file.data = fixed_data
 
-        for fits_file, filt in zip(fits_files, filters):
+        for hdu, filt in zip(hdu_list, filters):
             outfile = os.path.join(obj_dir, f"{survey}_{filt}.fits")
             if not os.path.isfile(outfile):
-                fits_file.writeto(outfile)
+                hdu.writeto(outfile)
             else:
                 if overwrite:
-                    fits_file.writeto(outfile, overwrite=overwrite)
+                    hdu.writeto(outfile, overwrite=overwrite)
                 else:
                     continue
 
