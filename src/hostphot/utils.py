@@ -150,8 +150,10 @@ def get_image_gain(header, survey):
     elif survey == "SDSS":
         gain = 1.0
     elif survey == "2MASS":
-        # https://iopscience.iop.org/article/10.1086/498708/pdf
-        gain = 8.0
+        # the value comes from https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/
+        # but it is different from the value of
+        # https://iopscience.iop.org/article/10.1086/498708/pdf (8 e ADU^-1)
+        gain = 10.0
     else:
         gain = 1.0
 
@@ -267,12 +269,33 @@ def uncertainty_calc(
         Extra uncertainty in magnitudes.
     """
     mag_err = 0.0
-    if survey in ["PS1", "DES", "SDSS"]:
+    if survey in ["PS1", "DES"]:
         # 1.0857 = 2.5/ln(10)
         extra_err = (
             1.0857 * np.sqrt(ap_area * (readnoise**2) + flux / gain) / flux
         )
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
+
+    if survey=="DES":
+        unc_dict = {'g':2.6e-3, 'r':2.9e-3, 'i':3.4e-3,
+                    'z':2.5e-3, 'Y':4.5e-3}
+        extra_err = unc_dict[filt]
+        mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
+
+    if survey=="SDSS":
+        # https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
+        gain_dict = {'u':2.17, 'g':4.05, 'r':4.895,
+                     'i':4.885, 'z':5.155}
+        # dark variance
+        dv_dict = {'u': 12.6025, 'g': 1.96, 'r': 1.8225,
+                     'i': 7.84, 'z': 1.21}
+        gain = gain_dict[filt]
+        dark_variance = dv_dict[filt]
+        extra_err = (
+                1.0857 * np.sqrt(dark_variance + flux / gain) / flux
+        )
+        mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
+        mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
 
     elif survey == "GALEX":
         CPS = flux
@@ -314,12 +337,21 @@ def uncertainty_calc(
 
     elif survey == "WISE":
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
-        # and also: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#circ
+        # see Table 5 of
+        # https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#wpro
+        # apcor_dict = {
+        #     "W1": -0.034,
+        #     "W2": -0.041,
+        #     "W3": 0.030,
+        #     "W4": -0.029,
+        # }  # in mags
+
+        # correction assumed to be 0 mags as PSF fitting is not used.
         apcor_dict = {
-            "W1": 0.222,
-            "W2": 0.280,
-            "W3": 0.665,
-            "W4": 0.616,
+            "W1": 0.0,
+            "W2": 0.0,
+            "W3": 0.0,
+            "W4": 0.0,
         }  # in mags
         m_apcor = apcor_dict[filt]
         f_apcor = 10 ** (-0.4 * m_apcor)

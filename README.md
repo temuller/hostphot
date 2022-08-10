@@ -14,7 +14,7 @@ Global and local photometry of galaxies hosting supernovae or other transients
 [![Coverage](https://raw.githubusercontent.com/temuller/hostphot/main/coverage.svg)](https://raw.githubusercontent.com/temuller/hostphot/dev/coverage.svg)
 
 
-Read the full documentation at [hostphot.readthedocs.io](https://hostphot.readthedocs.io/en/latest/).
+Read the full documentation at [hostphot.readthedocs.io](https://hostphot.readthedocs.io/en/latest/). It is recommended to read the **Further Information** section to understand how HostPhot works.
 ___
 ## Conda environment
 
@@ -136,7 +136,7 @@ To contribute, either open an issue or send a pull request (prefered option). Yo
 
 ### Adding other surveys
 
-If you wish a survey to be added to HostPhot, there are a couple of ways of doing it. 1) You can do a pull request, following the same structure as used for the surveys that are already implemented, or 2) open an issue asking for a survey to be added. Either way, there are a fews things needed to add a survey: where to download the images from (e.g., using astroquery), zero-points to convert the images's flux values into magnitudes (e.g. AB magnitudes), the magnitude system, the scaling of the images (pixels/arcsec), the filters transmission functions and any other piece of information necessary to properly estimate magnitudes, errors, etc. If you open an issue asking for a survey to be added, please include all this information.
+If you wish a survey to be added to HostPhot, there are a couple of ways of doing it. 1) You can do a pull request, following the same structure as used for the surveys that are already implemented, or 2) open an issue asking for a survey to be added. Either way, there are a fews things needed to add a survey: where to download the images from (e.g., using `astroquery`), zero-points to convert the images's flux/counts values into magnitudes, the magnitude system (e.g. AB, Vega), the pixel scaling of the images (in units of arcsec/pixel), the filters transmission functions and any other piece of information necessary to properly estimate magnitudes, errors, etc. If you open an issue asking for a survey to be added, please include all this information. For more information, please check the [Adding New Surveys](https://hostphot.readthedocs.io/en/latest/further_information/adding_surveys.html) section of the documentation.
 
 
 ## Citing HostPhot

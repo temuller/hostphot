@@ -432,12 +432,21 @@ def photometry(
     mag_err = 2.5 / np.log(10) * flux_err / flux
 
     if survey == "WISE":
-        # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#circ
+        # see Table 5 of
+        # https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#wpro
+        # apcor_dict = {
+        #     "W1": -0.034,
+        #     "W2": -0.041,
+        #     "W3": 0.030,
+        #     "W4": -0.029,
+        # }  # in mags
+
+        # correction assumed to be 0 mags as PSF fitting is not used.
         apcor_dict = {
-            "W1": 0.222,
-            "W2": 0.280,
-            "W3": 0.665,
-            "W4": 0.616,
+            "W1": 0.0,
+            "W2": 0.0,
+            "W3": 0.0,
+            "W4": 0.0,
         }  # in mags
         m_apcor = apcor_dict[filt]
         mag += m_apcor

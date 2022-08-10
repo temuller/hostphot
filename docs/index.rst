@@ -47,6 +47,15 @@ HostPhot is being actively developed in `a public repository on GitHub
    examples/preprocessing.rst
    examples/photometry_example.rst
    examples/interactive_aperture.rst
+   
+.. toctree::
+   :maxdepth: 2
+   :caption: Further Information
+
+   further_information/adding_surveys.rst
+   further_information/cutouts.rst
+   further_information/photometry.rst
+   further_information/config_file.rst
 
 .. toctree::
    :maxdepth: 2
