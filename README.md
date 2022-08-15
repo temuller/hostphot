@@ -10,7 +10,8 @@ Global and local photometry of galaxies hosting supernovae or other transients
 [![Tests and Publish](https://github.com/temuller/hostphot/actions/workflows/main.yml/badge.svg)](https://github.com/temuller/hostphot/actions/workflows/main.yml)
 ![Python Version](https://img.shields.io/badge/Python-3.8%2B-blue)
 [![PyPI](https://img.shields.io/pypi/v/hostphot?label=PyPI&logo=pypi&logoColor=white)](https://pypi.org/project/hostphot/)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6469981.svg)](https://doi.org/10.5281/zenodo.6469981)
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.04508/status.svg)](https://doi.org/10.21105/joss.04508)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6992139.svg)](https://doi.org/10.5281/zenodo.6992139)
 [![Coverage](https://raw.githubusercontent.com/temuller/hostphot/main/coverage.svg)](https://raw.githubusercontent.com/temuller/hostphot/dev/coverage.svg)
 
 
@@ -141,18 +142,19 @@ If you wish a survey to be added to HostPhot, there are a couple of ways of doin
 
 ## Citing HostPhot
 
-If you make use of HostPhot, please cite:
+If you make use of HostPhot, please cite the following [paper](https://joss.theoj.org/papers/10.21105/joss.04508):
 
 ```code
-@software{hostphot,
-  author       = {Tom\'as E. M\"uller-Bravo and
-                  Llu\'is Galbany},
-  title        = {temuller/hostphot: HostPhot v2},
-  month        = may,
-  year         = 2022,
-  publisher    = {Zenodo},
-  version      = {v2.0.0},
-  doi          = {10.5281/zenodo.6586565},
-  url          = {https://doi.org/10.5281/zenodo.6586565}
-}
+@article{Müller-Bravo2022, 
+  author = {Tomás E. Müller-Bravo and Lluís Galbany},
+  title = {HostPhot: global and local photometry of galaxies hosting supernovae or other transients},
+  doi = {10.21105/joss.04508}, 
+  url = {https://doi.org/10.21105/joss.04508}, 
+  year = {2022}, 
+  publisher = {The Open Journal}, 
+  volume = {7}, 
+  number = {76}, 
+  pages = {4508},  
+  journal = {Journal of Open Source Software} 
+} 
 ```

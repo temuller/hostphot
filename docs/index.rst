@@ -28,8 +28,10 @@ HostPhot is being actively developed in `a public repository on GitHub
     :target: Python Version
 .. image:: https://img.shields.io/pypi/v/hostphot?label=PyPI&logo=pypi&logoColor=white
     :target: https://pypi.org/project/hostphot/
-.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.6469981.svg
-    :target: https://doi.org/10.5281/zenodo.6469981
+.. image:: https://joss.theoj.org/papers/10.21105/joss.04508/status.svg
+   :target: https://doi.org/10.21105/joss.04508
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.6992139.svg
+   :target: https://doi.org/10.5281/zenodo.6992139
 
 
 .. toctree::
@@ -85,21 +87,22 @@ HostPhot is being actively developed in `a public repository on GitHub
 Citing HostPhot
 ---------------
 
-If you make use of HostPhot, please cite:
+If you make use of HostPhot, please cite the following `paper <https://joss.theoj.org/papers/10.21105/joss.04508>`_:
 
 .. code-block:: tex
 
-	@software{hostphot,
-	author       = {Tomás E. Müller Bravo and
-		          Lluís Galbany},
-	title        = {temuller/hostphot: HostPhot v2},
-	month        = may,
-	year         = 2022,
-	publisher    = {Zenodo},
-	version      = {v2.0.0},
-	doi          = {10.5281/zenodo.6586565},
-	url          = {https://doi.org/10.5281/zenodo.6586565}
-	}
+	@article{Müller-Bravo2022, 
+  	author = {Tomás E. Müller-Bravo and Lluís Galbany},
+  	title = {HostPhot: global and local photometry of galaxies hosting supernovae or other transients},
+  	doi = {10.21105/joss.04508}, 
+  	url = {https://doi.org/10.21105/joss.04508}, 
+  	year = {2022}, 
+  	publisher = {The Open Journal}, 
+  	volume = {7}, 
+  	number = {76}, 
+  	pages = {4508},  
+  	journal = {Journal of Open Source Software} 
+	} 
 
 License & Attribution
 ---------------------
