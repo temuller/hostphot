@@ -775,7 +775,7 @@ def get_HST_images(ra, dec, size=3, filters=None):
         Table.from_pandas(dp_df), productType="SCIENCE", extension="fits"
     )
 
-    return hdu_list
+    #return hdu_list
 
 
 # Check orientation
