@@ -17,7 +17,7 @@ For the local photometry, HostPhot uses :func:`photutils.aperture_photometry()` 
 
 In addition to the `magnitude` uncertainty calculated from the aperture photometry above (:math:`\sigma_{\text{ap}}`), other uncertainties are added in quadrature (see below).
 
-
+Note that the global and local photometry are calculates in a similar way as in `Wiseman et al., 2020 <https://ui.adsabs.harvard.edu/abs/2020MNRAS.495.4040W/abstract>`_ and `Kelsey et al., 2021  <https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.4861K/abstract>`_, respectively.
 
 PS1
 ~~~
