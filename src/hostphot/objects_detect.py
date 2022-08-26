@@ -215,8 +215,8 @@ def plot_detected_objects(
 
     e = Ellipse(
         xy=(objects["x"][0], objects["y"][0]),
-        width=scale * objects["a"][0],
-        height=scale * objects["b"][0],
+        width=2 * scale * objects["a"][0],
+        height=2 * scale * objects["b"][0],
         angle=objects["theta"][0] * 180.0 / np.pi,
     )
 

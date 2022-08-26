@@ -277,8 +277,8 @@ class InteractiveAperture:
         """Calculates the flux within the aperture."""
         x = [self.eparams["x"]["value"]]
         y = [self.eparams["y"]["value"]]
-        a = [self.eparams["width"]["value"]]
-        b = [self.eparams["height"]["value"]]
+        a = [self.eparams["width"]["value"]/2]
+        b = [self.eparams["height"]["value"]/2]
         theta = [self.eparams["angle"]["value"] * (np.pi / 180)]  # in radians
 
         scale = 1  # fixed
