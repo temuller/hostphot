@@ -590,7 +590,7 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
     # for more info: http://unwise.me/imgsearch/
     base_url = "http://unwise.me/cutout_fits?"
     params_url = f"version={version}&ra={ra}&dec={dec}&size={size_pixels}&bands={bands}"
-    master_url = os.path.join(base_url, params_url)
+    master_url = base_url + params_url
 
     response = requests.get(master_url, stream=True)
     target_file = 'unWISE_images.tar.gz'  # current directory
@@ -600,12 +600,14 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
 
     hdu_list = []
     with tarfile.open(target_file) as tar_file:
-        for filt in filters:
-            fits_file = f'*{filt.lower()}-img-m.fits'
-            tar_file.extract(fits_file, '.')
-            hdu = fits.open(fits_file)
-            hdu_list.append(hdu)
-            os.remove(fits_file)
+        files_list = tar_file.getnames()
+        for fits_file in files_list:
+            for filt in filters:
+                if f'{filt.lower()}-img-m.fits' in fits_file:
+                    tar_file.extract(fits_file, '.')
+                    hdu = fits.open(fits_file)
+                    hdu_list.append(hdu)
+                    os.remove(fits_file)
 
     os.remove(target_file)
 
