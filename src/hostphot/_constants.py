@@ -1,3 +1,7 @@
 # -*- coding: utf-8 -*-
 
-__workdir__ = "images"
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+workdir = os.getenv('workdir', 'images')

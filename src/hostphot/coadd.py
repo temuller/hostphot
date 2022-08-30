@@ -4,7 +4,7 @@ from astropy.io import fits
 from reproject import reproject_interp
 from reproject.mosaicking import reproject_and_coadd
 
-from hostphot._constants import __workdir__
+from hostphot._constants import workdir
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -34,7 +34,7 @@ def coadd_images(name, filters="riz", survey="PS1"):
     >>> coadd_filters = 'riz'
     >>> coadd_images(name, filters=coadd_filters, survey=survey)  # creates a new fits file
     """
-    obj_dir = os.path.join(__workdir__, name)
+    obj_dir = os.path.join(workdir, name)
     fits_files = [
         os.path.join(obj_dir, f"{survey}_{filt}.fits") for filt in filters
     ]

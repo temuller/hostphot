@@ -19,7 +19,7 @@ from astroquery.mast import Observations  # for GALEX EXPTIME
 from reproject import reproject_interp, reproject_exact
 from reproject.mosaicking import find_optimal_celestial_wcs
 
-from hostphot._constants import __workdir__
+from hostphot._constants import workdir
 from hostphot.utils import (
     get_survey_filters,
     clean_dir,
@@ -849,8 +849,8 @@ def download_images(
     if filters is None:
         filters = get_survey_filters(survey)
 
-    check_work_dir(__workdir__)
-    obj_dir = os.path.join(__workdir__, name)
+    check_work_dir(workdir)
+    obj_dir = os.path.join(workdir, name)
     if not os.path.isdir(obj_dir):
         os.mkdir(obj_dir)
 

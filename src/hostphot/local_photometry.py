@@ -26,7 +26,7 @@ from astropy.io import fits
 from astropy import units as u, wcs
 from astropy.cosmology import FlatLambdaCDM
 
-from hostphot._constants import __workdir__
+from hostphot._constants import workdir
 from hostphot.utils import (
     get_survey_filters,
     check_survey_validity,
@@ -218,8 +218,8 @@ def photometry(
         Aperture magnitude errors for the given aperture radii.
     """
     check_survey_validity(survey)
-    check_work_dir(__workdir__)
-    obj_dir = os.path.join(__workdir__, name)
+    check_work_dir(workdir)
+    obj_dir = os.path.join(workdir, name)
     if use_mask:
         suffix = "masked_"
     else:

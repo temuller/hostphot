@@ -15,4 +15,4 @@ from . import local_photometry
 from . import global_photometry
 from . import interactive_aperture
 from ._version import __version__
-from ._constants import __workdir__
+from ._constants import workdir

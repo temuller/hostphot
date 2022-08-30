@@ -12,7 +12,7 @@ from matplotlib.patches import Ellipse
 import sep
 from astropy.io import fits
 
-from hostphot._constants import __workdir__
+from hostphot._constants import workdir
 from hostphot.utils import (
     get_image_exptime,
     get_image_gain,
@@ -67,7 +67,7 @@ class InteractiveAperture:
         self.bkg_sub = bkg_sub
 
         base_file = os.path.join(f"{self.masked}{survey}_{self.filt}.fits")
-        self.fits_file = os.path.join(__workdir__, name, base_file)
+        self.fits_file = os.path.join(workdir, name, base_file)
 
         self.ellipse_parameters = ["x", "y", "width", "height", "angle"]
 
@@ -102,7 +102,7 @@ class InteractiveAperture:
         base_file = os.path.join(
             f"{self.masked}{self.survey}_{self.filt}.fits"
         )
-        self.fits_file = os.path.join(__workdir__, self.name, base_file)
+        self.fits_file = os.path.join(workdir, self.name, base_file)
         img = fits.open(self.fits_file)
 
         self.header = img[0].header

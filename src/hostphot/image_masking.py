@@ -13,7 +13,7 @@ from astropy.convolution import (
     interpolate_replace_nans,
 )
 
-from hostphot._constants import __workdir__
+from hostphot._constants import workdir
 from hostphot.image_cleaning import remove_nan
 from hostphot.objects_detect import (
     extract_objects,
@@ -142,7 +142,7 @@ def create_mask(
     """
     check_survey_validity(survey)
 
-    obj_dir = os.path.join(__workdir__, name)
+    obj_dir = os.path.join(workdir, name)
     fits_file = os.path.join(obj_dir, f"{survey}_{filt}.fits")
     img = fits.open(fits_file)
     img = remove_nan(img)

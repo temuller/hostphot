@@ -21,7 +21,7 @@ import sep
 from astropy import wcs
 from astropy.io import fits
 
-from hostphot._constants import __workdir__
+from hostphot._constants import workdir
 from hostphot.utils import (
     get_survey_filters,
     check_survey_validity,
@@ -232,8 +232,8 @@ def extract_kronparams(
         Scale for the Kron radius.
     """
     check_survey_validity(survey)
-    check_work_dir(__workdir__)
-    obj_dir = os.path.join(__workdir__, name)
+    check_work_dir(workdir)
+    obj_dir = os.path.join(workdir, name)
     if use_mask:
         suffix = "masked_"
     else:
@@ -351,8 +351,8 @@ def photometry(
         Error on the aperture magnitude.
     """
     check_survey_validity(survey)
-    check_work_dir(__workdir__)
-    obj_dir = os.path.join(__workdir__, name)
+    check_work_dir(workdir)
+    obj_dir = os.path.join(workdir, name)
     if use_mask:
         suffix = "masked_"
     else:

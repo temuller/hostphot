@@ -13,3 +13,5 @@ docs/_build/
 tests/images/*
 
 .idea/
+
+.env
