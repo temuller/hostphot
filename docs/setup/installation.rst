@@ -37,6 +37,7 @@ HostPhot has the following requirements:
 	numpy
 	pandas
 	matplotlib
+	python-dotenv
 	astropy
 	reproject
 	photutils

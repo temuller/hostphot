@@ -24,7 +24,7 @@ PS1
 
 * **ZP**
   
-  The PS1 images are rescaled to a ZP of :math:`25 + 2.5*log_{10}(\text{exposure time})`, where the exposure time is given by the ``EXPTIME`` keyword in the images (see `here <https://outerspace.stsci.edu/display/PANSTARRS/PS1+Stack+images#PS1Stackimages-Photometriccalibration>`_).
+  The PS1 images are rescaled to a ZP of :math:`25 + 2.5*log_{10}(\text{exposure time})`, where the exposure time is given by the ``EXPTIME`` keyword in the images (see the `PS1 Photometric Calibration <https://outerspace.stsci.edu/display/PANSTARRS/PS1+Stack+images#PS1Stackimages-Photometriccalibration>`_).
   
 * **Error Propagation**
 
@@ -43,11 +43,11 @@ DES
 
 * **ZP**
   
-  DES coadd images use a global ZP set to :math:`30` (see `here <https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/processing>`_).
+  DES coadd images use a global ZP set to :math:`30` (see the `DES DR1 Processing <https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/processing>`_).
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1. However, there is an additional component coming from the calibration of the photometric system (see `here <https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality>`_). The calibration uncertainties (:math:`\sigma_{\text{cal}}`) are 2.6, 2.9, 3.4, 2.5, and 4.5 mmag for the `g`, `r`, `i`, `z`, and `Y` bands, respectively.
+  The errors are propagated in the same way as for PS1. However, there is an additional component coming from the calibration of the photometric system (see the `DES DR1 Quality website <https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality>`_). The calibration uncertainties (:math:`\sigma_{\text{cal}}`) are 2.6, 2.9, 3.4, 2.5, and 4.5 mmag for the :math:`g`, :math:`r`, :math:`i`, :math:`z`, and :math:`Y` bands, respectively.
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{cal}}^2)`.
 
@@ -56,7 +56,7 @@ SDSS
 
 * **ZP**
   
-  Given that the units of the SDSS images are in nanomaggies, the ZP is equal to :math:`22.5` (see `here <https://www.sdss.org/dr13/help/glossary/#nanomaggie>`_).
+  Given that the units of the SDSS images are in nanomaggies, the ZP is equal to :math:`22.5` (see `https://www.sdss.org/dr13/help/glossary/#nanomaggie <https://www.sdss.org/dr13/help/glossary/#nanomaggie>`_).
   
 * **Error Propagation**
 
@@ -64,7 +64,7 @@ SDSS
   
   :math:`\sigma_{\text{noise}} = 2.5/ln(10) * sqrt(\text{dark variance} + flux / \text{gain}) / flux`
   
-  where the values of gain and dark variance are obtained from `here <https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html>`_ and they are assumed to be the largest available values for a conservative approach.
+  where the values of gain and dark variance are obtained from `https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html <https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html>`_ and they are assumed to be the largest available values, for a conservative approach.
 
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2)`.
 
@@ -73,7 +73,7 @@ GALEX
 
 * **ZP**
   
-  GALEX images have different ZPs for the two filters: :math:`18.82` and :math:`20.08` for `FUV` and `NUV`, respectively (see `here <https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html>`_).
+  GALEX images have different ZPs for the two filters: :math:`18.82` and :math:`20.08` for :math:`FUV` and :math:`NUV`, respectively (see `https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html <https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html>`_).
   
 * **Error Propagation**
 
@@ -92,16 +92,16 @@ GALEX
 
 * **ZP**
   
-  Each 2MASS image has its own ZP (``MAGZP`` keyword in the header, as described `here <https://irsa.ipac.caltech.edu/data/2MASS/docs/releases/allsky/doc/sec4_3.html>`_).
+  Each 2MASS image has its own ZP (``MAGZP`` keyword in the header, as described in `Section 4.3 <https://irsa.ipac.caltech.edu/data/2MASS/docs/releases/allsky/doc/sec4_3.html>`_ from the 2MASS website).
   
 * **Error Propagation**
 
-  To calculate the coadd noise we follow the equations described `here <https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/>`_):
+  To calculate the coadd noise we follow the equations described in `https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/ <https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/>`_:
   
   :math:`\sigma_{\text{noise}} = 1.0857/\text{SNR}`
   :math:`\text{SNR} = S / sqrt\big( (S/G*N_c) + n_c*(2*k_z*\sigma_c)^2 + (n_c*0.024*\sigma_c)^2 \big)`
     
-  where `S` is the integrated aperture flux, `G` is the gain (typically 10), :math:`N_c` is the number of coadds per pixel (assumed to be 6), :math:`n_c` is the number of coadd pixels in the aperture (equal to :math:`4*n_f`), :math:`k_z` is the kernel smoothing factor (:math:`\sim1.7`) and :math:`\sigma_c` is the coadd noise (assumed to be approximately the global RMS of the image's background). :math:`n_f` is the number of frame pixels in the aperture and is assumed to be equal to the aperture area in pixel units.
+  where :math:`S` is the integrated aperture flux, :math:`G` is the gain (typically 10), :math:`N_c` is the number of coadds per pixel (assumed to be 6), :math:`n_c` is the number of coadd pixels in the aperture (equal to :math:`4*n_f`), :math:`k_z` is the kernel smoothing factor (:math:`\sim1.7`) and :math:`\sigma_c` is the coadd noise (assumed to be approximately the global RMS of the image's background). :math:`n_f` is the number of frame pixels in the aperture and is assumed to be equal to the aperture area in pixel units.
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2)`.
 
@@ -111,11 +111,11 @@ WISE
 
 * **Correct flux**
 
-  To properly calculate the flux of the WISE images, and aperture correction factor (:math:`f_{\text{apcorr}}`) is applied, as described `here <https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html>`_. This is assumed to be :math:`1.0` as HostPhot does not use PSF fitting.
+  To properly calculate the flux of the WISE images, and aperture correction factor (:math:`f_{\text{apcorr}}`) is applied, as described in `Section 2.3 <https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html>`_ of the WISE website. This is assumed to be :math:`1.0` as HostPhot does not use PSF fitting.
 
 * **ZP**
   
-  The WISE images also have their own ZP in their headers (``MAGZP`` keyword in the header, as described `here <https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html>`_).
+  The WISE images also have their own ZP in their headers (``MAGZP`` keyword in the header, as described in Section 2.3 of the WISE website, link above).
   
 * **Error Propagation**
 
@@ -124,7 +124,7 @@ WISE
   
   :math:`\sigma_{\text{src}} = sqrt\big(f_{\text{apcorr}}^2 * F_{\text{src}} * (\Sigma\sigma_i^2 + k*(N_A^2/N_B) * \sigma^2_{\bar{B}/pix}) + \sigma_{\text{conf}}^2 \big)`,
   
-  where :math:`F_{\text{corr}}` is the correlated noise correction factor for flux variance , :math:`N_A` and :math:`N_B` are the number of pixels in the source aperture and annulus (both assume to be equal to the aperture area in pixel units), respectively, :math:`\sigma_i` is the flux uncertainty for pixel `i` from uncertainty map (assumed to be approximately the error on the aperture sum above), :math:`\sigma^2_{\bar{B}/pix}` is the variance in sky-background annulus (assumed to be equal to the global RMS of the image's background), and :math:`\sigma_{\text{conf}}^2` is the confusion noise-variance on scale (assumed to be approximately the error on the aperture sum above).
+  where :math:`F_{\text{corr}}` is the correlated noise correction factor for flux variance , :math:`N_A` and :math:`N_B` are the number of pixels in the source aperture and annulus (both assume to be equal to the aperture area in pixel units), respectively, :math:`\sigma_i` is the flux uncertainty for pixel :math:`i` from uncertainty map (assumed to be approximately the error on the aperture sum above), :math:`\sigma^2_{\bar{B}/pix}` is the variance in sky-background annulus (assumed to be equal to the global RMS of the image's background), and :math:`\sigma_{\text{conf}}^2` is the confusion noise-variance on scale (assumed to be approximately the error on the aperture sum above).
   
   Thus, :math:`\sigma = sqrt\big(\sigma_{ZP}^2 + 1.179*(\sigma_{\text{src}}^2 / F_{\text{src}}^2) \big)`, as described in the link above, were :math:`F_{\text{src}}` is the integrated aperture flux of the source (e.g. galaxy).
 

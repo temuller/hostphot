@@ -2,6 +2,7 @@ pip
 numpy
 pandas
 matplotlib
+python-dotenv
 astropy
 reproject
 photutils
