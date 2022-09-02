@@ -297,6 +297,7 @@ def photometry(
     bkg_sub=False,
     threshold=10,
     use_mask=True,
+    correct_extinction=True,
     aperture_params=None,
     optimize_kronrad=True,
     eps=0.0001,
@@ -330,6 +331,9 @@ def photometry(
     use_mask: bool, default `True`
         If `True`, the masked fits files are used. These must have
         been created beforehand.
+    correct_extinction: bool, default `True`
+        If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
+        by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
     aperture_params: tuple, default `None`
         Tuple with objects info and Kron parameters. Used for
         common aperture. If given, the Kron parameters are not
@@ -452,9 +456,9 @@ def photometry(
         mag += m_apcor
         mag_err = 0.0  # flux_err already propagated below for this survey
 
-    # correct extinction
-    A_ext = calc_extinction(filt, survey, host_ra, host_dec)
-    mag -= A_ext
+    if correct_extinction:
+        A_ext = calc_extinction(filt, survey, host_ra, host_dec)
+        mag -= A_ext
 
     # error budget
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
@@ -495,6 +499,7 @@ def multi_band_phot(
     bkg_sub=False,
     threshold=10,
     use_mask=True,
+    correct_extinction=True,
     common_aperture=True,
     coadd_filters="riz",
     optimize_kronrad=True,
@@ -601,6 +606,7 @@ def multi_band_phot(
             bkg_sub,
             threshold,
             use_mask,
+            correct_extinction,
             aperture_params,
             optimize_kronrad,
             eps,

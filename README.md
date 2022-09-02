@@ -114,7 +114,8 @@ z = 0.0157  # redshift
 
 results = lp.multi_band_phot(name, ra, dec, z,
                              survey=survey, ap_radii=ap_radii, 
-                             use_mask=True, save_plots=True)
+                             use_mask=True, correct_extinction=True,
+                             save_plots=True)
 ```
 
 If the results return `NaN` values, this means that the flux is below the detection limit for the given survey.
@@ -128,9 +129,13 @@ import hostphot.global_photometry as gp
 
 results = gp.multi_band_phot(name, host_ra, host_dec, 
                              survey=survey, ra=ra, dec=dec,
-                             use_mask=True, common_aperture=True, 
-                             coadd_filters='riz', save_plots=True)
+                             use_mask=True, correct_extinction=True,
+                             common_aperture=True, coadd_filters='riz', 
+                             save_plots=True)
 ```
+
+By default, HostPhot corrects for Milky Way extinction using the recalibrated dust maps
+by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
 
 ## Contributing
 

@@ -181,6 +181,7 @@ def photometry(
     ap_radii=1,
     bkg_sub=False,
     use_mask=True,
+    correct_extinction=True,
     save_plots=True,
 ):
     """Calculates the local aperture photometry in a given radius.
@@ -207,6 +208,9 @@ def photometry(
     use_mask: bool, default ``True``
         If ``True``, the masked fits files are used. These must have
         been created beforehand.
+    correct_extinction: bool, default `True`
+        If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
+        by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
     save_plots: bool, default ``True``
         If ``True``, the figure with the aperture is saved.
 
@@ -288,9 +292,9 @@ def photometry(
             mag += m_apcor
             mag_err = 0.0  # flux_err already propagated below for this survey
 
-        # correct extinction
-        A_ext = calc_extinction(filt, survey, ra, dec)
-        mag -= A_ext
+        if correct_extinction:
+            A_ext = calc_extinction(filt, survey, ra, dec)
+            mag -= A_ext
 
         # error budget
         ap_area = 2 * np.pi * (radius_pix**2)
@@ -333,6 +337,7 @@ def multi_band_phot(
     ap_radii=1,
     bkg_sub=False,
     use_mask=True,
+    correct_extinction=True,
     save_plots=True,
 ):
     """Calculates the local aperture photometry for multiple filters.
@@ -360,6 +365,9 @@ def multi_band_phot(
     use_mask: bool, default ``True``
         If ``True``, the masked fits files are used. These must have
         been created beforehand.
+    correct_extinction: bool, default `True`
+        If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
+        by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
     save_plots: bool, default ``True``
         If ``True``, the a figure with the aperture is saved.
 
@@ -408,6 +416,7 @@ def multi_band_phot(
             ap_radii,
             bkg_sub,
             use_mask,
+            correct_extinction,
             save_plots,
         )
         for i, ap in enumerate(ap_radii):
