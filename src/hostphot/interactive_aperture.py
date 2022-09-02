@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
 import sep
+from astropy import wcs
 from astropy.io import fits
 
 from hostphot._constants import workdir
@@ -22,7 +23,10 @@ from hostphot.utils import (
     check_filters_validity,
     uncertainty_calc,
 )
+from hostphot.dust import calc_extinction
 
+import warnings
+from astropy.utils.exceptions import AstropyWarning
 
 # ----------------------------------------
 class InteractiveAperture:
@@ -41,6 +45,9 @@ class InteractiveAperture:
         If `True`, uses masked images.
     masked: bool, default `False`
         If `True`, the images are background subtracted.
+    correct_extinction: bool, default `True`
+        If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
+        by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
     """
 
     def __init__(
@@ -50,6 +57,7 @@ class InteractiveAperture:
         filters=None,
         masked=True,
         bkg_sub=False,
+        correct_extinction=True
     ):
         self.name = name
         self.survey = survey
@@ -65,6 +73,8 @@ class InteractiveAperture:
         else:
             self.masked = ""
         self.bkg_sub = bkg_sub
+
+        self.correct_extinction = correct_extinction
 
         base_file = os.path.join(f"{self.masked}{survey}_{self.filt}.fits")
         self.fits_file = os.path.join(workdir, name, base_file)
@@ -114,6 +124,10 @@ class InteractiveAperture:
 
         if self.bkg_sub:
             self.data = np.copy(self.data - self.bkg)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", AstropyWarning)
+            self.img_wcs = wcs.WCS(self.header, naxis=2)
 
         self.exptime = get_image_exptime(self.header, self.survey)
         self.gain = get_image_gain(self.header, self.survey)
@@ -281,6 +295,10 @@ class InteractiveAperture:
         b = [self.eparams["height"]["value"]/2]
         theta = [self.eparams["angle"]["value"] * (np.pi / 180)]  # in radians
 
+        coords = self.img_wcs.pixel_to_world(x, y)
+        self.ra = coords.ra.value[0]
+        self.dec = coords.dec.value[0]
+
         scale = 1  # fixed
         flux, flux_err, flag = sep.sum_ellipse(
             self.data,
@@ -348,6 +366,11 @@ class InteractiveAperture:
         if self.survey == "WISE":
             zp_unc = self.header["MAGZPUNC"]
             mag_err = np.sqrt(mag_err**2 + zp_unc**2)
+
+        if self.correct_extinction:
+            self.A_ext = calc_extinction(self.filt, self.survey,
+                                         self.ra, self.dec)
+            mag -= self.A_ext
 
         self.mag_phot[self.filt] = mag
         self.mag_phot[f"{self.filt}_err"] = mag_err
