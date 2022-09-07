@@ -12,7 +12,7 @@ with open("src/hostphot/_version.py") as version_file:
             __version__ = line.split()[-1].replace('"', "")
 
 setuptools.setup(
-    name="HostPhot",
+    name="hostphot",
     version=__version__,
     author="Tomás Enrique Müller-Bravo and Lluís Galbany",
     author_email="t.e.muller-bravo@ice.csic.es",
