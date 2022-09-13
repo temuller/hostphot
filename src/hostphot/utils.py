@@ -241,6 +241,7 @@ def uncertainty_calc(
     gain=1.0,
     exptime=0.0,
     bkg_rms=0.0,
+    **kw_args
 ):
     """Calculates the uncertainty propagation.
 
@@ -284,13 +285,38 @@ def uncertainty_calc(
 
     if survey=="SDSS":
         # https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
-        gain_dict = {'u':2.17, 'g':4.05, 'r':4.895,
-                     'i':4.885, 'z':5.155}
+        camcol = kw_args['camcol']
+        run = kw_args['run']
+
+        gain_dict = {'u':{1:1.62, 2:1.595, 3:1.59, 4:1.6, 5:1.47, 6:2.17},
+                     'g': {1: 3.32, 2: 3.855, 3: 3.845, 4: 3.995, 5: 4.05, 6: 4.035},
+                     'r': {1: 4.71, 2: 4.6, 3: 4.72, 4: 4.76, 5: 4.725, 6: 4.895},
+                     'i': {1: 5.165, 2: 6.565, 3: 4.86, 4: 4.885, 5: 4.64, 6: 4.76},
+                     'z': {1: 4.745, 2: 5.155, 3: 4.885, 4: 4.775, 5: 3.48, 6: 4.69},
+                     }
         # dark variance
-        dv_dict = {'u': 12.6025, 'g': 1.96, 'r': 1.8225,
-                     'i': 7.84, 'z': 1.21}
-        gain = gain_dict[filt]
-        dark_variance = dv_dict[filt]
+        dv_dict = {'u':{1:9.61, 2:12.6025, 3:8.7025, 4:12.6025, 5:9.3025, 6:7.0225},
+                   'g': {1: 15.6025, 2: 1.44, 3: 1.3225, 4: 1.96, 5: 1.1025, 6: 1.8225},
+                   'r': {1: 1.8225, 2: 1.00, 3: 1.3225, 4: 1.3225, 5: 0.81, 6: 0.9025},
+                   'i': {1: 7.84, 2: 5.76, 3: 4.6225, 4: 6.25, 5: 7.84, 6: 5.0625},
+                   'z': {1: 0.81, 2: 1.0, 3: 1.0, 4: 9.61, 5: 1.8225, 6: 1.21},
+                  }
+        gain = gain_dict[filt][camcol]
+        dark_variance = dv_dict[filt][camcol]
+
+        if filt=='u' and camcol==2 and run > 1100:
+            gain = 1.825
+        if filt=='i' and run > 1500:
+            if camcol==2:
+                dark_variance = 6.25
+            if camcol==4:
+                dark_variance = 7.5625
+        if filt=='z' and run > 1500:
+            if camcol==4:
+                dark_variance = 12.6025
+            if camcol==5:
+                dark_variance = 2.1025
+
         extra_err = (
                 1.0857 * np.sqrt(dark_variance + flux / gain) / flux
         )

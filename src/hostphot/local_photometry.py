@@ -298,6 +298,10 @@ def photometry(
 
         # error budget
         ap_area = 2 * np.pi * (radius_pix**2)
+        if survey == 'SDSS':
+            kw_args = {'camcol': header['CAMCOL'], 'run': header['RUN']}
+        else:
+            kw_args = {}
         extra_err = uncertainty_calc(
             flux,
             flux_err,
@@ -308,6 +312,7 @@ def photometry(
             gain,
             exptime,
             bkg_rms,
+            **kw_args
         )
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 

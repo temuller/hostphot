@@ -350,6 +350,11 @@ class InteractiveAperture:
             * self.eparams["width"]["value"]
             * self.eparams["height"]["value"]
         )
+        if self.survey == 'SDSS':
+            kw_args = {'camcol': self.header['CAMCOL'],
+                       'run': self.header['RUN']}
+        else:
+            kw_args = {}
         extra_err = uncertainty_calc(
             flux,
             flux_err,
@@ -360,6 +365,7 @@ class InteractiveAperture:
             self.gain,
             self.exptime,
             self.bkg_rms,
+            **kw_args
         )
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
