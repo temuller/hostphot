@@ -1,5 +1,7 @@
 import os
 import copy
+import gzip
+import shutil
 import tarfile
 import requests
 import numpy as np
@@ -10,11 +12,13 @@ from astropy.io import fits
 from astropy.table import Table
 from astropy import wcs, units as u
 from astropy.coordinates import SkyCoord
+from astropy.nddata import Cutout2D
 
 import pyvo  # 2MASS
 from pyvo.dal import sia  # DES
+from astroquery.sdss import SDSS
 from astroquery.skyview import SkyView  # other surveys
-from astroquery.mast import Observations  # for GALEX EXPTIME
+from astroquery.mast import Observations  # for GALEX
 
 from reproject import reproject_interp, reproject_exact
 from reproject.mosaicking import find_optimal_celestial_wcs
@@ -307,16 +311,6 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
 
-    # SkyView calls the filters in a different way
-    filters_dict = {
-        "u": "SDSSu",
-        "g": "SDSSg",
-        "r": "SDSSr",
-        "i": "SDSSi",
-        "z": "SDSSz",
-    }
-    skyview_filters = [filters_dict[filt] for filt in filters]
-
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec)
     else:
@@ -325,79 +319,43 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
     pixel_scale = survey_pixel_scale(survey)
     size_pixels = int(size_arcsec.value / pixel_scale)
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", AstropyWarning)
-        coords = SkyCoord(
-            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
-        )
+    pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
+    for radius in np.arange(1, 30):
+        ids = SDSS.query_region(pos, radius=radius * u.arcsec)
+        if ids is not None:
+            break
 
-        hdu_list = []
-        for filt, skyview_filter in zip(filters, skyview_filters):
-            hdu = SkyView.get_images(
-                position=coords,
-                coordinates="icrs",
-                pixels=str(size_pixels),
-                survey=skyview_filter,
-                width=size_arcsec,
-                height=size_arcsec,
-            )
+    if ids is None:
+        return None
 
-            hdu_list.append(hdu[0])
+    # get images
+    hdu_id = len(ids) // 2
+    if hdu_id == 0:
+        hdu_list = SDSS.get_images(matches=ids, band=filters)
+    else:
+        sub_id = ids[hdu_id - 1:hdu_id]  # get the one in the middle
+        hdu_list = SDSS.get_images(matches=sub_id, band=filters)
+
+    # SDSS images are large so need to be trimmed
+    for hdu in hdu_list:
+        img_wcs = wcs.WCS(hdu[0].header)
+        pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
+
+        trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
+        hdu[0].data = trimmed_data.data
+        hdu[0].header.update(trimmed_data.wcs.to_header())
+
+    #with warnings.catch_warnings():
+    #    warnings.simplefilter("ignore", AstropyWarning)
 
     return hdu_list
 
 
 # GALEX
 # ----------------------------------------
-def get_used_image(header):
-    """Obtains the name of the image downloaded by SkyView.
-
-    Parameters
-    ----------
-    header: fits header
-        Header of an image.
-
-    Returns
-    -------
-    used_image: str
-        Name of the image.
-    """
-    image_line = header["HISTORY"][-3]
-    used_image = image_line.split("/")[-1].split("-")[0]
-
-    return used_image
-
-
-def get_exptime(used_image, obs_table, filt):
-    """Obtains the exposure time for a GALEX image downloaded
-    with SkyView.
-
-    Parameters
-    ----------
-    used_image: str
-        GALEX name of the image downloaded by SkyView
-    obs_table: astropy.Table
-        Table obtained with astroquery.Observations.
-    filt: str
-        GALEX filter: 'NUV' or 'FUV'.
-
-    Returns
-    -------
-    texp: float
-        Exposure time.
-    """
-    galex_df = obs_table.to_pandas()
-    galex_df = galex_df[galex_df.filters == filt]
-
-    target_df = galex_df[galex_df.target_name == used_image]
-    texp = target_df.t_exptime.values[0]
-
-    return texp
-
-
 def get_GALEX_images(ra, dec, size=3, filters=None):
     """Downloads a set of GALEX fits images for a given set
-    of coordinates and filters using SkyView.
+    of coordinates and filters.
 
     Parameters
     ----------
@@ -421,10 +379,6 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
 
-    # SkyView calls the filters in a different way
-    filters_dict = {"NUV": "GALEX Near UV", "FUV": "GALEX Far UV"}
-    skyview_filters = [filters_dict[filt] for filt in filters]
-
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec)
     else:
@@ -438,39 +392,89 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
         coords = SkyCoord(
             ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
         )
-        obs_table = Observations.query_criteria(
-            coordinates=coords, radius=size_arcsec, obs_collection=[survey]
-        )
 
-        skyview_hdu_list = SkyView.get_images(
-            position=coords,
-            coordinates="icrs",
-            pixels=str(size_pixels),
-            survey=skyview_filters,
-            width=size_arcsec,
-            height=size_arcsec,
-        )
+    obs_table = Observations.query_criteria(
+        coordinates=coords, radius=size_arcsec, obs_collection=['GALEX']
+    )
+    obs_df = obs_table.to_pandas()
+    obs_df = obs_df[obs_df.project == 'AIS']  # only all sky survey
 
-        hdu_list = []
-        for filt, hdu in zip(filters, skyview_hdu_list):
-            # add exposure time
-            used_image = get_used_image(hdu[0].header)
-            texp = get_exptime(used_image, obs_table, filt)
-            if texp is None:
-                return None
-            hdu[0].header["EXPTIME"] = texp
-            hdu[0].header["COMMENT"] = "EXPTIME added by HostPhot"
+    # find the URL of the "intensity" image to be downloaded
+    for url in obs_df.dataURL:
+        if '-int.fits' in url:
+            dataURL = url
+            break
+        else:
+            dataURL = None
 
-            hdu_list.append(hdu)
+    if dataURL is None:
+        return None
+
+    filters_dict = {'NUV':'nd', 'FUV':'fd'}
+    ext_list = [filters_dict[filt] for filt in filters]
+
+    hdu_list = []
+    for ext in ext_list:
+        if f'-{ext}-' in dataURL:
+            pass
+        else:
+            if ext == 'nd':
+                dataURL = dataURL.replace('-fd-', '-nd-')
+            elif ext == 'fd':
+                dataURL = dataURL.replace('-nd-', '-fd-')
+
+        response = requests.get(dataURL, stream=True)
+        target_file = os.path.basename(dataURL)  # current directory
+        if response.status_code == 200:
+            with open(target_file, 'wb') as f_out:
+                f_out.write(response.raw.read())
+        else:
+            continue  # skip this filter
+
+        with gzip.open(target_file, 'rb') as f_in:
+            output_file = target_file.removesuffix('.gz')
+            with open(output_file, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+                hdu = fits.open(output_file)
+                os.remove(output_file)
+
+                # trim data
+                img_wcs = wcs.WCS(hdu[0].header)
+                pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
+
+                trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
+                hdu[0].data = trimmed_data.data
+                hdu[0].header.update(trimmed_data.wcs.to_header())
+                hdu_list.append(hdu)
+
+        os.remove(target_file)
 
     return hdu_list
 
 
 # WISE
 # ----------------------------------------
+def get_used_image(header):
+    """Obtains the name of the image downloaded by SkyView.
+
+    Parameters
+    ----------
+    header: fits header
+        Header of an image.
+
+    Returns
+    -------
+    used_image: str
+        Name of the image.
+    """
+    image_line = header["HISTORY"][-3]
+    used_image = image_line.split("/")[-1].split("-")[0]
+
+    return used_image
+
 def get_WISE_images(ra, dec, size=3, filters=None):
     """Downloads a set of WISE fits images for a given set
-    of coordinates and filters using SkyView.
+    of coordinates and filters.
 
     Parameters
     ----------
@@ -543,7 +547,7 @@ def get_WISE_images(ra, dec, size=3, filters=None):
 
 def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
     """Downloads a set of unWISE fits images for a given set
-    of coordinates and filters using SkyView.
+    of coordinates and filters.
 
     Parameters
     ----------
@@ -618,7 +622,7 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
 # ----------------------------------------
 def get_2MASS_images(ra, dec, size=3, filters=None):
     """Downloads a set of 2MASS fits images for a given set
-    of coordinates and filters using SkyView.
+    of coordinates and filters.
 
     Parameters
     ----------
