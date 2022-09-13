@@ -338,15 +338,14 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
 
     # SDSS images are large so need to be trimmed
     for hdu in hdu_list:
-        img_wcs = wcs.WCS(hdu[0].header)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", AstropyWarning)
+            img_wcs = wcs.WCS(hdu[0].header)
         pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
 
         trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
         hdu[0].data = trimmed_data.data
         hdu[0].header.update(trimmed_data.wcs.to_header())
-
-    #with warnings.catch_warnings():
-    #    warnings.simplefilter("ignore", AstropyWarning)
 
     return hdu_list
 
