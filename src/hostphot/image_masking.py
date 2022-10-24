@@ -102,8 +102,8 @@ def create_mask(
         Host-galaxy right ascension in degrees.
     host_dec: float
         Host-galaxy declination in degrees.
-    filt: str
-        Filter to use to load the fits file.
+    filt: str or list
+        Filter to use to load the fits file. List is commonly used for coadds.
     survey: str
         Survey to use for the zero-points and correct filter path.
     ra: float, default ``None``
@@ -124,7 +124,7 @@ def create_mask(
         If ``True``, returns the parameters listed below.
     common_params: tuple, default ``None``
         Parameters to use for common masking of different filters.
-        This are the same as the outputs of this function.
+        These are the same as the outputs of this function.
     save_plots: bool, default ``True``
         If ``True``, the mask and galaxy aperture figures are saved.
 
@@ -133,7 +133,7 @@ def create_mask(
     **This are only returned if ``extract_params==True``.**
     gal_obj: array
         Galaxy object.
-    gal_obj: array
+    nogal_obj: array
         Non-galaxy objects.
     img_wcs: WCS
         Image's WCS.
@@ -141,6 +141,8 @@ def create_mask(
         Pixel scale for the survey.
     """
     check_survey_validity(survey)
+    if isinstance(filt, list):
+        filt = ''.join(f for f in filt)
 
     obj_dir = os.path.join(workdir, name)
     fits_file = os.path.join(obj_dir, f"{survey}_{filt}.fits")
