@@ -264,8 +264,8 @@ def plot_masked_image(
     for i in range(len(objects)):
         e = Ellipse(
             xy=(objects["x"][i], objects["y"][i]),
-            width=2 * r * objects["a"][i],
-            height=2 * r * objects["b"][i],
+            width=2.5 * r * objects["a"][i],
+            height=2.5 * r * objects["b"][i],
             angle=objects["theta"][i] * 180.0 / np.pi,
         )
         e.set_facecolor("none")
