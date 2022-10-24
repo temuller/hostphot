@@ -471,7 +471,7 @@ def extract_filters(filters, survey):
 
     filters_dict = {filt: None for filt in filters}
     if "WISE" in survey:
-        survey == "WISE"  # for unWISE to use the same filters as WISE
+        survey = "WISE"  # for unWISE to use the same filters as WISE
     filters_path = os.path.join(hostphot.__path__[0], "filters", survey)
 
     for filt in filters:
