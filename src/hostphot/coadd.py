@@ -21,7 +21,7 @@ def coadd_images(name, filters="riz", survey="PS1"):
     ----------
     name: str
         Name to be used for finding the images locally.
-    filters: str, default ``riz``
+    filters: str or list, default ``riz``
         Filters to use for the coadd image.
     survey: str, default ``PS1``
         Survey to use as prefix for the images.
@@ -52,5 +52,7 @@ def coadd_images(name, filters="riz", survey="PS1"):
             hdu_list, fits_image[0].header, reproject_function=reproject_interp
         )
     fits_image[0].data = coadd[0]
+    if isinstance(filters, list):
+        filters = ''.join(filt for filt in filters)
     outfile = os.path.join(obj_dir, f"{survey}_{filters}.fits")
     fits_image.writeto(outfile, overwrite=True)
