@@ -196,8 +196,8 @@ def extract_kronparams(
         Host-galaxy right ascension of the galaxy in degrees.
     host_dec: float
         Host-galaxy declination of the galaxy in degrees.
-    filt: str
-        Filter to use to load the fits file.
+    filt: str or list
+        Filter to use to load the fits file. List is commonly used for coadds.
     survey: str
         Survey to use for the zero-points and pixel scale.
     ra: float, default ``None``
@@ -238,6 +238,8 @@ def extract_kronparams(
         suffix = "masked_"
     else:
         suffix = ""
+    if isinstance(filt, list):
+        filt = ''.join(f for f in filt)
     fits_file = os.path.join(obj_dir, f"{suffix}{survey}_{filt}.fits")
 
     img = fits.open(fits_file)
