@@ -18,12 +18,10 @@ from hostphot.utils import (
     get_image_exptime,
     get_image_gain,
     get_image_readnoise,
-    survey_zp,
+    magnitude_calc,
     get_survey_filters,
     check_filters_validity,
-    uncertainty_calc,
 )
-from hostphot.dust import calc_extinction
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -321,62 +319,22 @@ class InteractiveAperture:
         flux = self.flux_phot[self.filt]
         flux_err = self.flux_phot[f"{self.filt}_err"]
 
-        zp_dict = survey_zp(self.survey)
-        if zp_dict == "header":
-            zp = self.header["MAGZP"]
-        else:
-            zp = zp_dict[self.filt]
-        if self.survey == "PS1":
-            zp += 2.5 * np.log10(self.exptime)
-
-        mag = -2.5 * np.log10(flux) + zp
-        mag_err = 2.5 / np.log(10) * flux_err / flux
-
-        if self.survey == "WISE":
-            # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#circ
-            apcor_dict = {
-                "W1": 0.222,
-                "W2": 0.280,
-                "W3": 0.665,
-                "W4": 0.616,
-            }  # in mags
-            m_apcor = apcor_dict[self.filt]
-            mag += m_apcor
-            mag_err = 0.0  # flux_err already propagated below for this survey
-
-        # error budget
         ap_area = (
-            np.pi
-            * self.eparams["width"]["value"]
-            * self.eparams["height"]["value"]
+                np.pi
+                * self.eparams["width"]["value"]
+                * self.eparams["height"]["value"]
         )
-        if self.survey == 'SDSS':
-            kw_args = {'camcol': self.header['CAMCOL'],
-                       'run': self.header['RUN']}
-        else:
-            kw_args = {}
-        extra_err = uncertainty_calc(
-            flux,
-            flux_err,
-            self.survey,
-            self.filt,
-            ap_area,
-            self.readnoise,
-            self.gain,
-            self.exptime,
-            self.bkg_rms,
-            **kw_args
-        )
-        mag_err = np.sqrt(mag_err**2 + extra_err**2)
-
-        if self.survey == "WISE":
-            zp_unc = self.header["MAGZPUNC"]
-            mag_err = np.sqrt(mag_err**2 + zp_unc**2)
-
-        if self.correct_extinction:
-            self.A_ext = calc_extinction(self.filt, self.survey,
-                                         self.ra, self.dec)
-            mag -= self.A_ext
+        mag, mag_err = magnitude_calc(flux,
+                                      flux_err,
+                                      self.survey,
+                                      self.filt,
+                                      ap_area,
+                                      self.header,
+                                      self.bkg_rms,
+                                      self.correct_extinction,
+                                      self.ra,
+                                      self.dec,
+                                      )
 
         self.mag_phot[self.filt] = mag
         self.mag_phot[f"{self.filt}_err"] = mag_err
