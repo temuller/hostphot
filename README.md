@@ -164,3 +164,7 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
   journal = {Journal of Open Source Software} 
 } 
 ```
+
+## Acknowledgements
+
+I thank Yuchen LIU for helping me adding Spitzer as part of AstroHackWeek 2022.
