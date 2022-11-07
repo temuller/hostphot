@@ -5,6 +5,7 @@ import numpy as np
 
 import sfdmap
 import extinction
+from astropy.coordinates import SkyCoord
 
 import hostphot
 from .utils import integrate_filter, get_survey_filters, extract_filters
@@ -155,7 +156,19 @@ def calc_extinction(
     """
     # extract transmission function for the given filter+survey
     filters = get_survey_filters(survey)
-    filters_dict = extract_filters(filters, survey)
+    if survey == 'LegacySurvey':
+        # https://datalab.noirlab.edu/ls/bass.php
+        # declination above ~32 and above the galactic plane
+        gal_coords = SkyCoord(ra=ra * u.degree, dec=dec * u.degree, frame='icrs')
+        if (dec > 32.375) and (gal_coords.b.value > 0):
+            version = 'BASS+MzLS'
+        else:
+            version = 'DECam'
+    else:
+        version = None
+
+    filters_dict = extract_filters(filters, survey, version)
+
     filter_wave = filters_dict[filt]["wave"]
     filter_response = filters_dict[filt]["transmission"]
 

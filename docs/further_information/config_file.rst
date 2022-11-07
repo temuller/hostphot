@@ -41,7 +41,7 @@ The configureration file (``config.txt``) contains most of the necessary informa
      - AB
      - 0.0
    * - 2MASS
-     - JHK
+     - J,H,Ks
      - header
      - 1.0
      - Vega
@@ -69,7 +69,25 @@ The configureration file (``config.txt``) contains most of the necessary informa
      - 22.5
      - 2.75
      - Vega
-     - 2.699,3.339,5.174,6.620    
+     - 2.699,3.339,5.174,6.620  
+   * - LegacySurvey
+     - grz
+     - 22.5
+     - 0.262
+     - AB
+     - 0.0
+   * - Spitzer
+     - IRAC.1,IRAC.2,IRAC.3,IRAC.4,MIPS.1
+     - header
+     - 0.6,2.45
+     - AB
+     - 0.0
+   * - Vista
+     - Z,Y,J,H,Ks
+     - header
+     - 0.339
+     - Vega
+     - 0.502,0.600,0.916,1.366,1.827
 
 where **survey** is the internal name of the survey used by HostPhot, **filters** are the available filters either as a single string (for single character filters, e.g. grizy) or separated by commas (no spaces), **zp** are the zero-points (ZPs) separated by commas if multiple ZPs are used or the string `header` in which case HostPhot will look for the keyword ``MAGZP``, **pixel_scale** is the pixel scaling of the images in units of arcsec/pixel, **mag_sys** is the magnitude system, and **mag_sys_conv** is the magnitude system convertion factor such that :math:`m_{\text{AB}} = m_{\text{Vega}} + \text{mag_sys_conv}`. The last twos columns are not used by HostPhot (at the moment at least). They are mainly for completeness in case a user needs the photometry in different units.
 

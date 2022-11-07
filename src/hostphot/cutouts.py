@@ -3,10 +3,14 @@ import copy
 import gzip
 import shutil
 import tarfile
-import requests
+import requests  # for several surveys
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
+
+# for VISTA
+import re
+import urllib
 
 from astropy.io import fits
 from astropy.table import Table
@@ -15,7 +19,7 @@ from astropy.coordinates import SkyCoord
 from astropy.nddata import Cutout2D
 
 import pyvo  # 2MASS
-from pyvo.dal import sia  # DES
+from pyvo.dal import sia  # DES, DELVE
 from astroquery.sdss import SDSS
 from astroquery.skyview import SkyView  # other surveys
 from astroquery.mast import Observations  # for GALEX
@@ -782,6 +786,217 @@ def get_HST_images(ra, dec, size=3, filters=None):
 
     #return hdu_list
 
+# Legacy Survey
+def get_LegacySurvey_images(ra, dec, size=3, filters=None):
+    """Gets Legacy Survey fits images for the given coordinates and
+    filters.
+
+    Parameters
+    ----------
+    ra: float
+        Right Ascension in degrees.
+    dec: float
+        Declination in degrees.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``grz``.
+
+    Returns
+    -------
+    fits_files: list
+        List of fits images.
+    """
+    survey = "LegacySurvey"
+    if filters is None:
+        filters = get_survey_filters(survey)
+        check_filters_validity(filters, survey)
+
+    pixel_scale = survey_pixel_scale(survey)
+    if isinstance(size, (float, int)):
+        size_arcsec = (size * u.arcmin).to(u.arcsec).value
+    else:
+        size_arcsec = size.to(u.arcsec).value
+    size_pixels = int(size_arcsec / pixel_scale)
+
+    base_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'
+    params = f'ra={ra}&dec={dec}&layer=ls-dr9&pixscale={pixel_scale}&bands={filters}&size={size_pixels}'
+    url = base_url + params
+    master_hdu = fits.open(url)
+    header = master_hdu[0].header
+
+    hdu_list = []
+    # assuming order grz of the filters
+    for i, filt in enumerate(filters):
+        data = master_hdu[0].data[i]
+        hdu = fits.PrimaryHDU(data=data, header=header)
+        hdu_list.append(hdu)
+
+    return hdu_list
+
+# Spitzer
+def get_Spitzer_images(ra, dec, size=3, filters=None):
+    """Gets Spitzer fits images for the given coordinates and
+    filters.
+
+    Parameters
+    ----------
+    ra: float
+        Right Ascension in degrees.
+    dec: float
+        Declination in degrees.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``IRAC.1, IRAC.2, IRAC.3, IRAC.4, MIPS.1``.
+
+    Returns
+    -------
+    fits_files: list
+        List of fits images.
+    """
+    survey = "Spitzer"
+    if filters is None:
+        filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
+
+    pixel_scale = survey_pixel_scale(survey)
+    if isinstance(size, (float, int)):
+        size_arcsec = (size * u.arcmin).to(u.arcsec).value
+    else:
+        size_arcsec = size.to(u.arcsec).value
+    size_pixels = int(size_arcsec / pixel_scale)
+
+    base_url = 'https://irsa.ipac.caltech.edu/cgi-bin/Cutouts/nph-cutouts?'
+    locstr = f'{str(ra)}+{str(dec)}+eq'
+
+    mission_dict = {'mission': 'SEIP',
+                    'min_size': '18',
+                    'max_size': '1800',
+                    'units': 'arcsec',
+                    'locstr': locstr,
+                    'sizeX': size_pixels,
+                    'ntable_cutouts': '1',
+                    'cutouttbl1': 'science',
+                    'mode': 'PI',  # XML output file
+                    }
+
+    # check image size
+    if size_pixels < int(mission_dict['min_size']):
+        mission_dict['sizeX'] = int(mission_dict['min_size'])
+        print(f'Image cannot be smaller than {mission_dict["min_size"]} arcsec (using this value)')
+    elif size_pixels > int(mission_dict['max_size']):
+        mission_dict['sizeX'] = int(mission_dict['max_size'])
+        print(f'Image cannot be larger than {mission_dict["max_size"]} arcsec (using this value)')
+
+    mission_url = '&'.join([f'{key}={val}' for key, val in mission_dict.items()])
+    url = base_url + mission_url
+
+    response = requests.get(url)
+    list_text = response.text.split()
+
+    # find the fits file for each fitler (None if not found)
+    files_dict = {filt: None for filt in filters}
+    for filt in filters:
+        for line in list_text:
+            if filt in line and line.endswith('.mosaic.fits'):
+                files_dict[filt] = line
+                # pick the first image and move to the next filter
+                break
+
+    hdu_list = []
+    for filt, file in files_dict.items():
+        if file is not None:
+            hdu = fits.open(line)
+            hdu[0].header['MAGZP'] = hdu[0].header['ZPAB']
+            hdu_list.append(hdu)
+        else:
+            hdu_list.append(None)
+
+    return hdu_list
+
+# VISTA
+def get_VISTA_images(ra, dec, size=3, filters=None, version='VHS'):
+    """Gets VISTA fits images for the given coordinates and
+    filters.
+
+    Note: the different surveys included in VISTA cover different
+    parts of the sky and do not necessarily contain the same filters.
+
+    Parameters
+    ----------
+    ra: float
+        Right Ascension in degrees.
+    dec: float
+        Declination in degrees.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``Z, Y, J, H, Ks``.
+    version: str, default ``VHS``
+        Survey to use: ``VHS``, ``VIDEO`` or ``VIKING``.
+
+    Returns
+    -------
+    fits_files: list
+        List of fits images.
+    """
+    survey = "VISTA"
+    if filters is None:
+        filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
+
+    if not isinstance(size, (float, int)):
+        size = size.to(u.arcmin).value
+
+    # These are final data releases except for VHS(?):
+    # VHSDR5: https://www.eso.org/sci/publications/announcements/sciann17290.html
+    # VHSDR6: https://b2find.eudat.eu/dataset/0b10d3a0-1cfe-5e67-8a5c-0949db9d19cb
+    # VIDEODR5: https://www.eso.org/sci/publications/announcements/sciann17491.html
+    # VIKINGDR4: https://www.eso.org/sci/publications/announcements/sciann17289.html
+    database_dict = {'VHS': 'VHSDR6',
+                     'VIDEO': 'VIDEODR5',
+                     'VIKING': 'VIKINGDR4',
+                     }
+    assert version in database_dict.keys(), 'Not a valid VISTA survey'
+    database = database_dict[version]
+
+    base_url = 'http://horus.roe.ac.uk:8080/vdfs/GetImage?archive=VSA&'
+    survey_dict = {'database': database,
+                   'ra': ra,
+                   'dec': dec,
+                   'sys': 'J',
+                   'filterID': 'all',
+                   'size': size,  # in arcmin
+                   'obsType': 'object',
+                   'frameType': 'tilestack',
+                   }
+    survey_url = '&'.join([f'{key}={val}' for key, val in survey_dict.items()])
+
+    url = base_url + survey_url
+    results = urllib.request.urlopen(url).read()
+    links = re.findall('href="(http://.*?)"', results.decode('utf-8'))
+
+    # find url for each filter (None if not found)
+    urls_dict = {filt: None for filt in filters}
+    for filt in filters:
+        for link in links:
+            url = link.replace("getImage", "getFImage", 1)
+            if f'band={filt}' in url:
+                urls_dict[filt] = url
+                break
+
+    hdu_list = []
+    for filt, url in urls_dict.items():
+        if url is not None:
+            hdu = fits.open(url)
+            # to be consistent with the naming of other surveys
+            hdu[1].header['MAGZP'] = hdu[1].header['MAGZPT']
+            hdu_list.append(hdu[1])  # extension 1
+        else:
+            hdu_list.append(None)
+
+    return hdu_list
 
 # Check orientation
 # ------------------
@@ -817,7 +1032,7 @@ def match_wcs(fits_files):
 # Master Function
 # ----------------------------------------
 def download_images(
-    name, ra, dec, size=3, filters=None, overwrite=False, survey="PS1"
+    name, ra, dec, size=3, filters=None, overwrite=False, survey="PS1", version=None,
 ):
     """Download images for a given object in the given filters of a
     given survey.
@@ -839,7 +1054,9 @@ def download_images(
         If ``True``, the images are overwritten if they already
         exist.
     survey: str, default ``PS1``
-        Survey used to download the images
+        Survey used to download the images.
+    version: str, default ``None``
+        Version used by some surveys including multiple surveys. E.g. ``VHS`` for VISTA.
 
     Examples
     --------
@@ -877,6 +1094,12 @@ def download_images(
                                            filters, wise_version)
     elif survey == "2MASS":
         hdu_list = get_2MASS_images(ra, dec, size, filters)
+    elif survey == "LegacySurvey":
+        hdu_list = get_LegacySurvey_images(ra, dec, size, filters)
+    elif survey == "Spitzer":
+        hdu_list = get_Spitzer_images(ra, dec, size, filters)
+    elif survey == "VISTA":
+        hdu_list = get_VISTA_images(ra, dec, size, filters, version)
 
     if hdu_list:
         # this corrects any possible shifts between the images
@@ -896,6 +1119,8 @@ def download_images(
                 fits_file.data = fixed_data
 
         for hdu, filt in zip(hdu_list, filters):
+            if hdu is None:
+                continue  # skip missing filter/image
             outfile = os.path.join(obj_dir, f"{survey}_{filt}.fits")
             if not os.path.isfile(outfile):
                 hdu.writeto(outfile)

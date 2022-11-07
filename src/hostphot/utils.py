@@ -12,6 +12,7 @@ import warnings
 from astropy.utils.exceptions import AstropyWarning
 
 import hostphot
+from hostphot.dust import calc_extinction
 
 hostphot_path = hostphot.__path__[0]
 config_file = os.path.join(hostphot_path, "filters", "config.txt")
@@ -151,9 +152,22 @@ def get_image_gain(header, survey):
         gain = 1.0
     elif survey == "2MASS":
         # the value comes from https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/
-        # but it is different from the value of
+        # Note that it is different from the value of
         # https://iopscience.iop.org/article/10.1086/498708/pdf (8 e ADU^-1)
         gain = 10.0
+    elif survey == "LegacySurvey":
+        gain = 30  # assumed similar to DES
+    elif survey == "Spitzer":
+        # also in the "EXPGAIN" keyword
+        if header['INSTRUME'] == 'IRAC':
+            # Table 2.4 of IRAC Instrument Handbook
+            gain = 3.8  # all filters have similar gain
+        elif header['INSTRUME'] == 'MIPS':
+            # Table 2.4 of MIPS Instrument Handbook
+            gain = 5.0
+    elif survey == "VISTA":
+        # use median from http://casu.ast.cam.ac.uk/surveys-projects/vista/technical/vista-gain
+        gain = 4.19
     else:
         gain = 1.0
 
@@ -191,6 +205,22 @@ def get_image_readnoise(header, survey):
         # https://iopscience.iop.org/article/10.1086/498708/pdf
         # 6 combined images
         readnoise = 4.5 * np.sqrt(6)  # not used
+    elif survey == "LegacySurvey":
+        readnoise = 7.0  # assumed similar to DES
+    elif survey == "Spitzer":
+        if header['INSTRUME'] == 'IRAC':
+            # Table 2.3 of IRAC Instrument Handbook
+            # very rough average
+            readnoise_dict = {1:16.0, 2:12.0, 3:10.0, 4:8.0}
+            channel = header['CHNLNUM']
+            readnoise = readnoise_dict[channel]
+        elif header['INSTRUME'] == 'MIPS':
+            # Table 2.4 of MIPS Instrument Handbook
+            readnoise = 40.0
+    elif survey == "VISTA":
+        # very rough average for all filters in
+        # http://casu.ast.cam.ac.uk/surveys-projects/vista/technical/vista-gain
+        readnoise = 24.0
     else:
         readnoise = 0.0
 
@@ -213,7 +243,7 @@ def get_image_exptime(header, survey):
         Exposure time in seconds.
     """
     check_survey_validity(survey)
-    if survey in ["PS1", "DES", "GALEX"]:
+    if survey in ["PS1", "DES", "GALEX", "VISTA", "Spitzer"]:
         exptime = float(header["EXPTIME"])
     elif survey == "WISE":
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/
@@ -225,23 +255,24 @@ def get_image_exptime(header, survey):
     elif survey == "2MASS":
         # https://iopscience.iop.org/article/10.1086/498708/pdf
         exptime = 7.8
+    elif survey == "LegacySurvey":
+        exptime = 900.0  # assumed similar to DES
     else:
         exptime = 1.0
 
     return exptime
 
-
-def uncertainty_calc(
+def magnitude_calc(
     flux,
     flux_err,
     survey,
     filt=None,
     ap_area=0.0,
-    readnoise=0.0,
-    gain=1.0,
-    exptime=0.0,
+    header=None,
     bkg_rms=0.0,
-    **kw_args
+    correct_extinction=True,
+    ra=None,
+    dec=None,
 ):
     """Calculates the uncertainty propagation.
 
@@ -250,17 +281,84 @@ def uncertainty_calc(
     flux: float
         Aperture flux.
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
+        Survey name. E.g. ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, etc.
     filt: str, default ``None``
         Survey-specific filter.
     ap_area: float, default ``0.0``
         Aperture area.
-    readnoise: float, default ``0.0``
-        Image readnoise.
-    gain: float, default ``1.0``
-        Image gain.
-    exptime: float, default ``0.0``
-        Image exposure time.
+    header: fits header, default ``None``
+        Header of an image.
+    bkg_rms: float, default ``0.0``
+        Background noise.
+    correct_extinction: bool, default `True`
+        If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
+        by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
+    ra: float, default ``None``
+        Right Ascensions in degrees. Used for extinction correction.
+    dec: float, default ``None``
+        Declinations in degrees. Used for extinction correction.
+
+    Returns
+    -------
+    mag: float
+        Apparent magnitude.
+    mag_err: float
+        Apparent magnitude uncertainty.
+    """
+    zp_dict = survey_zp(survey)
+    if zp_dict == "header":
+        zp = header["MAGZP"]
+    else:
+        zp = zp_dict[filt]
+
+    if survey == "PS1":
+        zp += 2.5 * np.log10(exptime)
+
+    mag = -2.5 * np.log10(flux) + zp
+    mag_err = 2.5 / np.log(10) * flux_err / flux
+
+    # error propagation
+    extra_err = uncertainty_calc(
+        flux,
+        flux_err,
+        survey,
+        filt,
+        ap_area,
+        header,
+        bkg_rms,
+    )
+    mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
+
+    # extinction correction is optional
+    if correct_extinction:
+        A_ext = calc_extinction(filt, survey, ra, dec)
+        mag -= A_ext
+
+    return mag, mag_err
+
+def uncertainty_calc(
+    flux,
+    flux_err,
+    survey,
+    filt=None,
+    ap_area=0.0,
+    header=None,
+    bkg_rms=0.0
+):
+    """Calculates the uncertainty propagation.
+
+    Parameters
+    ----------
+    flux: float
+        Aperture flux.
+    survey: str
+        Survey name. E.g. ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, etc.
+    filt: str, default ``None``
+        Survey-specific filter.
+    ap_area: float, default ``0.0``
+        Aperture area.
+    header: fits header, default ``None``
+        Header of an image.
     bkg_rms: float, default ``0.0``
         Background noise.
 
@@ -269,8 +367,12 @@ def uncertainty_calc(
     mag_err: float
         Extra uncertainty in magnitudes.
     """
+    exptime = get_image_exptime(header, survey)
+    gain = get_image_gain(header, survey)
+    readnoise = get_image_readnoise(header, survey)
+
     mag_err = 0.0
-    if survey in ["PS1", "DES"]:
+    if survey in ["PS1", "DES", "LegacySurvey", "VISTA"]:
         # 1.0857 = 2.5/ln(10)
         extra_err = (
             1.0857 * np.sqrt(ap_area * (readnoise**2) + flux / gain) / flux
@@ -278,15 +380,21 @@ def uncertainty_calc(
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
     if survey=="DES":
+        # see https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality
+        # Photometry section
         unc_dict = {'g':2.6e-3, 'r':2.9e-3, 'i':3.4e-3,
                     'z':2.5e-3, 'Y':4.5e-3}
         extra_err = unc_dict[filt]
         mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
 
-    if survey=="SDSS":
+    elif survey=='PS1':
+        # just as a check to make sure all surveys are included
+        pass
+
+    elif survey=="SDSS":
         # https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
-        camcol = kw_args['camcol']
-        run = kw_args['run']
+        camcol = header['CAMCOL']
+        run = header['RUN']
 
         gain_dict = {'u':{1:1.62, 2:1.595, 3:1.59, 4:1.6, 5:1.47, 6:2.17},
                      'g': {1: 3.32, 2: 3.855, 3: 3.845, 4: 3.995, 5: 4.05, 6: 4.035},
@@ -365,21 +473,8 @@ def uncertainty_calc(
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
         # see Table 5 of
         # https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#wpro
-        # apcor_dict = {
-        #     "W1": -0.034,
-        #     "W2": -0.041,
-        #     "W3": 0.030,
-        #     "W4": -0.029,
-        # }  # in mags
-
         # correction assumed to be 0 mags as PSF fitting is not used.
-        apcor_dict = {
-            "W1": 0.0,
-            "W2": 0.0,
-            "W3": 0.0,
-            "W4": 0.0,
-        }  # in mags
-        m_apcor = apcor_dict[filt]
+        m_apcor = 0.0
         f_apcor = 10 ** (-0.4 * m_apcor)
         F_src = f_apcor * flux
 
@@ -402,6 +497,23 @@ def uncertainty_calc(
         )
 
         mag_err = np.sqrt(1.179 * sigma_src**2 / F_src**2)
+
+        # add uncertainty from the ZP
+        zp_unc = header["MAGZPUNC"]
+        mag_err = np.sqrt(mag_err ** 2 + zp_unc ** 2)
+
+    elif survey=='LegacySurvey':
+        # already added at the beginning
+        pass
+    elif survey == 'Spitzer':
+        ## asdsad
+    elif survey == 'VISTA':
+        # add uncertainty from the ZP
+        zp_unc = header["MAGZRR"]
+        mag_err = np.sqrt(mag_err ** 2 + zp_unc ** 2)
+
+    else:
+        raise Exception(f"Survey {survey} has not been added for error propagation.")
 
     return mag_err
 
@@ -450,7 +562,7 @@ def check_filters_validity(filters, survey):
             assert filt in valid_filters, message
 
 
-def extract_filters(filters, survey):
+def extract_filters(filters, survey, version=None):
     """Extracts transmission functions.
 
     Parameters
@@ -459,6 +571,10 @@ def extract_filters(filters, survey):
         Filters to extract.
     survey: str
         Survey of the filters.
+    version: str
+        Version of the filters to use. E.g. for the
+        Legacy Survey as it uses DECam for the south
+        and BASS+MzLS for the north.
 
     Returns
     -------
@@ -468,16 +584,35 @@ def extract_filters(filters, survey):
     """
     check_survey_validity(survey)
     check_filters_validity(filters, survey)
-
     filters_dict = {filt: None for filt in filters}
+
     if "WISE" in survey:
         survey = "WISE"  # for unWISE to use the same filters as WISE
     filters_path = os.path.join(hostphot.__path__[0], "filters", survey)
 
+    # Assume DECaLS filters below 32 degrees and BASS+MzLS above
+    # https://www.legacysurvey.org/status/
+    if survey=='LegacySurvey':
+        filters_path = os.path.join(hostphot.__path__[0], "filters", "LegacySurvey")
+        if version == 'BASS+MzLS':
+            for filt in filters:
+                if filt != 'z':
+                    filt_file = os.path.join(filters_path, f"BASS_{filt}.dat")
+                else:
+                    filt_file = os.path.join(filters_path, f"MzLS_z.dat")
+                wave, transmission = np.loadtxt(filt_file).T
+                filters_dict[filt] = {"wave": wave, "transmission": transmission}
+        elif version == 'DECam':
+            for filt in filters:
+                filt_file = os.path.join(filters_path, f"DECAM_{filt}.dat")
+                wave, transmission = np.loadtxt(filt_file).T
+                filters_dict[filt] = {"wave": wave, "transmission": transmission}
+
+        return filters_dict
+
     for filt in filters:
         filt_file = os.path.join(filters_path, f"{survey}_{filt}.dat")
         wave, transmission = np.loadtxt(filt_file).T
-
         filters_dict[filt] = {"wave": wave, "transmission": transmission}
 
     return filters_dict

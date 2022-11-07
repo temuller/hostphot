@@ -24,6 +24,12 @@ Magnitude System
 Most modern surveys use the AB mangitude system, but some might be in Vega or other systems. This information is always provided by the surveys. Keep in mind this information as it is the user's responsibility to not mix different magnitude systems.
 
 
+Error Budget
+~~~~~~~~~~~~
+
+A proper error propagation is as important as the magnitude calibration. Different surveys have different sources of uncertainties, e.g. from the ZPs, calibration, etc.. This information is ideally provided by the surveys. Usually, the simplest way of estimating the error budget is by using parameters such as the gain, exposure time and readnoise of the images, which are in many cases included in the headers.
+
+
 Pixel Scaling
 ~~~~~~~~~~~~~
 

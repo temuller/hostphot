@@ -19,6 +19,7 @@ In addition to the `magnitude` uncertainty calculated from the aperture photomet
 
 Note that the global and local photometry are calculates in a similar way as in `Wiseman et al., 2020 <https://ui.adsabs.harvard.edu/abs/2020MNRAS.495.4040W/abstract>`_ and `Kelsey et al., 2021  <https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.4861K/abstract>`_, respectively.
 
+
 PS1
 ~~~
 
@@ -51,6 +52,7 @@ DES
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{cal}}^2)`.
 
+
 SDSS
 ~~~~
 
@@ -67,6 +69,7 @@ SDSS
   where the values of gain and dark variance are obtained from `https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html <https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html>`_ and they are assumed to be the largest available values, for a conservative approach.
 
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2)`.
+
 
 GALEX
 ~~~~~
@@ -139,3 +142,45 @@ unWISE
 * **Error Propagation**
 
   This is assumed to be the same as for WISE.
+  
+
+Legacy Survey
+~~~~~~~~~~~~~
+
+* **ZP**
+  
+  Legacy Survey images use a global ZP set to :math:`22.5` (see the `Legacy Survey website <https://www.legacysurvey.org/dr9/description/>`_).
+  
+* **Error Propagation**
+
+  The errors are propagated in the same way as for DES and PS1. The gain, exposure time and readnoise are assumed to be similar to those of DES: :math:`30` :math:`e`/ADU, :math:`900` s and :math:`7` :math:`e`/pixel, respectively.
+  
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2)`.
+  
+  
+Spitzer
+~~~~~~~
+
+* **ZP**
+  
+  Spitzer images include their own ZP in their headers. They include both VEGA and AB ZPs, although the latter the used. This is found in the ``ZPAB`` keyword, although it is renamed to ``MAGZP`` to follow HostPhot convention. For more information, check the `calibration of IRAC by Gillian Wilson <https://faculty.ucr.edu/~gillianw/cal.html>_`
+  
+* **Error Propagation**
+
+  The errors are propagated in the same way as for DES and PS1, where the gain and readnoise come from the `IRAC <https://irsa.ipac.caltech.edu/data/SPITZER/docs/irac/iracinstrumenthandbook/IRAC_Instrument_Handbook.pdf>`_ and `MIPS <https://irsa.ipac.caltech.edu/data/SPITZER/docs/mips/mipsinstrumenthandbook/MIPS_Instrument_Handbook.pdf>`_ instrument manuals (see tables 2.3 and 2.4).
+  
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2)`.
+  
+  
+VISTA
+~~~~~
+
+* **ZP**
+  
+  VISTA images include their own ZP in their headers: ``MAGZPT`` keyword, although this is renamed to ``MAGZP`` to follow HostPhot convention.
+  
+* **Error Propagation**
+
+  The errors are propagated in the same way as for DES and PS1, with an additional component coming from the ZP calibration, found in the header (``MAGZRR`` keyword).
+  
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2)`.
