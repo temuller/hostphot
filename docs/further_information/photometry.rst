@@ -153,7 +153,7 @@ Legacy Survey
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for DES and PS1. The gain, exposure time and readnoise are assumed to be similar to those of DES: :math:`30` :math:`e`/ADU, :math:`900` s and :math:`7` :math:`e`/pixel, respectively.
+  The errors are propagated in the same way as for PS1. The gain, exposure time and readnoise are assumed to be similar to those of DES: :math:`30` :math:`e`/ADU, :math:`900` s and :math:`7` :math:`e`/pixel, respectively.
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2)`.
   
@@ -163,11 +163,11 @@ Spitzer
 
 * **ZP**
   
-  Spitzer images include their own ZP in their headers. They include both VEGA and AB ZPs, although the latter the used. This is found in the ``ZPAB`` keyword, although it is renamed to ``MAGZP`` to follow HostPhot convention. For more information, check the `calibration of IRAC by Gillian Wilson <https://faculty.ucr.edu/~gillianw/cal.html>_`
+  Spitzer images include their own ZP in their headers. They include both VEGA and AB ZPs, although the latter is used. This is found in the ``ZPAB`` keyword, although it is renamed to ``MAGZP`` to follow HostPhot convention. For more information, check the `calibration of IRAC by Gillian Wilson <https://faculty.ucr.edu/~gillianw/cal.html>`_
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for DES and PS1, where the gain and readnoise come from the `IRAC <https://irsa.ipac.caltech.edu/data/SPITZER/docs/irac/iracinstrumenthandbook/IRAC_Instrument_Handbook.pdf>`_ and `MIPS <https://irsa.ipac.caltech.edu/data/SPITZER/docs/mips/mipsinstrumenthandbook/MIPS_Instrument_Handbook.pdf>`_ instrument manuals (see tables 2.3 and 2.4).
+  The errors are propagated in the same way as for PS1, where the gain and readnoise come from the `IRAC <https://irsa.ipac.caltech.edu/data/SPITZER/docs/irac/iracinstrumenthandbook/IRAC_Instrument_Handbook.pdf>`_ and `MIPS <https://irsa.ipac.caltech.edu/data/SPITZER/docs/mips/mipsinstrumenthandbook/MIPS_Instrument_Handbook.pdf>`_ instrument manuals (see tables 2.3 and 2.4).
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2)`.
   
@@ -181,6 +181,6 @@ VISTA
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for DES and PS1, with an additional component coming from the ZP calibration, found in the header (``MAGZRR`` keyword).
+  The errors are propagated in the same way as for PS1, with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword).
   
-  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2)`.
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{ZP}})`.

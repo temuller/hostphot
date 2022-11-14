@@ -22,6 +22,7 @@ from hostphot.utils import (
     get_survey_filters,
     check_filters_validity,
 )
+from hostphot.dust import calc_extinction
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -331,10 +332,12 @@ class InteractiveAperture:
                                       ap_area,
                                       self.header,
                                       self.bkg_rms,
-                                      self.correct_extinction,
-                                      self.ra,
-                                      self.dec,
                                       )
+
+        # extinction correction is optional
+        if correct_extinction:
+            A_ext = calc_extinction(self.filt, self.survey, self.ra, self.dec)
+            mag -= A_ext
 
         self.mag_phot[self.filt] = mag
         self.mag_phot[f"{self.filt}_err"] = mag_err

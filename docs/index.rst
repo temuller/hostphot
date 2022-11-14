@@ -63,7 +63,6 @@ HostPhot is being actively developed in `a public repository on GitHub
    :maxdepth: 2
    :caption: API User Guide
 
-   api/hostphot.rst
    api/cutouts.rst
    api/objects_detect.rst
    api/rgb_images.rst

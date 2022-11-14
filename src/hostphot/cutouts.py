@@ -114,6 +114,7 @@ def get_PS1_urls(ra, dec, size=3, filters=None):
         size_arcsec = (size * u.arcmin).to(u.arcsec).value
     else:
         size_arcsec = size.to(u.arcsec).value
+
     size_pixels = int(size_arcsec / pixel_scale)
 
     table = query_ps1(ra, dec, size=size, filters=filters)
@@ -676,6 +677,11 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
         hdu_list = []
         for i, filt in enumerate(filters):
             band_df = twomass_df[twomass_df.band == filt]
+            if len(band_df)==0:
+                # no data for this band:
+                hdu_list.append(None)
+                continue
+
             fname = band_df.download.values[0].split("=")[-1]
             hemisphere = band_df.hem.values[0]
             ordate = band_df.date.values[0]
@@ -860,7 +866,7 @@ def get_Spitzer_images(ra, dec, size=3, filters=None):
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
 
-    pixel_scale = survey_pixel_scale(survey)
+    pixel_scale = survey_pixel_scale(survey, 'IRAC.1')  # IRAC resolution
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec).value
     else:
@@ -958,7 +964,8 @@ def get_VISTA_images(ra, dec, size=3, filters=None, version='VHS'):
                      'VIDEO': 'VIDEODR5',
                      'VIKING': 'VIKINGDR4',
                      }
-    assert version in database_dict.keys(), 'Not a valid VISTA survey'
+    valid_surveys = list(database_dict.keys())
+    assert version in valid_surveys, f'Not a valid VISTA survey: choose from {valid_surveys}'
     database = database_dict[version]
 
     base_url = 'http://horus.roe.ac.uk:8080/vdfs/GetImage?archive=VSA&'

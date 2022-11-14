@@ -9,7 +9,7 @@ HostPhot is modular, meaning that new surveys con easily be added. However, ther
 Cutouts
 ~~~~~~~
 
-Usually, many surveys have their own databases where one can download the image cutouts from (in FITS format). Otherwise, `astroquery.skyview <https://astroquery.readthedocs.io/en/latest/skyview/skyview.html>`_ allows you to download images from many different surveys. Keep in mind that the headers of the images downloaded with the latter option do not contain all the same information that the original surveys' databases do. This can be troublesome in some cases as some essential information (e.g. zero-points) might not be present. For information about the surveys already implemented in HostPhot, check :ref:`Further Information: Cutouts<information_cutouts>`.
+Usually, many surveys have their own databases where one can download the image cutouts from (in FITS format). Using each survey's image archive is highly recommended. Otherwise, some alternatives like `astroquery.skyview <https://astroquery.readthedocs.io/en/latest/skyview/skyview.html>`_ allow you to download images from many different surveys. Keep in mind that the headers of the images downloaded with the latter option might not contain all the same information that the original surveys' databases do. This can be troublesome in some cases as some essential information (e.g. zero-points) might not be present and/or the image counts might not be well calibrated. For information about the surveys already implemented in HostPhot, check :ref:`Further Information: Cutouts<information_cutouts>`.
 
 
 Zero-points

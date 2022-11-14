@@ -33,6 +33,7 @@ from hostphot.utils import (
 )
 from hostphot.objects_detect import extract_objects, plot_detected_objects
 from hostphot.image_cleaning import remove_nan
+from hostphot.dust import calc_extinction
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -427,10 +428,12 @@ def photometry(
                                 ap_area,
                                 header,
                                 bkg_rms,
-                                correct_extinction,
-                                host_ra,
-                                host_dec,
                                   )
+
+    # extinction correction is optional
+    if correct_extinction:
+        A_ext = calc_extinction(filt, survey, host_ra, host_dec)
+        mag -= A_ext
 
     if save_plots:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")

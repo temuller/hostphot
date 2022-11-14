@@ -49,7 +49,7 @@ These are downloaded with `astroquery.skyview`. Some header information missing 
 2MASS
 ~~~~~
 
-These images are downloaded from the 2MASS database following `https://irsa.ipac.caltech.edu/ibe/docs/twomass/allsky/allsky/#main <https://irsa.ipac.caltech.edu/ibe/docs/twomass/allsky/allsky/#main>`_. Information such as the `ordate` is first obtained from the last rows of the header of the images downloaded with `PyVo <https://pyvo.readthedocs.io/en/latest/>`_. However, the latter are not used as they are much larger and the 2MASS zero-points are missing in their headers. The pixel scaling of the images is 1.0 arcsec/pixel, as described in the `2MASS website <https://irsa.ipac.caltech.edu/Missions/2MASS/docs/sixdeg/>`_. The available filters are: :math:`J`, :math:`H` and :math:`K_{S}`.
+These images are downloaded from the 2MASS database following `https://irsa.ipac.caltech.edu/ibe/docs/twomass/allsky/allsky/#main <https://irsa.ipac.caltech.edu/ibe/docs/twomass/allsky/allsky/#main>`_. Information such as the `ordate` is first obtained from the last rows of the header of the images downloaded with `PyVo <https://pyvo.readthedocs.io/en/latest/>`_. However, the latter are not used as they are much larger and the 2MASS zero-points are missing in their headers. The pixel scaling of the images is 1.0 arcsec/pixel, as described in the `2MASS website <https://irsa.ipac.caltech.edu/Missions/2MASS/docs/sixdeg/>`_. The available filters are: :math:`J`, :math:`H` and :math:`K_{s}`.
 
 .. figure:: static/2mass_footprint.png
 
@@ -87,7 +87,7 @@ Spitzer
 
 Spitzer images are taken only from the `SEIP survey <https://irsa.ipac.caltech.edu/data/SPITZER/Enhanced/SEIP/>`_ (other surveys might be included in the future), using the `IRSA IPAC cutouts service <https://irsa.ipac.caltech.edu/applications/Cutouts/docs/instructions.html>`_. The available filters are: IRAC.1 (:math:`3.6 \mu \text{m}`), IRAC.2 (:math:`4.5 \mu \text{m}`), IRAC.3 (:math:`5.8 \mu \text{m}`), IRAC.4 (:math:`8.0 \mu \text{m}`) and MIPS.1 (:math:`24 \mu \text{m}`), with pixel scalings of 0.6 and 2.45 arcsec/pixel, as described in the `IRAC manual <https://irsa.ipac.caltech.edu/data/SPITZER/docs/irac/iracinstrumenthandbook/IRAC_Instrument_Handbook.pdf>`_ (Section 4.10, for the mosaic images used) and `MIPS manual <https://irsa.ipac.caltech.edu/data/SPITZER/docs/mips/mipsinstrumenthandbook/MIPS_Instrument_Handbook.pdf>`_ (Table 4.9), respectively. This information is also found in the header of the images.
 
-.. figure:: static/spitzer_footprint.png
+.. figure:: static/spitzer_seip_footprint.jpeg
 
   Spitzer SEIP footprint. Image from the SEIP website.
   
@@ -95,9 +95,9 @@ Spitzer images are taken only from the `SEIP survey <https://irsa.ipac.caltech.e
 VISTA
 ~~~~~
 
-VISTA images are downloaded from the `VISTA science archive <http://horus.roe.ac.uk:8080/vdfs/VgetImage_form.jsp>`_. Three surveys are used: VHS (data release 6), VIDEO (data release 5) and VIKING (data release 4). The pixel scaling of the images is 0.339 arcsec/pixel, as described in the `VISTA website <https://vista.maths.qmul.ac.uk/>`_. The available filters are: :math:`ZYJHK` (survey dependent).
+VISTA images are downloaded from the `VISTA science archive <http://horus.roe.ac.uk:8080/vdfs/VgetImage_form.jsp>`_. Three surveys are used: VHS (data release 6), VIDEO (data release 5) and VIKING (data release 4). The pixel scaling of the images is 0.339 arcsec/pixel, as described in the `VISTA website <https://vista.maths.qmul.ac.uk/>`_. The available filters are: :math:`ZYJHK_{s}` (survey dependent).
 
-.. figure:: static/vista1_footprint.png
+.. figure:: static/vista1_footprint.jpg
 .. figure:: static/vista2_footprint.png
 
   VISTA surveys footprints. Images from `https://www.eso.org/public/images/allsky-vista/ <https://www.eso.org/public/images/allsky-vista/>`_ and `https://www.eso.org/rm/api/v1/public/releaseDescriptions/144 <https://www.eso.org/rm/api/v1/public/releaseDescriptions/144>`_.

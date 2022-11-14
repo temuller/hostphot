@@ -163,7 +163,13 @@ def create_mask(
     else:
         data_sub = np.copy(data)
 
-    pixel_scale = survey_pixel_scale(survey)
+    pixel_scale = survey_pixel_scale(survey, filt)
+    if isinstance(pixel_scale, dict):
+        # THIS IS NOT GENERAL ENOUGH, BUT WORKS FOR NOW
+        if filt in pixel_scale.keys():
+            pixel_scale = pixel_scale[filt]
+        else:
+            pixel_scale = list(pixel_scale.values())[0]
 
     if common_params is None:
         # extract objects

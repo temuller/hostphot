@@ -137,6 +137,21 @@ results = gp.multi_band_phot(name, host_ra, host_dec,
 By default, HostPhot corrects for Milky Way extinction using the recalibrated dust maps
 by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
 
+### Surveys List
+
+This is the list of surveys in HostPhot:
+
+  * DES
+  * PS1
+  * SDSS
+  * GALEX
+  * 2MASS
+  * WISE
+  * unWISE
+  * Legacy Survey
+  * Spitzer (SEIP)
+  * VISTA (VHS, VIDEO, VIKING): VISTA science archive (VIA) currently not working
+
 ## Contributing
 
 To contribute, either open an issue or send a pull request (prefered option). You can also contact me directly (check my profile: https://github.com/temuller).

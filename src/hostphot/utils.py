@@ -12,7 +12,6 @@ import warnings
 from astropy.utils.exceptions import AstropyWarning
 
 import hostphot
-from hostphot.dust import calc_extinction
 
 hostphot_path = hostphot.__path__[0]
 config_file = os.path.join(hostphot_path, "filters", "config.txt")
@@ -162,6 +161,7 @@ def get_image_gain(header, survey):
         if header['INSTRUME'] == 'IRAC':
             # Table 2.4 of IRAC Instrument Handbook
             gain = 3.8  # all filters have similar gain
+            gain *= header['EFCONV']  # convert DN/s to MJy/sr
         elif header['INSTRUME'] == 'MIPS':
             # Table 2.4 of MIPS Instrument Handbook
             gain = 5.0
@@ -270,11 +270,8 @@ def magnitude_calc(
     ap_area=0.0,
     header=None,
     bkg_rms=0.0,
-    correct_extinction=True,
-    ra=None,
-    dec=None,
 ):
-    """Calculates the uncertainty propagation.
+    """Calculates the calibrated magnitudes and errors.
 
     Parameters
     ----------
@@ -290,13 +287,6 @@ def magnitude_calc(
         Header of an image.
     bkg_rms: float, default ``0.0``
         Background noise.
-    correct_extinction: bool, default `True`
-        If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
-        by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
-    ra: float, default ``None``
-        Right Ascensions in degrees. Used for extinction correction.
-    dec: float, default ``None``
-        Declinations in degrees. Used for extinction correction.
 
     Returns
     -------
@@ -312,6 +302,7 @@ def magnitude_calc(
         zp = zp_dict[filt]
 
     if survey == "PS1":
+        exptime = get_image_exptime(header, survey)
         zp += 2.5 * np.log10(exptime)
 
     mag = -2.5 * np.log10(flux) + zp
@@ -328,11 +319,6 @@ def magnitude_calc(
         bkg_rms,
     )
     mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
-
-    # extinction correction is optional
-    if correct_extinction:
-        A_ext = calc_extinction(filt, survey, ra, dec)
-        mag -= A_ext
 
     return mag, mag_err
 
@@ -372,7 +358,9 @@ def uncertainty_calc(
     readnoise = get_image_readnoise(header, survey)
 
     mag_err = 0.0
-    if survey in ["PS1", "DES", "LegacySurvey", "VISTA"]:
+    if survey in ["PS1", "DES", "LegacySurvey", "Spitzer", "VISTA"]:
+        if survey == "Spitzer":
+            flux /= header['EFCONV']  # conv. factor (MJy/sr)/(DN/s)
         # 1.0857 = 2.5/ln(10)
         extra_err = (
             1.0857 * np.sqrt(ap_area * (readnoise**2) + flux / gain) / flux
@@ -506,7 +494,8 @@ def uncertainty_calc(
         # already added at the beginning
         pass
     elif survey == 'Spitzer':
-        ## asdsad
+        # already added at the beginning
+        pass
     elif survey == 'VISTA':
         # add uncertainty from the ZP
         zp_unc = header["MAGZRR"]
@@ -518,13 +507,16 @@ def uncertainty_calc(
     return mag_err
 
 
-def survey_pixel_scale(survey):
+def survey_pixel_scale(survey, filt=None):
     """Returns the pixel scale for a given survey.
 
     Parameters
     ----------
     survey: str
         Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
+    filt: str, default ``None``
+        Filter to use by surveys that have different pixel scales
+        for different filters (e.g. Spitzer's IRAC and MIPS instruments).
 
     Returns
     -------
@@ -537,7 +529,22 @@ def survey_pixel_scale(survey):
     survey_df = config_df[config_df.survey == survey]
     pixel_scale = survey_df.pixel_scale.values[0]
 
-    return pixel_scale
+    if len(pixel_scale.split(','))>1:
+        filters = get_survey_filters(survey)
+        pixel_scale_dict = {f:float(ps) for f, ps
+                            in zip(filters, pixel_scale.split(','))}
+
+        if filt in pixel_scale_dict.keys():
+            pixel_scale = pixel_scale_dict[filt]
+        else:
+            print(f'No pixel scale found for filter {filt}.')
+            filt_used = list(pixel_scale_dict.keys())[0]
+            print(f'Using the pixel scale of filter {filt_used} ({survey}).')
+            pixel_scale = list(pixel_scale_dict.values())[0]
+
+        return pixel_scale
+
+    return float(pixel_scale)
 
 
 def check_filters_validity(filters, survey):

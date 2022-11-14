@@ -252,7 +252,7 @@ def photometry(
 
     mags, mags_err = [], []
     px, py = img_wcs.wcs_world2pix(ra, dec, 1)
-    pixel_scale = survey_pixel_scale(survey)
+    pixel_scale = survey_pixel_scale(survey, filt)
     error = calc_sky_unc(data_sub, exptime)
 
     for ap_radius in ap_radii:
@@ -272,10 +272,12 @@ def photometry(
                                       ap_area,
                                       header,
                                       bkg_rms,
-                                      correct_extinction,
-                                      ra,
-                                      dec,
                                       )
+
+        # extinction correction is optional
+        if correct_extinction:
+            A_ext = calc_extinction(filt, survey, ra, dec)
+            mag -= A_ext
 
         mags.append(mag)
         mags_err.append(mag_err)

@@ -6,6 +6,7 @@ import numpy as np
 import sfdmap
 import extinction
 from astropy.coordinates import SkyCoord
+from astropy import units as u
 
 import hostphot
 from .utils import integrate_filter, get_survey_filters, extract_filters
