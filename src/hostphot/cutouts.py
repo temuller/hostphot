@@ -338,7 +338,7 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
     if hdu_id == 0:
         hdu_list = SDSS.get_images(matches=ids, band=filters)
     else:
-        sub_id = ids[hdu_id - 1:hdu_id]  # get the one in the middle
+        sub_id = ids[hdu_id - 1 : hdu_id]  # get the one in the middle
         hdu_list = SDSS.get_images(matches=sub_id, band=filters)
 
     # SDSS images are large so need to be trimmed
@@ -398,14 +398,14 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
         )
 
     obs_table = Observations.query_criteria(
-        coordinates=coords, radius=size_arcsec, obs_collection=['GALEX']
+        coordinates=coords, radius=size_arcsec, obs_collection=["GALEX"]
     )
     obs_df = obs_table.to_pandas()
-    obs_df = obs_df[obs_df.project == 'AIS']  # only all sky survey
+    obs_df = obs_df[obs_df.project == "AIS"]  # only all sky survey
 
     # find the URL of the "intensity" image to be downloaded
     for url in obs_df.dataURL:
-        if '-int.fits' in url:
+        if "-int.fits" in url:
             dataURL = url
             break
         else:
@@ -414,30 +414,30 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
     if dataURL is None:
         return None
 
-    filters_dict = {'NUV':'nd', 'FUV':'fd'}
+    filters_dict = {"NUV": "nd", "FUV": "fd"}
     ext_list = [filters_dict[filt] for filt in filters]
 
     hdu_list = []
     for ext in ext_list:
-        if f'-{ext}-' in dataURL:
+        if f"-{ext}-" in dataURL:
             pass
         else:
-            if ext == 'nd':
-                dataURL = dataURL.replace('-fd-', '-nd-')
-            elif ext == 'fd':
-                dataURL = dataURL.replace('-nd-', '-fd-')
+            if ext == "nd":
+                dataURL = dataURL.replace("-fd-", "-nd-")
+            elif ext == "fd":
+                dataURL = dataURL.replace("-nd-", "-fd-")
 
         response = requests.get(dataURL, stream=True)
         target_file = os.path.basename(dataURL)  # current directory
         if response.status_code == 200:
-            with open(target_file, 'wb') as f_out:
+            with open(target_file, "wb") as f_out:
                 f_out.write(response.raw.read())
         else:
             continue  # skip this filter
 
-        with gzip.open(target_file, 'rb') as f_in:
-            output_file = target_file.removesuffix('.gz')
-            with open(output_file, 'wb') as f_out:
+        with gzip.open(target_file, "rb") as f_in:
+            output_file = target_file.removesuffix(".gz")
+            with open(output_file, "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
                 hdu = fits.open(output_file)
                 os.remove(output_file)
@@ -475,6 +475,7 @@ def get_used_image(header):
     used_image = image_line.split("/")[-1].split("-")[0]
 
     return used_image
+
 
 def get_WISE_images(ra, dec, size=3, filters=None):
     """Downloads a set of WISE fits images for a given set
@@ -549,6 +550,7 @@ def get_WISE_images(ra, dec, size=3, filters=None):
 
     return hdu_list
 
+
 def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
     """Downloads a set of unWISE fits images for a given set
     of coordinates and filters.
@@ -593,17 +595,19 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
     size_pixels = int(size_arcsec.value / pixel_scale)
     assert size_pixels <= 1024, "Maximum cutout size for unWISE is 1024 pixels"
 
-    bands = ''.join(filt[-1] for filt in filters)  # e.g. 1234
+    bands = "".join(filt[-1] for filt in filters)  # e.g. 1234
 
     # for more info: http://unwise.me/imgsearch/
     base_url = "http://unwise.me/cutout_fits?"
-    params_url = f"version={version}&ra={ra}&dec={dec}&size={size_pixels}&bands={bands}"
+    params_url = (
+        f"version={version}&ra={ra}&dec={dec}&size={size_pixels}&bands={bands}"
+    )
     master_url = base_url + params_url
 
     response = requests.get(master_url, stream=True)
-    target_file = 'unWISE_images.tar.gz'  # current directory
+    target_file = "unWISE_images.tar.gz"  # current directory
     if response.status_code == 200:
-        with open(target_file, 'wb') as f:
+        with open(target_file, "wb") as f:
             f.write(response.raw.read())
 
     hdu_list = []
@@ -611,8 +615,8 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
         files_list = tar_file.getnames()
         for fits_file in files_list:
             for filt in filters:
-                if f'{filt.lower()}-img-m.fits' in fits_file:
-                    tar_file.extract(fits_file, '.')
+                if f"{filt.lower()}-img-m.fits" in fits_file:
+                    tar_file.extract(fits_file, ".")
                     hdu = fits.open(fits_file)
                     hdu_list.append(hdu)
                     os.remove(fits_file)
@@ -677,7 +681,7 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
         hdu_list = []
         for i, filt in enumerate(filters):
             band_df = twomass_df[twomass_df.band == filt]
-            if len(band_df)==0:
+            if len(band_df) == 0:
                 # no data for this band:
                 hdu_list.append(None)
                 continue
@@ -790,7 +794,8 @@ def get_HST_images(ra, dec, size=3, filters=None):
         Table.from_pandas(dp_df), productType="SCIENCE", extension="fits"
     )
 
-    #return hdu_list
+    # return hdu_list
+
 
 # Legacy Survey
 def get_LegacySurvey_images(ra, dec, size=3, filters=None):
@@ -825,8 +830,8 @@ def get_LegacySurvey_images(ra, dec, size=3, filters=None):
         size_arcsec = size.to(u.arcsec).value
     size_pixels = int(size_arcsec / pixel_scale)
 
-    base_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'
-    params = f'ra={ra}&dec={dec}&layer=ls-dr9&pixscale={pixel_scale}&bands={filters}&size={size_pixels}'
+    base_url = "https://www.legacysurvey.org/viewer/fits-cutout?"
+    params = f"ra={ra}&dec={dec}&layer=ls-dr9&pixscale={pixel_scale}&bands={filters}&size={size_pixels}"
     url = base_url + params
     master_hdu = fits.open(url)
     header = master_hdu[0].header
@@ -839,6 +844,7 @@ def get_LegacySurvey_images(ra, dec, size=3, filters=None):
         hdu_list.append(hdu)
 
     return hdu_list
+
 
 # Spitzer
 def get_Spitzer_images(ra, dec, size=3, filters=None):
@@ -866,36 +872,43 @@ def get_Spitzer_images(ra, dec, size=3, filters=None):
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
 
-    pixel_scale = survey_pixel_scale(survey, 'IRAC.1')  # IRAC resolution
+    pixel_scale = survey_pixel_scale(survey, "IRAC.1")  # IRAC resolution
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec).value
     else:
         size_arcsec = size.to(u.arcsec).value
     size_pixels = int(size_arcsec / pixel_scale)
 
-    base_url = 'https://irsa.ipac.caltech.edu/cgi-bin/Cutouts/nph-cutouts?'
-    locstr = f'{str(ra)}+{str(dec)}+eq'
+    base_url = "https://irsa.ipac.caltech.edu/cgi-bin/Cutouts/nph-cutouts?"
+    locstr = f"{str(ra)}+{str(dec)}+eq"
 
-    mission_dict = {'mission': 'SEIP',
-                    'min_size': '18',
-                    'max_size': '1800',
-                    'units': 'arcsec',
-                    'locstr': locstr,
-                    'sizeX': size_pixels,
-                    'ntable_cutouts': '1',
-                    'cutouttbl1': 'science',
-                    'mode': 'PI',  # XML output file
-                    }
+    mission_dict = {
+        "mission": "SEIP",
+        "min_size": "18",
+        "max_size": "1800",
+        "units": "arcsec",
+        "locstr": locstr,
+        "sizeX": size_pixels,
+        "ntable_cutouts": "1",
+        "cutouttbl1": "science",
+        "mode": "PI",  # XML output file
+    }
 
     # check image size
-    if size_pixels < int(mission_dict['min_size']):
-        mission_dict['sizeX'] = int(mission_dict['min_size'])
-        print(f'Image cannot be smaller than {mission_dict["min_size"]} arcsec (using this value)')
-    elif size_pixels > int(mission_dict['max_size']):
-        mission_dict['sizeX'] = int(mission_dict['max_size'])
-        print(f'Image cannot be larger than {mission_dict["max_size"]} arcsec (using this value)')
+    if size_pixels < int(mission_dict["min_size"]):
+        mission_dict["sizeX"] = int(mission_dict["min_size"])
+        print(
+            f'Image cannot be smaller than {mission_dict["min_size"]} arcsec (using this value)'
+        )
+    elif size_pixels > int(mission_dict["max_size"]):
+        mission_dict["sizeX"] = int(mission_dict["max_size"])
+        print(
+            f'Image cannot be larger than {mission_dict["max_size"]} arcsec (using this value)'
+        )
 
-    mission_url = '&'.join([f'{key}={val}' for key, val in mission_dict.items()])
+    mission_url = "&".join(
+        [f"{key}={val}" for key, val in mission_dict.items()]
+    )
     url = base_url + mission_url
 
     response = requests.get(url)
@@ -905,7 +918,7 @@ def get_Spitzer_images(ra, dec, size=3, filters=None):
     files_dict = {filt: None for filt in filters}
     for filt in filters:
         for line in list_text:
-            if filt in line and line.endswith('.mosaic.fits'):
+            if filt in line and line.endswith(".mosaic.fits"):
                 files_dict[filt] = line
                 # pick the first image and move to the next filter
                 break
@@ -914,15 +927,16 @@ def get_Spitzer_images(ra, dec, size=3, filters=None):
     for filt, file in files_dict.items():
         if file is not None:
             hdu = fits.open(line)
-            hdu[0].header['MAGZP'] = hdu[0].header['ZPAB']
+            hdu[0].header["MAGZP"] = hdu[0].header["ZPAB"]
             hdu_list.append(hdu)
         else:
             hdu_list.append(None)
 
     return hdu_list
 
+
 # VISTA
-def get_VISTA_images(ra, dec, size=3, filters=None, version='VHS'):
+def get_VISTA_images(ra, dec, size=3, filters=None, version="VHS"):
     """Gets VISTA fits images for the given coordinates and
     filters.
 
@@ -960,36 +974,40 @@ def get_VISTA_images(ra, dec, size=3, filters=None, version='VHS'):
     # VHSDR6: https://b2find.eudat.eu/dataset/0b10d3a0-1cfe-5e67-8a5c-0949db9d19cb
     # VIDEODR5: https://www.eso.org/sci/publications/announcements/sciann17491.html
     # VIKINGDR4: https://www.eso.org/sci/publications/announcements/sciann17289.html
-    database_dict = {'VHS': 'VHSDR6',
-                     'VIDEO': 'VIDEODR5',
-                     'VIKING': 'VIKINGDR4',
-                     }
+    database_dict = {
+        "VHS": "VHSDR6",
+        "VIDEO": "VIDEODR5",
+        "VIKING": "VIKINGDR4",
+    }
     valid_surveys = list(database_dict.keys())
-    assert version in valid_surveys, f'Not a valid VISTA survey: choose from {valid_surveys}'
+    assert (
+        version in valid_surveys
+    ), f"Not a valid VISTA survey: choose from {valid_surveys}"
     database = database_dict[version]
 
-    base_url = 'http://horus.roe.ac.uk:8080/vdfs/GetImage?archive=VSA&'
-    survey_dict = {'database': database,
-                   'ra': ra,
-                   'dec': dec,
-                   'sys': 'J',
-                   'filterID': 'all',
-                   'size': size,  # in arcmin
-                   'obsType': 'object',
-                   'frameType': 'tilestack',
-                   }
-    survey_url = '&'.join([f'{key}={val}' for key, val in survey_dict.items()])
+    base_url = "http://horus.roe.ac.uk:8080/vdfs/GetImage?archive=VSA&"
+    survey_dict = {
+        "database": database,
+        "ra": ra,
+        "dec": dec,
+        "sys": "J",
+        "filterID": "all",
+        "size": size,  # in arcmin
+        "obsType": "object",
+        "frameType": "tilestack",
+    }
+    survey_url = "&".join([f"{key}={val}" for key, val in survey_dict.items()])
 
     url = base_url + survey_url
     results = urllib.request.urlopen(url).read()
-    links = re.findall('href="(http://.*?)"', results.decode('utf-8'))
+    links = re.findall('href="(http://.*?)"', results.decode("utf-8"))
 
     # find url for each filter (None if not found)
     urls_dict = {filt: None for filt in filters}
     for filt in filters:
         for link in links:
             url = link.replace("getImage", "getFImage", 1)
-            if f'band={filt}' in url:
+            if f"band={filt}" in url:
                 urls_dict[filt] = url
                 break
 
@@ -998,12 +1016,13 @@ def get_VISTA_images(ra, dec, size=3, filters=None, version='VHS'):
         if url is not None:
             hdu = fits.open(url)
             # to be consistent with the naming of other surveys
-            hdu[1].header['MAGZP'] = hdu[1].header['MAGZPT']
+            hdu[1].header["MAGZP"] = hdu[1].header["MAGZPT"]
             hdu_list.append(hdu[1])  # extension 1
         else:
             hdu_list.append(None)
 
     return hdu_list
+
 
 # Check orientation
 # ------------------
@@ -1039,7 +1058,14 @@ def match_wcs(fits_files):
 # Master Function
 # ----------------------------------------
 def download_images(
-    name, ra, dec, size=3, filters=None, overwrite=False, survey="PS1", version=None,
+    name,
+    ra,
+    dec,
+    size=3,
+    filters=None,
+    overwrite=False,
+    survey="PS1",
+    version=None,
 ):
     """Download images for a given object in the given filters of a
     given survey.
@@ -1097,8 +1123,7 @@ def download_images(
             hdu_list = get_WISE_images(ra, dec, size, filters)
         else:
             wise_version = survey.split("WISE")[-1]
-            hdu_list = get_unWISE_images(ra, dec, size,
-                                           filters, wise_version)
+            hdu_list = get_unWISE_images(ra, dec, size, filters, wise_version)
     elif survey == "2MASS":
         hdu_list = get_2MASS_images(ra, dec, size, filters)
     elif survey == "LegacySurvey":

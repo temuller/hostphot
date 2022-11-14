@@ -29,7 +29,7 @@ from hostphot.utils import (
     get_image_gain,
     pixel2pixel,
     check_work_dir,
-    magnitude_calc
+    magnitude_calc,
 )
 from hostphot.objects_detect import extract_objects, plot_detected_objects
 from hostphot.image_cleaning import remove_nan
@@ -236,7 +236,7 @@ def extract_kronparams(
     else:
         suffix = ""
     if isinstance(filt, list):
-        filt = ''.join(f for f in filt)
+        filt = "".join(f for f in filt)
     fits_file = os.path.join(obj_dir, f"{suffix}{survey}_{filt}.fits")
 
     img = fits.open(fits_file)
@@ -421,14 +421,15 @@ def photometry(
             flux, flux_err = flux[0], flux_err[0]
 
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
-    mag, mag_err = magnitude_calc(flux,
-                                flux_err,
-                                survey,
-                                filt,
-                                ap_area,
-                                header,
-                                bkg_rms,
-                                  )
+    mag, mag_err = magnitude_calc(
+        flux,
+        flux_err,
+        survey,
+        filt,
+        ap_area,
+        header,
+        bkg_rms,
+    )
 
     # extinction correction is optional
     if correct_extinction:

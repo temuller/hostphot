@@ -157,14 +157,16 @@ def calc_extinction(
     """
     # extract transmission function for the given filter+survey
     filters = get_survey_filters(survey)
-    if survey == 'LegacySurvey':
+    if survey == "LegacySurvey":
         # https://datalab.noirlab.edu/ls/bass.php
         # declination above ~32 and above the galactic plane
-        gal_coords = SkyCoord(ra=ra * u.degree, dec=dec * u.degree, frame='icrs')
+        gal_coords = SkyCoord(
+            ra=ra * u.degree, dec=dec * u.degree, frame="icrs"
+        )
         if (dec > 32.375) and (gal_coords.b.value > 0):
-            version = 'BASS+MzLS'
+            version = "BASS+MzLS"
         else:
-            version = 'DECam'
+            version = "DECam"
     else:
         version = None
 

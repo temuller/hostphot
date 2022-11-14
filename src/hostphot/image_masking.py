@@ -142,7 +142,7 @@ def create_mask(
     """
     check_survey_validity(survey)
     if isinstance(filt, list):
-        filt = ''.join(f for f in filt)
+        filt = "".join(f for f in filt)
 
     obj_dir = os.path.join(workdir, name)
     fits_file = os.path.join(obj_dir, f"{survey}_{filt}.fits")

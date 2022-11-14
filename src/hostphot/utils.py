@@ -158,11 +158,11 @@ def get_image_gain(header, survey):
         gain = 30  # assumed similar to DES
     elif survey == "Spitzer":
         # also in the "EXPGAIN" keyword
-        if header['INSTRUME'] == 'IRAC':
+        if header["INSTRUME"] == "IRAC":
             # Table 2.4 of IRAC Instrument Handbook
             gain = 3.8  # all filters have similar gain
-            gain *= header['EFCONV']  # convert DN/s to MJy/sr
-        elif header['INSTRUME'] == 'MIPS':
+            gain *= header["EFCONV"]  # convert DN/s to MJy/sr
+        elif header["INSTRUME"] == "MIPS":
             # Table 2.4 of MIPS Instrument Handbook
             gain = 5.0
     elif survey == "VISTA":
@@ -208,13 +208,13 @@ def get_image_readnoise(header, survey):
     elif survey == "LegacySurvey":
         readnoise = 7.0  # assumed similar to DES
     elif survey == "Spitzer":
-        if header['INSTRUME'] == 'IRAC':
+        if header["INSTRUME"] == "IRAC":
             # Table 2.3 of IRAC Instrument Handbook
             # very rough average
-            readnoise_dict = {1:16.0, 2:12.0, 3:10.0, 4:8.0}
-            channel = header['CHNLNUM']
+            readnoise_dict = {1: 16.0, 2: 12.0, 3: 10.0, 4: 8.0}
+            channel = header["CHNLNUM"]
             readnoise = readnoise_dict[channel]
-        elif header['INSTRUME'] == 'MIPS':
+        elif header["INSTRUME"] == "MIPS":
             # Table 2.4 of MIPS Instrument Handbook
             readnoise = 40.0
     elif survey == "VISTA":
@@ -261,6 +261,7 @@ def get_image_exptime(header, survey):
         exptime = 1.0
 
     return exptime
+
 
 def magnitude_calc(
     flux,
@@ -318,18 +319,13 @@ def magnitude_calc(
         header,
         bkg_rms,
     )
-    mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
+    mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
     return mag, mag_err
 
+
 def uncertainty_calc(
-    flux,
-    flux_err,
-    survey,
-    filt=None,
-    ap_area=0.0,
-    header=None,
-    bkg_rms=0.0
+    flux, flux_err, survey, filt=None, ap_area=0.0, header=None, bkg_rms=0.0
 ):
     """Calculates the uncertainty propagation.
 
@@ -360,64 +356,90 @@ def uncertainty_calc(
     mag_err = 0.0
     if survey in ["PS1", "DES", "LegacySurvey", "Spitzer", "VISTA"]:
         if survey == "Spitzer":
-            flux /= header['EFCONV']  # conv. factor (MJy/sr)/(DN/s)
+            flux /= header["EFCONV"]  # conv. factor (MJy/sr)/(DN/s)
         # 1.0857 = 2.5/ln(10)
         extra_err = (
             1.0857 * np.sqrt(ap_area * (readnoise**2) + flux / gain) / flux
         )
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-    if survey=="DES":
+    if survey == "DES":
         # see https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality
         # Photometry section
-        unc_dict = {'g':2.6e-3, 'r':2.9e-3, 'i':3.4e-3,
-                    'z':2.5e-3, 'Y':4.5e-3}
+        unc_dict = {
+            "g": 2.6e-3,
+            "r": 2.9e-3,
+            "i": 3.4e-3,
+            "z": 2.5e-3,
+            "Y": 4.5e-3,
+        }
         extra_err = unc_dict[filt]
-        mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
+        mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-    elif survey=='PS1':
+    elif survey == "PS1":
         # just as a check to make sure all surveys are included
         pass
 
-    elif survey=="SDSS":
+    elif survey == "SDSS":
         # https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
-        camcol = header['CAMCOL']
-        run = header['RUN']
+        camcol = header["CAMCOL"]
+        run = header["RUN"]
 
-        gain_dict = {'u':{1:1.62, 2:1.595, 3:1.59, 4:1.6, 5:1.47, 6:2.17},
-                     'g': {1: 3.32, 2: 3.855, 3: 3.845, 4: 3.995, 5: 4.05, 6: 4.035},
-                     'r': {1: 4.71, 2: 4.6, 3: 4.72, 4: 4.76, 5: 4.725, 6: 4.895},
-                     'i': {1: 5.165, 2: 6.565, 3: 4.86, 4: 4.885, 5: 4.64, 6: 4.76},
-                     'z': {1: 4.745, 2: 5.155, 3: 4.885, 4: 4.775, 5: 3.48, 6: 4.69},
-                     }
+        gain_dict = {
+            "u": {1: 1.62, 2: 1.595, 3: 1.59, 4: 1.6, 5: 1.47, 6: 2.17},
+            "g": {1: 3.32, 2: 3.855, 3: 3.845, 4: 3.995, 5: 4.05, 6: 4.035},
+            "r": {1: 4.71, 2: 4.6, 3: 4.72, 4: 4.76, 5: 4.725, 6: 4.895},
+            "i": {1: 5.165, 2: 6.565, 3: 4.86, 4: 4.885, 5: 4.64, 6: 4.76},
+            "z": {1: 4.745, 2: 5.155, 3: 4.885, 4: 4.775, 5: 3.48, 6: 4.69},
+        }
         # dark variance
-        dv_dict = {'u':{1:9.61, 2:12.6025, 3:8.7025, 4:12.6025, 5:9.3025, 6:7.0225},
-                   'g': {1: 15.6025, 2: 1.44, 3: 1.3225, 4: 1.96, 5: 1.1025, 6: 1.8225},
-                   'r': {1: 1.8225, 2: 1.00, 3: 1.3225, 4: 1.3225, 5: 0.81, 6: 0.9025},
-                   'i': {1: 7.84, 2: 5.76, 3: 4.6225, 4: 6.25, 5: 7.84, 6: 5.0625},
-                   'z': {1: 0.81, 2: 1.0, 3: 1.0, 4: 9.61, 5: 1.8225, 6: 1.21},
-                  }
+        dv_dict = {
+            "u": {
+                1: 9.61,
+                2: 12.6025,
+                3: 8.7025,
+                4: 12.6025,
+                5: 9.3025,
+                6: 7.0225,
+            },
+            "g": {
+                1: 15.6025,
+                2: 1.44,
+                3: 1.3225,
+                4: 1.96,
+                5: 1.1025,
+                6: 1.8225,
+            },
+            "r": {
+                1: 1.8225,
+                2: 1.00,
+                3: 1.3225,
+                4: 1.3225,
+                5: 0.81,
+                6: 0.9025,
+            },
+            "i": {1: 7.84, 2: 5.76, 3: 4.6225, 4: 6.25, 5: 7.84, 6: 5.0625},
+            "z": {1: 0.81, 2: 1.0, 3: 1.0, 4: 9.61, 5: 1.8225, 6: 1.21},
+        }
         gain = gain_dict[filt][camcol]
         dark_variance = dv_dict[filt][camcol]
 
-        if filt=='u' and camcol==2 and run > 1100:
+        if filt == "u" and camcol == 2 and run > 1100:
             gain = 1.825
-        if filt=='i' and run > 1500:
-            if camcol==2:
+        if filt == "i" and run > 1500:
+            if camcol == 2:
                 dark_variance = 6.25
-            if camcol==4:
+            if camcol == 4:
                 dark_variance = 7.5625
-        if filt=='z' and run > 1500:
-            if camcol==4:
+        if filt == "z" and run > 1500:
+            if camcol == 4:
                 dark_variance = 12.6025
-            if camcol==5:
+            if camcol == 5:
                 dark_variance = 2.1025
 
-        extra_err = (
-                1.0857 * np.sqrt(dark_variance + flux / gain) / flux
-        )
-        mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
-        mag_err = np.sqrt(mag_err ** 2 + extra_err ** 2)
+        extra_err = 1.0857 * np.sqrt(dark_variance + flux / gain) / flux
+        mag_err = np.sqrt(mag_err**2 + extra_err**2)
+        mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
     elif survey == "GALEX":
         CPS = flux
@@ -488,21 +510,23 @@ def uncertainty_calc(
 
         # add uncertainty from the ZP
         zp_unc = header["MAGZPUNC"]
-        mag_err = np.sqrt(mag_err ** 2 + zp_unc ** 2)
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
-    elif survey=='LegacySurvey':
+    elif survey == "LegacySurvey":
         # already added at the beginning
         pass
-    elif survey == 'Spitzer':
+    elif survey == "Spitzer":
         # already added at the beginning
         pass
-    elif survey == 'VISTA':
+    elif survey == "VISTA":
         # add uncertainty from the ZP
         zp_unc = header["MAGZRR"]
-        mag_err = np.sqrt(mag_err ** 2 + zp_unc ** 2)
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
     else:
-        raise Exception(f"Survey {survey} has not been added for error propagation.")
+        raise Exception(
+            f"Survey {survey} has not been added for error propagation."
+        )
 
     return mag_err
 
@@ -529,17 +553,18 @@ def survey_pixel_scale(survey, filt=None):
     survey_df = config_df[config_df.survey == survey]
     pixel_scale = survey_df.pixel_scale.values[0]
 
-    if len(pixel_scale.split(','))>1:
+    if len(pixel_scale.split(",")) > 1:
         filters = get_survey_filters(survey)
-        pixel_scale_dict = {f:float(ps) for f, ps
-                            in zip(filters, pixel_scale.split(','))}
+        pixel_scale_dict = {
+            f: float(ps) for f, ps in zip(filters, pixel_scale.split(","))
+        }
 
         if filt in pixel_scale_dict.keys():
             pixel_scale = pixel_scale_dict[filt]
         else:
-            print(f'No pixel scale found for filter {filt}.')
+            print(f"No pixel scale found for filter {filt}.")
             filt_used = list(pixel_scale_dict.keys())[0]
-            print(f'Using the pixel scale of filter {filt_used} ({survey}).')
+            print(f"Using the pixel scale of filter {filt_used} ({survey}).")
             pixel_scale = list(pixel_scale_dict.values())[0]
 
         return pixel_scale
@@ -599,21 +624,29 @@ def extract_filters(filters, survey, version=None):
 
     # Assume DECaLS filters below 32 degrees and BASS+MzLS above
     # https://www.legacysurvey.org/status/
-    if survey=='LegacySurvey':
-        filters_path = os.path.join(hostphot.__path__[0], "filters", "LegacySurvey")
-        if version == 'BASS+MzLS':
+    if survey == "LegacySurvey":
+        filters_path = os.path.join(
+            hostphot.__path__[0], "filters", "LegacySurvey"
+        )
+        if version == "BASS+MzLS":
             for filt in filters:
-                if filt != 'z':
+                if filt != "z":
                     filt_file = os.path.join(filters_path, f"BASS_{filt}.dat")
                 else:
                     filt_file = os.path.join(filters_path, f"MzLS_z.dat")
                 wave, transmission = np.loadtxt(filt_file).T
-                filters_dict[filt] = {"wave": wave, "transmission": transmission}
-        elif version == 'DECam':
+                filters_dict[filt] = {
+                    "wave": wave,
+                    "transmission": transmission,
+                }
+        elif version == "DECam":
             for filt in filters:
                 filt_file = os.path.join(filters_path, f"DECAM_{filt}.dat")
                 wave, transmission = np.loadtxt(filt_file).T
-                filters_dict[filt] = {"wave": wave, "transmission": transmission}
+                filters_dict[filt] = {
+                    "wave": wave,
+                    "transmission": transmission,
+                }
 
         return filters_dict
 

@@ -264,15 +264,16 @@ def photometry(
             data_sub, error, px, py, radius_pix
         )
 
-        ap_area = 2 * np.pi * (radius_pix ** 2)
-        mag, mag_err = magnitude_calc(flux,
-                                      flux_err,
-                                      survey,
-                                      filt,
-                                      ap_area,
-                                      header,
-                                      bkg_rms,
-                                      )
+        ap_area = 2 * np.pi * (radius_pix**2)
+        mag, mag_err = magnitude_calc(
+            flux,
+            flux_err,
+            survey,
+            filt,
+            ap_area,
+            header,
+            bkg_rms,
+        )
 
         # extinction correction is optional
         if correct_extinction:

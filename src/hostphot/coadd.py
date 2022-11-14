@@ -53,6 +53,6 @@ def coadd_images(name, filters="riz", survey="PS1"):
         )
     fits_image[0].data = coadd[0]
     if isinstance(filters, list):
-        filters = ''.join(filt for filt in filters)
+        filters = "".join(filt for filt in filters)
     outfile = os.path.join(obj_dir, f"{survey}_{filters}.fits")
     fits_image.writeto(outfile, overwrite=True)
