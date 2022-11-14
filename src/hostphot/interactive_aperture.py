@@ -56,7 +56,7 @@ class InteractiveAperture:
         filters=None,
         masked=True,
         bkg_sub=False,
-        correct_extinction=True
+        correct_extinction=True,
     ):
         self.name = name
         self.survey = survey
@@ -290,8 +290,8 @@ class InteractiveAperture:
         """Calculates the flux within the aperture."""
         x = [self.eparams["x"]["value"]]
         y = [self.eparams["y"]["value"]]
-        a = [self.eparams["width"]["value"]/2]
-        b = [self.eparams["height"]["value"]/2]
+        a = [self.eparams["width"]["value"] / 2]
+        b = [self.eparams["height"]["value"] / 2]
         theta = [self.eparams["angle"]["value"] * (np.pi / 180)]  # in radians
 
         coords = self.img_wcs.pixel_to_world(x, y)
@@ -321,21 +321,22 @@ class InteractiveAperture:
         flux_err = self.flux_phot[f"{self.filt}_err"]
 
         ap_area = (
-                np.pi
-                * self.eparams["width"]["value"]
-                * self.eparams["height"]["value"]
+            np.pi
+            * self.eparams["width"]["value"]
+            * self.eparams["height"]["value"]
         )
-        mag, mag_err = magnitude_calc(flux,
-                                      flux_err,
-                                      self.survey,
-                                      self.filt,
-                                      ap_area,
-                                      self.header,
-                                      self.bkg_rms,
-                                      )
+        mag, mag_err = magnitude_calc(
+            flux,
+            flux_err,
+            self.survey,
+            self.filt,
+            ap_area,
+            self.header,
+            self.bkg_rms,
+        )
 
         # extinction correction is optional
-        if correct_extinction:
+        if self.correct_extinction:
             A_ext = calc_extinction(self.filt, self.survey, self.ra, self.dec)
             mag -= A_ext
 
