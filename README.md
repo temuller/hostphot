@@ -150,7 +150,7 @@ This is the list of surveys in HostPhot:
   * unWISE
   * Legacy Survey
   * Spitzer (SEIP)
-  * VISTA (VHS, VIDEO, VIKING): VISTA science archive (VIA) currently not working
+  * VISTA (VHS, VIDEO, VIKING)
 
 ## Contributing
 
