@@ -402,10 +402,14 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
     )
     obs_df = obs_table.to_pandas()
     obs_df = obs_df[obs_df.project == "AIS"]  # only all sky survey
+    if obs_df.shape[0]==0:
+        # No data found
+        return None
 
     # find the URL of the "intensity" image to be downloaded
     for url in obs_df.dataURL:
         if "-int.fits" in url:
+            # pick the first intensity image map found
             dataURL = url
             break
         else:
@@ -522,8 +526,8 @@ def get_WISE_images(ra, dec, size=3, filters=None):
             coordinates="icrs",
             pixels=str(size_pixels),
             survey="WISE 3.4",
-            width=size_arcsec,
-            height=size_arcsec,
+            #width=size_arcsec,
+            #height=size_arcsec,
         )
         header = skyview_fits[0][0].header
 
@@ -680,6 +684,8 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
 
         hdu_list = []
         for i, filt in enumerate(filters):
+            if filt=='Ks':
+                filt = 'K'
             band_df = twomass_df[twomass_df.band == filt]
             if len(band_df) == 0:
                 # no data for this band:
@@ -690,6 +696,9 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
             hemisphere = band_df.hem.values[0]
             ordate = band_df.date.values[0]
             scanno = band_df.scan.values[0]
+            # add leading zeros for scanno bellow 100
+            n_zeros = 3 - len(str(scanno))
+            scanno = n_zeros * '0' + str(scanno)
 
             tile_url = os.path.join(f"{ordate}{hemisphere}", f"s{scanno}")
             fits_url = os.path.join("image", f"{fname}.gz")
@@ -798,7 +807,7 @@ def get_HST_images(ra, dec, size=3, filters=None):
 
 
 # Legacy Survey
-def get_LegacySurvey_images(ra, dec, size=3, filters=None):
+def get_LegacySurvey_images(ra, dec, size=3, filters=None, version='dr10'):
     """Gets Legacy Survey fits images for the given coordinates and
     filters.
 
@@ -812,6 +821,8 @@ def get_LegacySurvey_images(ra, dec, size=3, filters=None):
         Image size. If a float is given, the units are assumed to be arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``grz``.
+    version: str, default ``dr10``
+        Data release version. E.g. ``dr10``, ``dr9``, ``dr8``, etc..
 
     Returns
     -------
@@ -830,8 +841,11 @@ def get_LegacySurvey_images(ra, dec, size=3, filters=None):
         size_arcsec = size.to(u.arcsec).value
     size_pixels = int(size_arcsec / pixel_scale)
 
+    if version is None:
+        version = 'dr10'  # latest data release
+
     base_url = "https://www.legacysurvey.org/viewer/fits-cutout?"
-    params = f"ra={ra}&dec={dec}&layer=ls-dr9&pixscale={pixel_scale}&bands={filters}&size={size_pixels}"
+    params = f"ra={ra}&dec={dec}&layer=ls-{version}&pixscale={pixel_scale}&bands={filters}&size={size_pixels}"
     url = base_url + params
     master_hdu = fits.open(url)
     header = master_hdu[0].header
@@ -969,6 +983,8 @@ def get_VISTA_images(ra, dec, size=3, filters=None, version="VHS"):
     if not isinstance(size, (float, int)):
         size = size.to(u.arcmin).value
 
+    if version is None:
+        version = 'VHS'
     # These are final data releases except for VHS(?):
     # VHSDR5: https://www.eso.org/sci/publications/announcements/sciann17290.html
     # VHSDR6: https://b2find.eudat.eu/dataset/0b10d3a0-1cfe-5e67-8a5c-0949db9d19cb
@@ -1070,6 +1086,9 @@ def download_images(
     """Download images for a given object in the given filters of a
     given survey.
 
+    The surveys that use the ``version`` parameter are unWISE (``allwise``,
+    ``neo1`` and ``neo2``) and VISTA (``VHS``, ``VIDEO`` and ``VIKING``)
+
     Parameters
     ----------
     name: str
@@ -1118,16 +1137,21 @@ def download_images(
         hdu_list = get_SDSS_images(ra, dec, size, filters)
     elif survey == "GALEX":
         hdu_list = get_GALEX_images(ra, dec, size, filters)
-    elif "WISE" in survey:
-        if survey == "WISE":
-            hdu_list = get_WISE_images(ra, dec, size, filters)
-        else:
-            wise_version = survey.split("WISE")[-1]
+    if survey == "WISE":
+        hdu_list = get_WISE_images(ra, dec, size, filters)
+    elif "unWISE" in survey:
+        if version is None:
+            wise_version = survey.split("unWISE")[-1]
+            if wise_version=='':
+                # no version found in survey name... assuming allwise
+                wise_version = 'allwise'
             hdu_list = get_unWISE_images(ra, dec, size, filters, wise_version)
+        else:
+            hdu_list = get_unWISE_images(ra, dec, size, filters, version)
     elif survey == "2MASS":
         hdu_list = get_2MASS_images(ra, dec, size, filters)
     elif survey == "LegacySurvey":
-        hdu_list = get_LegacySurvey_images(ra, dec, size, filters)
+        hdu_list = get_LegacySurvey_images(ra, dec, size, filters, version)
     elif survey == "Spitzer":
         hdu_list = get_Spitzer_images(ra, dec, size, filters)
     elif survey == "VISTA":
