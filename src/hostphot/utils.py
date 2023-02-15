@@ -18,7 +18,7 @@ config_file = os.path.join(hostphot_path, "filters", "config.txt")
 config_df = pd.read_csv(config_file, delim_whitespace=True)
 
 # surveys that need background subtraction
-bkg_surveys = ['GALEX', '2MASS', 'WISE', 'VISTA']
+bkg_surveys = ['2MASS', 'WISE', 'VISTA']
 
 def calc_sky_unc(image, exptime):
     """Calculates the uncertainty of the image from the

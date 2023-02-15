@@ -19,8 +19,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import sep
-from photutils import CircularAperture
-from photutils import aperture_photometry
+from photutils.aperture import aperture_photometry, CircularAperture
 
 from astropy.io import fits
 from astropy import units as u, wcs
@@ -203,7 +202,7 @@ def photometry(
         Physical size of the aperture in kpc.
     bkg_sub: bool, default ``None``
         If ``True``, the image gets background subtracted. By default, only
-        the images that need it get background subtracted (GALEX, WISE, 2MASS and
+        the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
     use_mask: bool, default ``True``
         If ``True``, the masked fits files are used. These must have
@@ -330,7 +329,7 @@ def multi_band_phot(
         Physical size of the aperture in kpc.
     bkg_sub: bool, default ``None``
         If ``True``, the image gets background subtracted. By default, only
-        the images that need it get background subtracted (GALEX, WISE, 2MASS and
+        the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
     use_mask: bool, default ``True``
         If ``True``, the masked fits files are used. These must have

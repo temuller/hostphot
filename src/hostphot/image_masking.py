@@ -113,7 +113,7 @@ def create_mask(
        Declination of an object, in degrees. Used for plotting.
     bkg_sub: bool, default ``None``
         If ``True``, the image gets background subtracted. By default, only
-        the images that need it get background subtracted (GALEX, WISE, 2MASS and
+        the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
     threshold: float, default `15`
         Threshold used by :func:`sep.extract()` to extract objects.

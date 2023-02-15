@@ -47,7 +47,7 @@ class InteractiveAperture:
         If `True`, the images are background subtracted.
     bkg_sub: bool, default ``None``
         If ``True``, the image gets background subtracted. By default, only
-        the images that need it get background subtracted (GALEX, WISE, 2MASS and
+        the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
     correct_extinction: bool, default `True`
         If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
