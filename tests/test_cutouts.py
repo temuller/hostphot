@@ -39,7 +39,7 @@ class TestHostPhot(unittest.TestCase):
         download_images(
             self.sn_name, self.ra, self.dec, overwrite=True, survey="2MASS"
         )
-
+    
     def test_cutouts_unWISE(self):
         for survey in ["unWISEneo1", "unWISEneo2", "unWISEallwise"]:
             download_images(
@@ -60,12 +60,12 @@ class TestHostPhot(unittest.TestCase):
         ra, dec = 52.158591, -27.891113
         download_images(name, ra, dec, overwrite=True, survey="Spitzer")
 
-    """
     def test_cutouts_VISTA(self):
         name = "VISTA_test"
-        surveys = {"VHS":[120, -60],
-                   "VIDEO":[36.1, -5],
-                   "VIKING":[220.5, 0.0]}
+        # use different coordinates for each survey as they don't overlap
+        surveys = {"VHS": [120, -60],
+                   "VIDEO": [36.1, -5],
+                   "VIKING": [220.5, 0.0]}
         
         for version, coords in surveys.items():
             ra, dec = coords
@@ -74,7 +74,6 @@ class TestHostPhot(unittest.TestCase):
                 overwrite=True, survey="VISTA",
                 version=version
             )
-    """
 
 
 if __name__ == "__main__":
