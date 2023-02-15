@@ -37,6 +37,7 @@ from hostphot.utils import (
     check_work_dir,
     update_axislabels,
     magnitude_calc,
+    bkg_surveys
 )
 from hostphot.image_cleaning import remove_nan
 from hostphot.dust import calc_extinction
@@ -176,7 +177,7 @@ def photometry(
     filt,
     survey,
     ap_radii=1,
-    bkg_sub=False,
+    bkg_sub=None,
     use_mask=True,
     correct_extinction=True,
     save_plots=True,
@@ -200,8 +201,10 @@ def photometry(
         Survey to use for the zero-points and pixel scale.
     ap_radii: float or list-like, default ``1``
         Physical size of the aperture in kpc.
-    bkg_sub: bool, default ``False``
-        If ``True``, the image gets background subtracted.
+    bkg_sub: bool, default ``None``
+        If ``True``, the image gets background subtracted. By default, only
+        the images that need it get background subtracted (GALEX, WISE, 2MASS and
+        VISTA).
     use_mask: bool, default ``True``
         If ``True``, the masked fits files are used. These must have
         been created beforehand.
@@ -241,7 +244,7 @@ def photometry(
     data = data.astype(np.float64)
     bkg = sep.Background(data)
     bkg_rms = bkg.globalrms
-    if bkg_sub:
+    if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg)
     else:
         data_sub = np.copy(data)
@@ -300,7 +303,7 @@ def multi_band_phot(
     filters=None,
     survey="PS1",
     ap_radii=1,
-    bkg_sub=False,
+    bkg_sub=None,
     use_mask=True,
     correct_extinction=True,
     save_plots=True,
@@ -325,8 +328,10 @@ def multi_band_phot(
         Survey to use for the zero-points and pixel scale.
     ap_radii: float or list-like, default ``1``
         Physical size of the aperture in kpc.
-    bkg_sub: bool, default ``False``
-        If ``True``, the image gets background subtracted.
+    bkg_sub: bool, default ``None``
+        If ``True``, the image gets background subtracted. By default, only
+        the images that need it get background subtracted (GALEX, WISE, 2MASS and
+        VISTA).
     use_mask: bool, default ``True``
         If ``True``, the masked fits files are used. These must have
         been created beforehand.

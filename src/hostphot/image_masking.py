@@ -26,6 +26,7 @@ from hostphot.utils import (
     pixel2pixel,
     update_axislabels,
     survey_pixel_scale,
+    bkg_surveys
 )
 
 import warnings
@@ -84,7 +85,7 @@ def create_mask(
     survey,
     ra=None,
     dec=None,
-    bkg_sub=False,
+    bkg_sub=None,
     threshold=15,
     sigma=8,
     crossmatch=False,
@@ -110,8 +111,10 @@ def create_mask(
        Right ascension of an object, in degrees. Used for plotting.
     dec: float, default ``None``
        Declination of an object, in degrees. Used for plotting.
-    bkg_sub: bool, default ``False``
-        If ``True``, the image gets background subtracted.
+    bkg_sub: bool, default ``None``
+        If ``True``, the image gets background subtracted. By default, only
+        the images that need it get background subtracted (GALEX, WISE, 2MASS and
+        VISTA).
     threshold: float, default `15`
         Threshold used by :func:`sep.extract()` to extract objects.
     sigma: float, default ``8``
@@ -158,7 +161,7 @@ def create_mask(
     data = data.astype(np.float64)
     bkg = sep.Background(data)
     bkg_rms = bkg.globalrms
-    if bkg_sub:
+    if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg)
     else:
         data_sub = np.copy(data)

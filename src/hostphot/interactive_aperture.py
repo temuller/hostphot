@@ -21,6 +21,7 @@ from hostphot.utils import (
     magnitude_calc,
     get_survey_filters,
     check_filters_validity,
+    bkg_surveys
 )
 from hostphot.dust import calc_extinction
 
@@ -44,6 +45,10 @@ class InteractiveAperture:
         If `True`, uses masked images.
     masked: bool, default `False`
         If `True`, the images are background subtracted.
+    bkg_sub: bool, default ``None``
+        If ``True``, the image gets background subtracted. By default, only
+        the images that need it get background subtracted (GALEX, WISE, 2MASS and
+        VISTA).
     correct_extinction: bool, default `True`
         If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
         by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
@@ -55,7 +60,7 @@ class InteractiveAperture:
         survey="PS1",
         filters=None,
         masked=True,
-        bkg_sub=False,
+        bkg_sub=None,
         correct_extinction=True,
     ):
         self.name = name
@@ -121,7 +126,7 @@ class InteractiveAperture:
         self.bkg = sep.Background(self.data)
         self.bkg_rms = self.bkg.globalrms
 
-        if self.bkg_sub:
+        if (self.bkg_sub is None and self.survey in bkg_surveys) or self.bkg_sub is True:
             self.data = np.copy(self.data - self.bkg)
 
         with warnings.catch_warnings():

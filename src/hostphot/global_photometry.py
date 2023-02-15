@@ -30,6 +30,7 @@ from hostphot.utils import (
     pixel2pixel,
     check_work_dir,
     magnitude_calc,
+    bkg_surveys
 )
 from hostphot.objects_detect import extract_objects, plot_detected_objects
 from hostphot.image_cleaning import remove_nan
@@ -293,7 +294,7 @@ def photometry(
     survey,
     ra=None,
     dec=None,
-    bkg_sub=False,
+    bkg_sub=None,
     threshold=10,
     use_mask=True,
     correct_extinction=True,
@@ -323,8 +324,10 @@ def photometry(
        Right ascension of an object, in degrees. Used for plotting the position of the object.
     dec: float, default ``None``
        Declination of an object, in degrees. Used for plotting the position of the object.
-    bkg_sub: bool, default `False`
-        If `True`, the image gets background subtracted.
+    bkg_sub: bool, default ``None``
+        If ``True``, the image gets background subtracted. By default, only
+        the images that need it get background subtracted (GALEX, WISE, 2MASS and
+        VISTA).
     threshold: float, default `10`
         Threshold used by `sep.extract()` to extract objects.
     use_mask: bool, default `True`
@@ -376,7 +379,7 @@ def photometry(
     data = data.astype(np.float64)
     bkg = sep.Background(data)
     bkg_rms = bkg.globalrms
-    if bkg_sub:
+    if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg)
     else:
         data_sub = np.copy(data)
@@ -453,7 +456,7 @@ def multi_band_phot(
     survey="PS1",
     ra=None,
     dec=None,
-    bkg_sub=False,
+    bkg_sub=None,
     threshold=10,
     use_mask=True,
     correct_extinction=True,
@@ -483,8 +486,10 @@ def multi_band_phot(
        Right ascension of an object, in degrees. Used for plotting the position of the object.
     dec: float, default ``None``
        Declination of an object, in degrees. Used for plotting the position of the object.
-    bkg_sub: bool, default ``False``
-        If `True`, the image gets background subtracted.
+    bkg_sub: bool, default ``None``
+        If ``True``, the image gets background subtracted. By default, only
+        the images that need it get background subtracted (GALEX, WISE, 2MASS and
+        VISTA).
     threshold: float, default ``10``
         Threshold used by :func:`sep.extract()` to extract objects.
     use_mask: bool, default ``True``
