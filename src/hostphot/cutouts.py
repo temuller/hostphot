@@ -406,6 +406,57 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
         # No data found
         return None
 
+    filters_dict = {"NUV": "nd", "FUV": "fd"}
+    filter_files = {"NUV": None, "FUV": None}
+
+    for filt in filters:
+        filt_code = filters_dict[filt]
+        for url in obs_df.dataURL:
+            split_url = url.split('-')
+            # get intensity (int) map
+            ext_split = split_url[-1].split('.')
+            ext_split[0] = 'int'
+            split_url[-1] = '.'.join(ext_split)
+            # get map for specific filter
+            split_url[-2] = filt_code
+
+            dataURL = '-'.join(split_url)
+            response = requests.get(dataURL, stream=True)
+            filter_file = os.path.basename(dataURL)  # current directory
+            if response.status_code == 200:
+                with open(filter_file, "wb") as f_out:
+                    f_out.write(response.raw.read())
+                filter_files[filt] = filter_file
+                break  # go to next filter
+            else:
+                continue  # skip this url
+
+    hdu_list = []
+    # unzip and get the FITS files
+    for filter_file in filter_files.values():
+        if filter_file is None:
+            hdu_list.append(None)
+            continue  # skip this filter
+
+        with gzip.open(filter_file, "rb") as f_in:
+            output_file = filter_file.removesuffix(".gz")
+            with open(output_file, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+                hdu = fits.open(output_file)
+                os.remove(output_file)
+
+                # trim data to requested size
+                img_wcs = wcs.WCS(hdu[0].header)
+                pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
+
+                trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
+                hdu[0].data = trimmed_data.data
+                hdu[0].header.update(trimmed_data.wcs.to_header())
+                hdu_list.append(hdu)
+
+        os.remove(filter_file)
+
+    """
     # find the URL of the "intensity" image to be downloaded
     for url in obs_df.dataURL:
         if "-int.fits" in url:
@@ -417,7 +468,7 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
 
     if dataURL is None:
         return None
-
+        
     filters_dict = {"NUV": "nd", "FUV": "fd"}
     ext_list = [filters_dict[filt] for filt in filters]
 
@@ -456,7 +507,7 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
                 hdu_list.append(hdu)
 
         os.remove(target_file)
-
+    """
     return hdu_list
 
 
@@ -1158,10 +1209,10 @@ def download_images(
         hdu_list = get_VISTA_images(ra, dec, size, filters, version)
 
     if hdu_list:
-        # this corrects any possible shifts between the images
+        # NOT WORKING: this corrects any possible shifts between the images
         # fits_files = match_wcs(fits_files)
-
         # fix wcs (some have rotated wcs)
+        """
         if survey in ["XXX"]:
             for hdu in hdu_list:
                 fits_file = hdu[0]
@@ -1173,6 +1224,7 @@ def download_images(
                 )
                 fits_file.header.update(wcs_out.to_header())
                 fits_file.data = fixed_data
+        """
 
         for hdu, filt in zip(hdu_list, filters):
             if hdu is None:

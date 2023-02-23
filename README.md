@@ -180,6 +180,12 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 } 
 ```
 
+## What's new!
+
+v2.3.2:
+* Improved download of GALEX images (download even if they seem to be just background noise)
+
+
 ## Acknowledgements
 
 I thank Yuchen LIU for helping me adding Spitzer as part of AstroHackWeek 2022.
