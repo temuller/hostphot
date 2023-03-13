@@ -481,7 +481,7 @@ def uncertainty_calc(
         )
         mag_err = 1.0857 / SNR
 
-    elif survey == "WISE":
+    elif "WISE" in survey:
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
         # see Table 5 of
         # https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#wpro
@@ -511,7 +511,13 @@ def uncertainty_calc(
         mag_err = np.sqrt(1.179 * sigma_src**2 / F_src**2)
 
         # add uncertainty from the ZP
-        zp_unc = header["MAGZPUNC"]
+        if survey=="unWISE":
+            # These values are the same for all Atlas Images of a given band...
+            # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
+            unc_dict = {'W1':0.006, 'W2':0.007, 'W3':0.012, 'W4':0.012}
+            zp_unc = unc_dict[filt]
+        elif survey=="WISE":
+            zp_unc = header["MAGZPUNC"]
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
     elif survey == "LegacySurvey":

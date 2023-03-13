@@ -629,7 +629,9 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
         List with fits images for the given filters.
         `None` is returned if no image is found.
     """
-    survey = f"unWISE{version}"
+    survey = "unWISE"
+    if version is None:
+        version = 'allwise'
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
@@ -1188,17 +1190,10 @@ def download_images(
         hdu_list = get_SDSS_images(ra, dec, size, filters)
     elif survey == "GALEX":
         hdu_list = get_GALEX_images(ra, dec, size, filters)
-    if survey == "WISE":
+    elif survey == "WISE":
         hdu_list = get_WISE_images(ra, dec, size, filters)
-    elif "unWISE" in survey:
-        if version is None:
-            wise_version = survey.split("unWISE")[-1]
-            if wise_version=='':
-                # no version found in survey name... assuming allwise
-                wise_version = 'allwise'
-            hdu_list = get_unWISE_images(ra, dec, size, filters, wise_version)
-        else:
-            hdu_list = get_unWISE_images(ra, dec, size, filters, version)
+    elif survey == "unWISE":
+        hdu_list = get_unWISE_images(ra, dec, size, filters, version)
     elif survey == "2MASS":
         hdu_list = get_2MASS_images(ra, dec, size, filters)
     elif survey == "LegacySurvey":
@@ -1240,72 +1235,3 @@ def download_images(
 
     # remove directory if it ends up empty
     clean_dir(obj_dir)
-
-
-def pool_download(
-    df=None,
-    name=None,
-    ra=None,
-    dec=None,
-    size=600,
-    filters=None,
-    overwrite=False,
-    survey="PS1",
-    processes=8,
-):
-    """Downloads images for multiple objects using parallelisation.
-
-    Parameters
-    ----------
-    df: DataFrame, default ``None``
-        DataFrame with the values of the argmuents. If this is given,
-        ``name``, ``ra`` and ``dec`` should be the names of the columns in
-        ``df``.
-    name: str or list-like, default ``None``
-        Name used for tracking the object in your local
-        directory.
-    ra: float or list-like, default ``None``
-        Right ascension in degrees of the center of the image.
-    dec: float or list-like, default ``None``
-        Declination in degrees of the center of the image.
-    size: int, default ``600``
-        Image size in pixels.
-    filters: str, default ``None``
-        Filters for the images. If ``None``, use all the available
-        filters.
-    overwrite: bool, default ``False``
-        If ``True``, the images are overwritten if they already
-        exist.
-    survey: str, default ``PS1``
-        Survey used to download the images
-    processes: floar, default ``8``
-        Number of processes to use for the parallelisation.
-    """
-    local_dict = locals()  # get dictionary of input arguments
-    variable_args = ["name", "ra", "dec"]
-    ignore_args = ["df", "processes"]
-    args_dict = {
-        key: local_dict[key]
-        for key in local_dict.keys()
-        if key not in ignore_args
-    }
-
-    # adapt the input to feed it to the parallelisation function
-    input_dict = args_dict.copy()
-    if df is None:
-        length = len(name)
-    else:
-        length = len(df)
-        for key in variable_args:
-            var_name = args_dict[key]
-            input_dict[key] = df[var_name].values
-
-    for key in args_dict.keys():
-        if key not in variable_args:
-            input_dict[key] = [args_dict[key]] * length
-
-    # transpose list
-    input_args = list(map(list, zip(*input_dict.values())))
-
-    pool = mp.Pool(processes)
-    pool.starmap(download_images, (args for args in input_args))
