@@ -40,13 +40,13 @@ def mask_image(data, objects, r=5, sigma=20):
 
     Parameters
     ----------
-    data: 2D array
+    data: ndarray
         Image data.
     objects: array
         Objects extracted with :func:`sep.extract()`.
     r: float, default ``5``
         Scale of the semi-mayor and semi-minor axes
-        of the ellipse of the `obejcts`.
+        of the ellipse of the `objects`.
     sigma: float, default ``20``
         Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
@@ -167,41 +167,37 @@ def create_mask(
         data_sub = np.copy(data)
 
     pixel_scale = survey_pixel_scale(survey, filt)
-    if isinstance(pixel_scale, dict):
-        # THIS IS NOT GENERAL ENOUGH, BUT WORKS FOR NOW
-        if filt in pixel_scale.keys():
-            pixel_scale = pixel_scale[filt]
-        else:
-            pixel_scale = list(pixel_scale.values())[0]
 
     if common_params is None:
         # extract objects
         gal_obj, nogal_objs = extract_objects(
-            data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs
+            data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs,
+            pixel_scale
         )
         # preprocessing: cross-match extracted objects with a catalog
         # using two Gaia catalogs as they do not always include the
         # same objects.
         if crossmatch:
-            cat_coord1 = find_gaia_objects(host_ra, host_dec, img_wcs)
-            cat_coord2 = find_catalog_objects(host_ra, host_dec, img_wcs)
+            cat_coord1 = find_gaia_objects(host_ra, host_dec)
+            cat_coord2 = find_catalog_objects(host_ra, host_dec)
             cat_coord = concatenate([cat_coord1, cat_coord2])
             nogal_objs = cross_match(nogal_objs, img_wcs, cat_coord)
     else:
         # use objects previously extracted
         # the pixels coordinates are updated accordingly
         gal_obj, nogal_objs, img_wcs0, pixel_scale0 = common_params
-        # make copies to prevent altering the initial values
-        gal_obj = gal_obj.copy()
-        nogal_objs = nogal_objs.copy()
         scale = pixel_scale0 / pixel_scale
 
-        gal_obj["x"], gal_obj["y"] = pixel2pixel(
-            gal_obj["x"], gal_obj["y"], img_wcs0, img_wcs
-        )
-        gal_obj["a"] *= scale
-        gal_obj["b"] *= scale
+        # make copies to prevent altering the initial values
+        if gal_obj is not None:
+            gal_obj = gal_obj.copy()
+            gal_obj["x"], gal_obj["y"] = pixel2pixel(
+                gal_obj["x"], gal_obj["y"], img_wcs0, img_wcs
+            )
+            gal_obj["a"] *= scale
+            gal_obj["b"] *= scale
 
+        nogal_objs = nogal_objs.copy()
         nogal_objs["x"], nogal_objs["y"] = pixel2pixel(
             nogal_objs["x"], nogal_objs["y"], img_wcs0, img_wcs
         )
@@ -216,7 +212,8 @@ def create_mask(
     if save_plots:
         outfile = os.path.join(obj_dir, f"masked_{survey}_{filt}.jpg")
         plot_masked_image(
-            data_sub, masked_data, nogal_objs, img_wcs, ra, dec, outfile
+            data_sub, masked_data, nogal_objs, img_wcs, gal_obj,
+            host_ra, host_dec, ra, dec, outfile
         )
 
     if extract_params:
@@ -224,14 +221,15 @@ def create_mask(
 
 
 def plot_masked_image(
-    data, masked_data, objects, img_wcs, ra=None, dec=None, outfile=None
+    data, masked_data, objects, img_wcs, gal_obj=None,
+    host_ra=None, host_dec=None, ra=None, dec=None, outfile=None
 ):
     """Plots the masked image together with the original image and
     the detected objects.
 
     Parameters
     ----------
-    data: 2D array
+    data: ndarray
         Image data.
     masked_data: 2D array
          Masked image data.
@@ -239,6 +237,12 @@ def plot_masked_image(
         Objects extracted with :func:`sep.extract()`.
     img_wcs: WCS
         Image's WCS.
+    gal_obj: array, default ``None``
+        Galaxy object.
+    host_ra: float, default ``None``
+       Right ascension of the galaxy, in degrees. Used for plotting the position of the galaxy.
+    host_dec: float, default ``None``
+       Declination of the galaxy, in degrees. Used for plotting the position of the galaxy.
     ra: float, default ``None``
        Right ascension of an object, in degrees. Used for plotting the position of the object.
     dec: float, default ``None``
@@ -255,7 +259,6 @@ def plot_masked_image(
     ax2 = plt.subplot(133, projection=img_wcs)
     axes = [ax0, ax1, ax2]
 
-    overlays = []
     for ax in axes:
         update_axislabels(ax)
         ax.imshow(
@@ -282,6 +285,23 @@ def plot_masked_image(
         e.set_linewidth(1.5)
         ax1.add_artist(e)
 
+    # plot galaxy pseudo-aperture
+    if gal_obj is not None:
+        e = Ellipse(
+            xy=(gal_obj["x"][0], gal_obj["y"][0]),
+            width=2.5 * r * gal_obj["a"][0],
+            height=2.5 * r * gal_obj["b"][0],
+            angle=gal_obj["theta"][0] * 180.0 / np.pi,
+        )
+        e.set_facecolor("none")
+        e.set_edgecolor("red")
+        e.set_linestyle("dotted")
+        e.set_linewidth(3)
+        ax1.add_artist(e)
+
+        ax1.scatter(gal_obj["x"][0], gal_obj["y"][0], marker="x", s=140, c="r",
+                    label='Identified galaxy center')
+
     ax2.imshow(
         masked_data,
         interpolation="nearest",
@@ -295,15 +315,30 @@ def plot_masked_image(
     ax1.set_title("Detected Objects", fontsize=24)
     ax2.set_title("Masked Image", fontsize=24)
 
+    # plot SN position
+    if (host_ra is not None) and (host_dec is not None):
+        coord = SkyCoord(
+            ra=host_ra, dec=host_dec, unit=(u.degree, u.degree), frame="icrs"
+        )
+        x, y = img_wcs.world_to_pixel(coord)
+        for ax in axes[1:]:
+            ax.scatter(x, y, marker="P", s=140, c="r", edgecolor="gold", label='Galaxy position')
+
+    # plot SN position
     if (ra is not None) and (dec is not None):
         coord = SkyCoord(
             ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
         )
         x, y = img_wcs.world_to_pixel(coord)
-        for ax in axes:
-            ax.scatter(x, y, marker="*", s=100, c="g", edgecolor="gold")
+        for ax in axes[1:]:
+            ax.scatter(x, y, marker="*", s=200, c="g", edgecolor="gold", label='SN position')
 
+    axes[1].legend(ncol=2, fontsize=14)
     if outfile:
+        basename = os.path.basename(outfile)
+        title = os.path.splitext(basename)[0]
+        title = '-'.join(part for part in title.split('_'))
+        fig.suptitle(title, fontsize=28)
         plt.tight_layout()
         plt.savefig(outfile, bbox_inches="tight")
         plt.close(fig)
