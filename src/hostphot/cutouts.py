@@ -6,7 +6,6 @@ import tarfile
 import requests  # for several surveys
 import numpy as np
 import pandas as pd
-import multiprocessing as mp
 
 # for VISTA
 import re
@@ -357,7 +356,44 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
 
 # GALEX
 # ----------------------------------------
-def get_GALEX_images(ra, dec, size=3, filters=None):
+def get_img_dist(host_ra, host_dec, header):
+    """Obtains the distance from the image center
+    to the galaxy position.
+
+    Parameters
+    ----------
+    host_ra: str or float
+        Right ascension of the galaxy in degrees.
+    host_dec: str or float
+        Declination of the galaxy in degrees.
+    header: fits header
+        Header of an image.
+
+    Returns
+    -------
+    dist_from_center: float
+        Distance of from the image center to the galaxy
+        position in pixel units.
+    """
+    # coordinates of the image center
+    img_wcs = wcs.WCS(header)
+    img_ra, img_dec = header['RA_CENT'], header['DEC_CENT']
+    img_coord = SkyCoord(
+        ra=img_ra, dec=img_dec, unit=(u.degree, u.degree), frame="icrs"
+    )
+    img_x, img_y = img_wcs.world_to_pixel(img_coord)
+
+    # coordinates of the galaxy
+    host_coord = SkyCoord(
+        ra=host_ra, dec=host_dec, unit=(u.degree, u.degree), frame="icrs"
+    )
+    host_x, host_y = img_wcs.world_to_pixel(host_coord)
+
+    dist_from_center = np.sqrt((img_x - host_x) ** 2 + (img_y - host_y) ** 2)
+
+    return dist_from_center
+
+def get_GALEX_images(ra, dec, size=3, filters=None, version=None):
     """Downloads a set of GALEX fits images for a given set
     of coordinates and filters.
 
@@ -371,14 +407,20 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
         Image size. If a float is given, the units are assumed to be arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``FUV, NUV``.
+    version: str, default ``None``
+        Version of GALEX images. Either Deep (``DIS``), Medium (``MIS``) or
+        All-Sky Imaging Survey (``AIS``), or ``GII`` Survey. By default,
+        ``AIS`` is used.
 
     Return
     ------
     hdu_list: list
         List with fits images for the given filters.
-        `None` is returned if no image is found.
+        ``None`` is returned if no image is found.
     """
     survey = "GALEX"
+    if version is None:
+        version = 'AIS'
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
@@ -401,113 +443,75 @@ def get_GALEX_images(ra, dec, size=3, filters=None):
         coordinates=coords, radius=size_arcsec, obs_collection=["GALEX"]
     )
     obs_df = obs_table.to_pandas()
-    obs_df = obs_df[obs_df.project == "AIS"]  # only all sky survey
-    if obs_df.shape[0]==0:
-        # No data found
-        return None
+    print(obs_df.jpegURL.values)
+    print(obs_df.dataURL.values)
+    print(obs_df.project.values)
+    obs_df = obs_df[obs_df.project == version]  # only all sky survey
 
-    filters_dict = {"NUV": "nd", "FUV": "fd"}
-    filter_files = {"NUV": None, "FUV": None}
+    # get unique image sectors
+    nuv_files, fuv_files = [], []
+    for file in obs_df.dataURL.values:
+        nuv_file = '-'.join(string for string in file.split('-')[:-2]) + '-nd-int.fits.gz'
+        if nuv_file not in nuv_files:
+            nuv_files.append(nuv_file)
+            fuv_file = nuv_file.replace('-nd-', '-fd-')
+            fuv_files.append(fuv_file)
 
-    for filt in filters:
-        filt_code = filters_dict[filt]
-        for url in obs_df.dataURL:
-            split_url = url.split('-')
-            # get intensity (int) map
-            ext_split = split_url[-1].split('.')
-            ext_split[0] = 'int'
-            split_url[-1] = '.'.join(ext_split)
-            # get map for specific filter
-            split_url[-2] = filt_code
-
-            dataURL = '-'.join(split_url)
-            response = requests.get(dataURL, stream=True)
-            filter_file = os.path.basename(dataURL)  # current directory
-            if response.status_code == 200:
-                with open(filter_file, "wb") as f_out:
-                    f_out.write(response.raw.read())
-                filter_files[filt] = filter_file
-                break  # go to next filter
-            else:
-                continue  # skip this url
-
-    hdu_list = []
-    # unzip and get the FITS files
-    for filter_file in filter_files.values():
-        if filter_file is None:
-            hdu_list.append(None)
-            continue  # skip this filter
-
-        with gzip.open(filter_file, "rb") as f_in:
-            output_file = filter_file.removesuffix(".gz")
-            with open(output_file, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
-                hdu = fits.open(output_file)
-                os.remove(output_file)
-
-                # trim data to requested size
-                img_wcs = wcs.WCS(hdu[0].header)
-                pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
-
-                trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
-                hdu[0].data = trimmed_data.data
-                hdu[0].header.update(trimmed_data.wcs.to_header())
-                hdu_list.append(hdu)
-
-        os.remove(filter_file)
-
-    """
-    # find the URL of the "intensity" image to be downloaded
-    for url in obs_df.dataURL:
-        if "-int.fits" in url:
-            # pick the first intensity image map found
-            dataURL = url
-            break
-        else:
-            dataURL = None
-
-    if dataURL is None:
-        return None
-        
-    filters_dict = {"NUV": "nd", "FUV": "fd"}
-    ext_list = [filters_dict[filt] for filt in filters]
-
-    hdu_list = []
-    for ext in ext_list:
-        if f"-{ext}-" in dataURL:
+    # download the FITS images
+    nuv_hdu_list, fuv_hdu_list = [], []
+    for nuv_file, fuv_file in zip(nuv_files, fuv_files):
+        try:
+            nuv_hdu = fits.open(nuv_file)
+            nuv_hdu_list.append(nuv_hdu)
+        except:
             pass
-        else:
-            if ext == "nd":
-                dataURL = dataURL.replace("-fd-", "-nd-")
-            elif ext == "fd":
-                dataURL = dataURL.replace("-nd-", "-fd-")
+        try:
+            fuv_hdu = fits.open(fuv_file)
+            fuv_hdu_list.append(fuv_hdu)
+        except:
+            pass
 
-        response = requests.get(dataURL, stream=True)
-        target_file = os.path.basename(dataURL)  # current directory
-        if response.status_code == 200:
-            with open(target_file, "wb") as f_out:
-                f_out.write(response.raw.read())
-        else:
-            continue  # skip this filter
+    # calculate the distance of the galaxy to the image center
+    nuv_distances = []
+    for hdu in nuv_hdu_list:
+        header = hdu[0].header
+        dist_from_center = get_img_dist(ra, dec, header)
+        nuv_distances.append(dist_from_center)
 
-        with gzip.open(target_file, "rb") as f_in:
-            output_file = target_file.removesuffix(".gz")
-            with open(output_file, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
-                hdu = fits.open(output_file)
-                os.remove(output_file)
+    fuv_distances = []
+    for hdu in fuv_hdu_list:
+        header = hdu[0].header
+        dist_from_center = get_img_dist(ra, dec, header)
+        fuv_distances.append(dist_from_center)
 
-                # trim data
-                img_wcs = wcs.WCS(hdu[0].header)
-                pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
+    # get the image with the galaxy closest to the center
+    if len(nuv_distances)!=0:
+        id_nuv_file = np.argmin(np.array(nuv_distances))
+        nuv_hdu = nuv_hdu_list[id_nuv_file]
+    else:
+        nuv_hdu = None
 
-                trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
-                hdu[0].data = trimmed_data.data
-                hdu[0].header.update(trimmed_data.wcs.to_header())
-                hdu_list.append(hdu)
+    if len(fuv_distances)!=0:
+        id_fuv_file = np.argmin(np.array(fuv_distances))
+        fuv_hdu = fuv_hdu_list[id_fuv_file]
+    else:
+        fuv_hdu = None
 
-        os.remove(target_file)
-    """
+    hdu_dict = {'NUV': nuv_hdu, 'FUV': fuv_hdu}
+    hdu_list = []
+    for filt in filters:
+        hdu = hdu_dict[filt]
+        if hdu is None:
+            continue  # no image in this filter
+        # trim data to requested size
+        img_wcs = wcs.WCS(hdu[0].header)
+        pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
+
+        trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
+        hdu[0].data = trimmed_data.data
+        hdu[0].header.update(trimmed_data.wcs.to_header())
+        hdu_list.append(hdu)
+
     return hdu_list
 
 
@@ -1139,8 +1143,9 @@ def download_images(
     """Download images for a given object in the given filters of a
     given survey.
 
-    The surveys that use the ``version`` parameter are unWISE (``allwise``,
-    ``neo1`` and ``neo2``) and VISTA (``VHS``, ``VIDEO`` and ``VIKING``)
+    The surveys that use the ``version`` parameter are: GALEX (``AIS``, ``MIS``,
+    ``DIS`` and ``GII``),  unWISE (``allwise``, ``neo1`` and ``neo2``) and VISTA
+    (``VHS``, ``VIDEO`` and ``VIKING``).
 
     Parameters
     ----------
@@ -1189,7 +1194,7 @@ def download_images(
     elif survey == "SDSS":
         hdu_list = get_SDSS_images(ra, dec, size, filters)
     elif survey == "GALEX":
-        hdu_list = get_GALEX_images(ra, dec, size, filters)
+        hdu_list = get_GALEX_images(ra, dec, size, filters, version)
     elif survey == "WISE":
         hdu_list = get_WISE_images(ra, dec, size, filters)
     elif survey == "unWISE":
