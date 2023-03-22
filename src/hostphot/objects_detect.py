@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
@@ -11,13 +12,16 @@ from astropy.coordinates import SkyCoord
 from hostphot.utils import update_axislabels
 
 
-def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
+def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs, pixel_scale, dist_thresh=5.0):
     """Extracts objects and their ellipse parameters. The function :func:`sep.extract()`
     is used.
 
+    If there is no detected object within a distance of ``dist_thresh`` from the galaxy
+    coordinates, it means that the galaxy was not correctly identified.
+
     Parameters
     ----------
-    data: 2D array
+    data: ndarray
         Image data.
     err: 2D array
         Background error of the image.
@@ -28,6 +32,14 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
     threshold: float
         Source with flux above ``threshold*bkg_rms`` are extracted.
         See :func:`sep.extract()` for more information.
+    img_wcs: WCS
+        Image's WCS.
+    pixel_scale: float
+        Pixel scale, in units of arcsec/pixel, used to convert from pixel units
+         to arcseconds.
+    dist_thresh: float, default ``5.0``.
+        Distance in arcsec to crossmatch the galaxy coordinates with
+        an object.
 
     Returns
     -------
@@ -48,8 +60,15 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
     x_diff = np.abs(objects["x"] - gal_x)
     y_diff = np.abs(objects["y"] - gal_y)
     dist = np.sqrt(x_diff**2 + y_diff**2)
-    gal_id = np.argmin(dist)
-    gal_obj = objects[gal_id : gal_id + 1]
+    dist_arcsec = dist*pixel_scale
+
+    if any(dist_arcsec <= dist_thresh):
+        gal_id = np.argmin(dist)
+        gal_obj = objects[gal_id: gal_id + 1]
+    else:
+        gal_obj = None
+        gal_id = -99
+        print('WARNING: the galaxy was no detected')
 
     objs_id = [i for i in range(len(objects)) if i != gal_id]
     nogal_objs = objects.take(objs_id)
@@ -57,7 +76,7 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs):
     return gal_obj, nogal_objs
 
 
-def find_gaia_objects(ra, dec, img_wcs, rad=0.15):
+def find_gaia_objects(ra, dec, rad=0.15):
     """Finds objects using the Gaia DR3 catalog for the given
     coordinates in a given radius.
 
@@ -67,14 +86,12 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.15):
         Right ascension in degrees.
     dec: float
         Declination in degrees.
-    img_wcs: WCS object
-        WCS of an image.
     rad: float, default ``0.15``
         Search radius in degrees.
 
     Returns
     -------
-    gaia_coord: SkyCoor object
+    gaia_coord: SkyCoord object
         Coordinates of the objects found.
     """
     Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
@@ -86,7 +103,8 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.15):
         gaia_cat = Gaia.query_object_async(
             coordinate=coord, width=width, height=height
         )
-    except:
+    except Exception as exc:
+        print(exc)
         print("No objects found with Gaia DR3, switching to DR2")
         Gaia.MAIN_GAIA_TABLE = "gaiadr2.gaia_source"
         gaia_cat = Gaia.query_object_async(
@@ -102,7 +120,7 @@ def find_gaia_objects(ra, dec, img_wcs, rad=0.15):
     return gaia_coord
 
 
-def find_catalog_objects(ra, dec, img_wcs, rad=0.15):
+def find_catalog_objects(ra, dec, rad=0.15):
     """Finds objects using the TESS image cutouts (Tic) catalog
     for the given coordinates in a given radius.
 
@@ -115,14 +133,12 @@ def find_catalog_objects(ra, dec, img_wcs, rad=0.15):
         Right ascension in degrees.
     dec: float
         Declination in degrees.
-    img_wcs: WCS object
-        WCS of an image.
     rad: float, default ``0.15``
         Search radius in degrees.
 
     Returns
     -------
-    cat_coord: SkyCoor object
+    cat_coord: SkyCoord object
         Coordinates of the objects found.
     """
     coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs")
@@ -148,8 +164,8 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
     objects: array
         Objects detected with :func:`sep.extract()`.
     img_wcs: WCS
-        WCS of the image from which the objects where extracted.
-    coord: SkyCoor object
+        WCS of the image from which the objects were extracted.
+    coord: SkyCoord object
         Coordinates for the cross-match.
     dist_thresh: float, default ``1.0``
         Distance in arcsec to crossmatch the objects with
@@ -183,7 +199,7 @@ def plot_detected_objects(
 
     Parameters
     ----------
-    data: 2D array
+    data: ndarray
         Data of an image.
     objects: array
         Objects detected with :func:`sep.extract()`.
@@ -225,14 +241,19 @@ def plot_detected_objects(
     e.set_linewidth(1.5)
     ax.add_artist(e)
 
+    # plot SN position
     if (ra is not None) and (dec is not None):
         coord = SkyCoord(
             ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
         )
         px, py = img_wcs.world_to_pixel(coord)
-        ax.scatter(px, py, marker="*", s=140, c="g", edgecolor="gold")
+        ax.scatter(px, py, marker="*", s=200, c="g", edgecolor="gold")
 
     if outfile:
+        basename = os.path.basename(outfile)
+        title = os.path.splitext(basename)[0]
+        title = '-'.join(part for part in title.split('_'))
+        fig.suptitle(title, fontsize=28)
         plt.tight_layout()
         plt.savefig(outfile, bbox_inches="tight")
         plt.close(fig)
