@@ -16,6 +16,7 @@
 
 import os
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 import sep
@@ -126,7 +127,7 @@ def plot_aperture(data, px, py, radius_pix, img_wcs, outfile=None):
 
     Parameters
     ----------
-    data: 2D array
+    data: ndarray
         Data of an image.
     px: float
         X-axis center of the aperture in pixels.
@@ -161,6 +162,10 @@ def plot_aperture(data, px, py, radius_pix, img_wcs, outfile=None):
     ax.add_patch(circle)
 
     if outfile:
+        basename = os.path.basename(outfile)
+        title = os.path.splitext(basename)[0]
+        title = '-'.join(part for part in title.split('_'))
+        fig.suptitle(title, fontsize=28)
         plt.tight_layout()
         plt.savefig(outfile, bbox_inches="tight")
         plt.close(fig)
@@ -306,6 +311,8 @@ def multi_band_phot(
     use_mask=True,
     correct_extinction=True,
     save_plots=True,
+    save_results=True,
+    raise_exception=False,
 ):
     """Calculates the local aperture photometry for multiple filters.
 
@@ -338,7 +345,11 @@ def multi_band_phot(
         If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
         by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
     save_plots: bool, default ``True``
-        If ``True``, the a figure with the aperture is saved.
+        If ``True``, the figure with the aperture is saved.
+    save_results: bool, default ``True``
+        If ``True``, the magnitudes are saved into a csv file.
+    raise_exception: bool, default ``False``
+        If ``True``, an exception is raised if the photometry fails for any filter.
 
     Returns
     -------
@@ -375,21 +386,34 @@ def multi_band_phot(
     }
 
     for filt in filters:
-        mags, mags_err = photometry(
-            name,
-            ra,
-            dec,
-            z,
-            filt,
-            survey,
-            ap_radii,
-            bkg_sub,
-            use_mask,
-            correct_extinction,
-            save_plots,
-        )
-        for i, ap in enumerate(ap_radii):
-            results_dict[f"{filt}{ap}"] = mags[i]
-            results_dict[f"{filt}{ap}_err"] = mags_err[i]
+        try:
+            mags, mags_err = photometry(
+                name,
+                ra,
+                dec,
+                z,
+                filt,
+                survey,
+                ap_radii,
+                bkg_sub,
+                use_mask,
+                correct_extinction,
+                save_plots,
+            )
+            for radius, mag, mag_err in zip(ap_radii, mags, mags_err):
+                results_dict[f"{filt}{radius}"] = mag
+                results_dict[f"{filt}{radius}_err"] = mag_err
+        except Exception as exc:
+            if raise_exception is True:
+                raise Exception(exc)
+            else:
+                for radius in ap_radii:
+                    results_dict[f"{filt}_{radius}"] = np.nan
+                    results_dict[f"{filt}_{radius}_err"] = np.nan
+
+    if save_results is True:
+        outfile = os.path.join(workdir, name, f'{survey}_local.csv')
+        phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
+        phot_df.to_csv(outfile, index=False)
 
     return results_dict

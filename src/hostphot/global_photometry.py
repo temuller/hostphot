@@ -16,6 +16,7 @@
 
 import os
 import numpy as np
+import pandas as pd
 
 import sep
 from astropy import wcs
@@ -30,6 +31,7 @@ from hostphot.utils import (
     pixel2pixel,
     check_work_dir,
     magnitude_calc,
+    survey_pixel_scale,
     bkg_surveys
 )
 from hostphot.objects_detect import extract_objects, plot_detected_objects
@@ -48,7 +50,7 @@ def kron_flux(data, err, gain, objects, kronrad, scale):
 
     Parameters
     ----------
-    data: 2D array
+    data: ndarray
         Data of an image.
     err: float or 2D array
         Background error of the images.
@@ -257,9 +259,10 @@ def extract_kronparams(
     else:
         data_sub = np.copy(data)
 
+    pixel_scale = survey_pixel_scale(survey, filt)
     # extract objects
     gal_obj, nogal_objs = extract_objects(
-        data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs
+        data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs, pixel_scale
     )
     if optimize_kronrad:
         gain = 1  # doesn't matter here
@@ -396,9 +399,10 @@ def photometry(
         )
         flux, flux_err = flux[0], flux_err[0]
     else:
+        pixel_scale = survey_pixel_scale(survey, filt)
         # extract objects
         gal_obj, nogal_objs = extract_objects(
-            data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs
+            data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs, pixel_scale
         )
 
         # aperture photometry
@@ -465,6 +469,8 @@ def multi_band_phot(
     optimize_kronrad=True,
     eps=0.0001,
     save_plots=True,
+    save_results=True,
+    raise_exception = False,
 ):
     """Calculates multi-band aperture photometry of the host galaxy
     for an object.
@@ -495,6 +501,8 @@ def multi_band_phot(
     use_mask: bool, default ``True``
         If ``True``, the masked fits files are used. These must have
         been created beforehand.
+    correct_extinction: bool, default ``True``
+        If ``True``, the magnitudes are corrected for extinction.
     common_aperture: bool, default ``True``
         If ``True``, use a coadd image for common aperture photometry.
     coadd_filters: str, default ``riz``
@@ -507,6 +515,10 @@ def multi_band_phot(
         when optimizing the Kron radius.
     save_plots: bool, default ``True``
         If ``True``, the mask and galaxy aperture figures are saved.
+    save_results: bool, default ``True``
+        If ``True``, the magnitudes are saved into a csv file.
+    raise_exception: bool, default ``False``
+        If ``True``, an exception is raised if the photometry fails for any filter.
 
     Returns
     -------
@@ -557,24 +569,36 @@ def multi_band_phot(
         aperture_params = None
 
     for filt in filters:
-        mag, mag_err = photometry(
-            name,
-            host_ra,
-            host_dec,
-            filt,
-            survey,
-            ra,
-            dec,
-            bkg_sub,
-            threshold,
-            use_mask,
-            correct_extinction,
-            aperture_params,
-            optimize_kronrad,
-            eps,
-            save_plots,
-        )
-        results_dict[filt] = mag
-        results_dict[f"{filt}_err"] = mag_err
+        try:
+            mag, mag_err = photometry(
+                name,
+                host_ra,
+                host_dec,
+                filt,
+                survey,
+                ra,
+                dec,
+                bkg_sub,
+                threshold,
+                use_mask,
+                correct_extinction,
+                aperture_params,
+                optimize_kronrad,
+                eps,
+                save_plots,
+            )
+            results_dict[filt] = mag
+            results_dict[f"{filt}_err"] = mag_err
+        except Exception as exc:
+            if raise_exception is True:
+                raise Exception(exc)
+            else:
+                results_dict[filt] = np.nan
+                results_dict[f"{filt}_err"] = np.nan
+
+    if save_results is True:
+        outfile = os.path.join(workdir, name, f'{survey}_global.csv')
+        phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
+        phot_df.to_csv(outfile, index=False)
 
     return results_dict
