@@ -409,8 +409,8 @@ def get_GALEX_images(ra, dec, size=3, filters=None, version=None):
         Filters to use. If ``None``, uses ``FUV, NUV``.
     version: str, default ``None``
         Version of GALEX images. Either Deep (``DIS``), Medium (``MIS``) or
-        All-Sky Imaging Survey (``AIS``), or ``GII`` Survey. By default,
-        ``AIS`` is used.
+        All-Sky Imaging Survey (``AIS``), or Nearby Galaxy Survey (``NGS``) or
+        Guest Investigator Survey (``GII``). By default, ``AIS`` is used.
 
     Return
     ------
@@ -1144,8 +1144,8 @@ def download_images(
     given survey.
 
     The surveys that use the ``version`` parameter are: GALEX (``AIS``, ``MIS``,
-    ``DIS`` and ``GII``),  unWISE (``allwise``, ``neo1`` and ``neo2``) and VISTA
-    (``VHS``, ``VIDEO`` and ``VIKING``).
+    ``DIS``, ``NGS`` and ``GII``),  unWISE (``allwise``, ``neo1`` and ``neo2``)
+    and VISTA (``VHS``, ``VIDEO`` and ``VIKING``).
 
     Parameters
     ----------
