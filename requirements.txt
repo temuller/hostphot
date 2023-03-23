@@ -12,6 +12,7 @@ sfdmap
 pyvo
 sep
 ipywidgets
+ipykernel
 ipympl
 ipython
 pytest
