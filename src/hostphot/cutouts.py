@@ -410,7 +410,8 @@ def get_GALEX_images(ra, dec, size=3, filters=None, version=None):
     version: str, default ``None``
         Version of GALEX images. Either Deep (``DIS``), Medium (``MIS``) or
         All-Sky Imaging Survey (``AIS``), or Nearby Galaxy Survey (``NGS``) or
-        Guest Investigator Survey (``GII``). By default, ``AIS`` is used.
+        Guest Investigator Survey (``GII``). If ``None``, take the image with the
+        longest exposure time.
 
     Return
     ------
@@ -419,10 +420,10 @@ def get_GALEX_images(ra, dec, size=3, filters=None, version=None):
         ``None`` is returned if no image is found.
     """
     survey = "GALEX"
-    if version is None:
-        version = 'AIS'
     if filters is None:
         filters = get_survey_filters(survey)
+    if isinstance(filters, str):
+        filters = [filters]
     check_filters_validity(filters, survey)
 
     if isinstance(size, (float, int)):
@@ -442,62 +443,62 @@ def get_GALEX_images(ra, dec, size=3, filters=None, version=None):
     obs_table = Observations.query_criteria(
         coordinates=coords, radius=size_arcsec, obs_collection=["GALEX"]
     )
-    obs_df = obs_table.to_pandas()
-    print(obs_df.jpegURL.values)
-    print(obs_df.dataURL.values)
-    print(obs_df.project.values)
-    obs_df = obs_df[obs_df.project == version]  # only all sky survey
+    obs_df_ = obs_table.to_pandas()
 
-    # get unique image sectors
-    nuv_files, fuv_files = [], []
-    for file in obs_df.dataURL.values:
-        nuv_file = '-'.join(string for string in file.split('-')[:-2]) + '-nd-int.fits.gz'
-        if nuv_file not in nuv_files:
-            nuv_files.append(nuv_file)
-            fuv_file = nuv_file.replace('-nd-', '-fd-')
-            fuv_files.append(fuv_file)
-
-    # download the FITS images
-    nuv_hdu_list, fuv_hdu_list = [], []
-    for nuv_file, fuv_file in zip(nuv_files, fuv_files):
-        try:
-            nuv_hdu = fits.open(nuv_file)
-            nuv_hdu_list.append(nuv_hdu)
-        except:
-            pass
-        try:
-            fuv_hdu = fits.open(fuv_file)
-            fuv_hdu_list.append(fuv_hdu)
-        except:
-            pass
-
-    # calculate the distance of the galaxy to the image center
-    nuv_distances = []
-    for hdu in nuv_hdu_list:
-        header = hdu[0].header
-        dist_from_center = get_img_dist(ra, dec, header)
-        nuv_distances.append(dist_from_center)
-
-    fuv_distances = []
-    for hdu in fuv_hdu_list:
-        header = hdu[0].header
-        dist_from_center = get_img_dist(ra, dec, header)
-        fuv_distances.append(dist_from_center)
-
-    # get the image with the galaxy closest to the center
-    if len(nuv_distances)!=0:
-        id_nuv_file = np.argmin(np.array(nuv_distances))
-        nuv_hdu = nuv_hdu_list[id_nuv_file]
+    if version is None:
+        # starts from the survey with the deepest images first
+        obs_df_ = obs_df_.sort_values('t_exptime', ascending=False)
+        projects = obs_df_.project.unique()
     else:
-        nuv_hdu = None
+        # only use the survey requested by the user
+        projects = [version]
 
-    if len(fuv_distances)!=0:
-        id_fuv_file = np.argmin(np.array(fuv_distances))
-        fuv_hdu = fuv_hdu_list[id_fuv_file]
-    else:
-        fuv_hdu = None
+    hdu_dict = {'NUV': None, 'FUV': None}
+    for project in projects:
+        obs_df = obs_df_[obs_df_.project == project]
 
-    hdu_dict = {'NUV': nuv_hdu, 'FUV': fuv_hdu}
+        for filt in filters:
+            if hdu_dict[filt] is not None:
+                # if the image was already found, skip this filter
+                continue
+
+            # get only "intensity" images
+            filt_extension = {'NUV': '-nd-int.fits.gz',
+                              'FUV': '-fd-int.fits.gz',
+                              }
+            # get unique image sectors
+            files = []
+            for file in obs_df.dataURL.values:
+                sector_info = file.split('-')[:-2]
+                file = '-'.join(string for string in sector_info) + filt_extension[filt]
+                if file not in files:
+                    files.append(file)
+
+            # download the FITS images
+            hdu_list = []
+            for file in files:
+                try:
+                    hdu = fits.open(file)
+                    hdu_list.append(hdu)
+                except:
+                    pass
+
+            # calculate the distance of the galaxy to the image center
+            distances = []
+            for hdu in hdu_list:
+                header = hdu[0].header
+                dist_from_center = get_img_dist(ra, dec, header)
+                distances.append(dist_from_center)
+
+            # get the image with the galaxy closest to the center
+            if len(distances) != 0:
+                id_file = np.argmin(np.array(distances))
+                hdu = hdu_list[id_file]
+            else:
+                hdu = None
+
+            hdu_dict[filt] = hdu
+
     hdu_list = []
     for filt in filters:
         hdu = hdu_dict[filt]
