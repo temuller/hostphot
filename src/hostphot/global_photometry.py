@@ -279,8 +279,21 @@ def extract_kronparams(
             gal_obj["theta"],
             6.0,
         )
+    save_aperture_params = False
+    if save_aperture_params is True:
+        params_dict = {"x": [gal_obj["x"]],
+                       "y": [gal_obj["y"]],
+                       "a": [gal_obj["a"]],
+                       "b": [gal_obj["b"]],
+                       "theta": [gal_obj["theta"]],
+                       "kron_radius": [kronrad],
+                       "scale": [scale],
+                       }
+        params_df = pd.DataFrame(params_dict)
+        outfile = os.path.join(obj_dir, f"aperture_parameters_{survey}_{filt}.csv")
+        params_df.to_csv(outfile, index=False)
 
-    if save_plots:
+    if save_plots is True:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
         plot_detected_objects(
             data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile
