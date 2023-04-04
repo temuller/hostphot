@@ -381,7 +381,7 @@ def multi_band_phot(
         "name": name,
         "ra": ra,
         "dec": dec,
-        "zspec": z,
+        "redshift": z,
         "survey": survey,
     }
 
