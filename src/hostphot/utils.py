@@ -379,8 +379,17 @@ def uncertainty_calc(
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
     elif survey == "PS1":
-        # just as a check to make sure all surveys are included
-        pass
+        # add floor systematic error from:
+        # https://iopscience.iop.org/article/10.3847/1538-4365/abb82a/pdf
+        unc_dict = {
+            "g": 14e-3,
+            "r": 14e-3,
+            "i": 15e-3,
+            "z": 15e-3,
+            "y": 18e-3,
+        }
+        floor_err = unc_dict[filt]
+        mag_err = np.sqrt(mag_err ** 2 + floor_err ** 2)
 
     elif survey == "SDSS":
         # https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
