@@ -39,7 +39,7 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs, pixel_scal
          to arcseconds.
     dist_thresh: float, default ``5.0``.
         Distance in arcsec to crossmatch the galaxy coordinates with
-        an object.
+        a detected object.
 
     Returns
     -------
@@ -51,6 +51,7 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs, pixel_scal
     # extract objects with Source Extractor
     objects = sep.extract(data, threshold, err=err)
 
+    '''
     gal_coords = SkyCoord(
         ra=host_ra * u.degree, dec=host_dec * u.degree, frame="icrs"
     )
@@ -61,9 +62,16 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs, pixel_scal
     y_diff = np.abs(objects["y"] - gal_y)
     dist = np.sqrt(x_diff**2 + y_diff**2)
     dist_arcsec = dist*pixel_scale
+    '''
+
+    objs_coords = img_wcs.pixel_to_world(objects["x"], objects["y"])
+    objs_ra, objs_dec = objs_coords.ra.value, objs_coords.dec.value
+    dist = np.sqrt((objs_ra - host_ra) ** 2 * (np.cos(host_dec * np.pi / 180) ** 2) +
+                   (objs_dec - host_dec) ** 2)  # in degrees
+    dist_arcsec = dist*3600
 
     if any(dist_arcsec <= dist_thresh):
-        gal_id = np.argmin(dist)
+        gal_id = np.argmin(dist_arcsec)
         gal_obj = objects[gal_id: gal_id + 1]
     else:
         gal_obj = None
