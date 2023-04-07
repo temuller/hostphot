@@ -3,7 +3,7 @@
 Photometry
 ==========
 
-HostPhot can calculate the photometry of the entire galaxy (global) or in a given circular aperture (local). For this, the code heavily relies on `astropy` and `photutils`.
+HostPhot can calculate the photometry of the entire galaxy (global) or in a given circular aperture (local). For this, the code heavily relies on `astropy` and `photutils`. Note that the only surveys that need background subtraction are 2MASS, WISE and VISTA, which is performed by default.
 
 Local Photometry
 ~~~~~~~~~~~~~~~~
@@ -20,9 +20,9 @@ Local photometry can be obtained for the downloaded images. For this, a circular
 	z = 0.0157  # redshift
 
 	results = lp.multi_band_phot(name, ra, dec, z,
-                             	survey=survey, ap_radii=ap_radii, 
-                             	use_mask=True, correct_extinction=True,
-                             	save_plots=True)
+	                     	     survey=survey, ap_radii=ap_radii, 
+	                     	     use_mask=True, correct_extinction=True,
+	                     	     save_plots=True)
 
 
 ``results`` is a dictionary with the photometry (magnitudes) of the filters used. Note that the coordinates are at the position of the object (``SN2004eo``). The cosmology can be changed with :func:`lp.choose_cosmology()`. Setting ``use_mask=True`` tells HostPhot to used the masked images previously created (see :ref:`Image Pre-processing <preprocessing>`) and setting ``save_plots=True`` provides output plots with the images and the apertures used, which are saved under the object's directory.
@@ -43,10 +43,10 @@ Global photometry relies on `sep <https://github.com/kbarbary/sep/>`_ and uses `
 	import hostphot.global_photometry as gp
 
 	results = gp.multi_band_phot(name, host_ra, host_dec, 
-                             	survey=survey, ra=ra, dec=dec,
-                             	use_mask=True, correct_extinction=True,
-                             	common_aperture=True, coadd_filters='riz', 
-                             	save_plots=True)
+                             	     survey=survey, ra=ra, dec=dec,
+                             	     use_mask=True, correct_extinction=True,
+                             	     common_aperture=True, coadd_filters='riz', 
+                             	     save_plots=True)
 
 Setting ``common_aperture=True`` tells HostPhot to used the same aperture for all the filters, obtained from the coadded image (``coadd_filters='riz'``; see :ref:`Image Pre-processing <preprocessing>`) and setting ``optimize_kronrad=True`` provides a more reliable aperture than using the default parameters commonly used by SExtractor as the aperture is increased until the change in flux is neglegible (this can be changed with ``eps``). The rest of the parameters are the same as before.
 

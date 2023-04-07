@@ -34,7 +34,7 @@ Some low-redshift galaxy can have foreground stars "sitting" on top of them. Hos
 	# this also creates new fits files
 	coadd_mask_params = create_mask(name, host_ra, host_dec,
                                 	filt=coadd_filters, survey=survey,
-                                	extract_params=True)  
+                                	extract_params=True, threshold=23)  
 
 	for filt in 'grizy':
     		create_mask(name, host_ra, host_dec, filt, survey=survey,

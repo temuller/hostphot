@@ -14,5 +14,4 @@ Everything related to cutouts is documented bellow:
 .. autofunction:: get_SDSS_images
 .. autofunction:: match_wcs
 .. autofunction:: download_images
-.. autofunction:: pool_download
 

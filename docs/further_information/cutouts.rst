@@ -39,7 +39,7 @@ These images are downloaded using `astroquery.skyview <https://astroquery.readth
 GALEX
 ~~~~~
 
-These are downloaded with `astroquery.skyview`. Some header information missing in these images is retrieved from the images obtained with `astroquery.mast.Observations <https://astroquery.readthedocs.io/en/latest/mast/mast.html>`_ (e.g. exposure time). The pixel scaling of the images is 1.5 arcsec/pixel, as described in the `GALEX website <https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html>`_. The available filters are: :math:`FUV` (far-UV) and :math:`NUV` (near-UV).
+These are downloaded with `astroquery.mast.Observations <https://astroquery.readthedocs.io/en/latest/mast/mast.html>`_. The pixel scaling of the images is 1.5 arcsec/pixel, as described in the `GALEX website <https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html>`_. The available filters are: :math:`FUV` (far-UV) and :math:`NUV` (near-UV). The user can choose between different surveys: Deep (DIS), Medium (MIS) or All-Sky Imaging Survey (AIS), Nearby Galaxy Survey (NGS) or Guest Investigator Survey (GII). By default, the image with the largest exposure time is downloaded.
 
 .. figure:: static/galex_footprint.jpg
 

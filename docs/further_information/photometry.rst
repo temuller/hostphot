@@ -17,7 +17,7 @@ For the local photometry, HostPhot uses :func:`photutils.aperture_photometry()` 
 
 In addition to the `magnitude` uncertainty calculated from the aperture photometry above (:math:`\sigma_{\text{ap}}`), other uncertainties are added in quadrature (see below).
 
-Note that the global and local photometry are calculates in a similar way as in `Wiseman et al., 2020 <https://ui.adsabs.harvard.edu/abs/2020MNRAS.495.4040W/abstract>`_ and `Kelsey et al., 2021  <https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.4861K/abstract>`_, respectively.
+Note that the global and local photometry are calculates in a similar way as in `Wiseman et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020MNRAS.495.4040W/abstract>`_ and `Kelsey et al. (2021)  <https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.4861K/abstract>`_, respectively. Also note that the only surveys that need background subtraction are 2MASS, WISE and VISTA, which is performed by default by HostPhot.
 
 
 PS1
@@ -33,9 +33,9 @@ PS1
   
   :math:`\sigma_{\text{noise}} = 2.5/ln(10) * sqrt(A_{\text{ap}} * (\text{readnoise}**2) + flux / \text{gain}) / flux`
   
-  where :math:`A_{\text{ap}}` is the area of the aperture used (:math:`\pi*a*b` for an ellipse) and :math:`flux` are the counts measured inside that area. The readnoise is obtained from the ``HIERARCH CELL.READNOISE`` keyword in the image's header, while the gain is obtained from the ``HIERARCH CELL.GAIN`` keyword.
+  where :math:`A_{\text{ap}}` is the area of the aperture used (:math:`\pi*a*b` for an ellipse) and :math:`flux` are the counts measured inside that area. The readnoise is obtained from the ``HIERARCH CELL.READNOISE`` keyword in the image's header, while the gain is obtained from the ``HIERARCH CELL.GAIN`` keyword. In addition, a systematic error floor is added to each filter, (:math:`\sigma_g, \sigma_r, \sigma_i, \sigma_z, \sigma_y`) = (14, 14, 15, 15, 18) mmag, as described in `Magnier et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020ApJS..251....6M/abstract>`_.
   
-  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2)`.
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{floor}}^2)`.
   
 
 
