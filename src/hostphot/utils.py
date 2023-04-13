@@ -450,9 +450,9 @@ def uncertainty_calc(
 
         extra_err = 1.0857 * np.sqrt(dark_variance + flux / gain) / flux
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
-        mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
     elif survey == "GALEX":
+        # https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html
         CPS = flux
         if filt == "FUV":
             uv_err = -2.5 * (
