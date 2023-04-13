@@ -1,7 +1,5 @@
 import os
 import copy
-import gzip
-import shutil
 import tarfile
 import requests  # for several surveys
 import numpy as np
@@ -23,8 +21,7 @@ from astroquery.sdss import SDSS
 from astroquery.skyview import SkyView  # other surveys
 from astroquery.mast import Observations  # for GALEX
 
-from reproject import reproject_interp, reproject_exact
-from reproject.mosaicking import find_optimal_celestial_wcs
+from reproject import reproject_interp
 
 from hostphot._constants import workdir
 from hostphot.utils import (
@@ -221,14 +218,17 @@ def get_DES_urls(ra, dec, fov, filters="grizY"):
         selected_weights = imgs_df[cond_filt & (cond_stack & cond_weight)]
 
         if len(selected_images) > 0:
-            # pick image with longest exposure time
+            # pick image with the longest exposure time
             max_exptime = np.argmax(selected_images["exptime"])
             row = selected_images.iloc[max_exptime]
             url = row["access_url"]  # get the download URL
 
-            max_exptime = np.argmax(selected_weights["exptime"])
-            row_w = selected_weights.iloc[max_exptime]
-            url_w = row_w["access_url"]
+            if len(selected_weights) == 0:
+                url_w = None
+            else:
+                max_exptime = np.argmax(selected_weights["exptime"])
+                row_w = selected_weights.iloc[max_exptime]
+                url_w = row_w["access_url"]
         else:
             url = url_w = None
         url_list.append(url)
@@ -324,7 +324,7 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
     size_pixels = int(size_arcsec.value / pixel_scale)
 
     pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
-    for radius in np.arange(1, 30):
+    for radius in np.arange(5, 65, 5):
         ids = SDSS.query_region(pos, radius=radius * u.arcsec)
         if ids is not None:
             break
@@ -376,20 +376,11 @@ def get_img_dist(host_ra, host_dec, header):
         position in pixel units.
     """
     # coordinates of the image center
-    img_wcs = wcs.WCS(header)
-    img_ra, img_dec = header['RA_CENT'], header['DEC_CENT']
-    img_coord = SkyCoord(
-        ra=img_ra, dec=img_dec, unit=(u.degree, u.degree), frame="icrs"
-    )
-    img_x, img_y = img_wcs.world_to_pixel(img_coord)
+    img_ra, img_dec = float(header['RA_CENT']), float(header['DEC_CENT'])
 
-    # coordinates of the galaxy
-    host_coord = SkyCoord(
-        ra=host_ra, dec=host_dec, unit=(u.degree, u.degree), frame="icrs"
-    )
-    host_x, host_y = img_wcs.world_to_pixel(host_coord)
-
-    dist_from_center = np.sqrt((img_x - host_x) ** 2 + (img_y - host_y) ** 2)
+    # distance to the galaxy
+    dist_from_center = np.sqrt((img_ra - host_ra) ** 2 * (np.cos(img_dec*np.pi/180) ** 2)
+                               + (img_dec - host_dec) ** 2)
 
     return dist_from_center
 
@@ -626,7 +617,8 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
     filters: str, default ``None``
         Filters to use. If ``None``, uses all WISE filters.
     version: str, default ``allwise``
-        Version of the unWISE images. Either ``allwise``, ``neo1`` or ``neo2``.
+        Version of the unWISE images. Either ``allwise`` or ``neo{i}`` for
+        {i} = 1 to 7.
 
     Return
     ------
@@ -637,11 +629,16 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
     survey = "unWISE"
     if version is None:
         version = 'allwise'
+    else:
+        # check validity of the version used
+        neo_versions = [f'neo{i}' for i in range(1, 8)]
+        all_versions = ['allwise'] + neo_versions
+        assert version in all_versions, f'Not a valid version ({version}): {all_versions}'
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
 
-    if version in ["neo1", "neo2"]:
+    if "neo" in version:
         # these only have W1 and W2 data
         if "W3" in filters:
             filters.remove("W3")
@@ -825,7 +822,7 @@ def get_HST_images(ra, dec, size=3, filters=None):
 
             dist = np.sqrt(
                 (filt_df.s_dec.values - dec) ** 2
-                + (filt_df.s_ra.values - ra) ** 2
+                + (filt_df.s_ra.values - ra) ** 2 * (np.cos(dec*np.pi/180) ** 2)
             )
             filt_df = filt_df[
                 dist == dist.min()
@@ -1145,7 +1142,7 @@ def download_images(
     given survey.
 
     The surveys that use the ``version`` parameter are: GALEX (``AIS``, ``MIS``,
-    ``DIS``, ``NGS`` and ``GII``),  unWISE (``allwise``, ``neo1`` and ``neo2``)
+    ``DIS``, ``NGS`` and ``GII``),  unWISE (``allwise`` and ``neo{i}`` for {i}=1-7)
     and VISTA (``VHS``, ``VIDEO`` and ``VIKING``).
 
     Parameters
