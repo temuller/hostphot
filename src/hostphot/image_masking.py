@@ -89,6 +89,7 @@ def create_mask(
     threshold=15,
     sigma=8,
     crossmatch=False,
+    gal_dist_thresh=-1,
     extract_params=False,
     common_params=None,
     save_plots=True,
@@ -123,6 +124,13 @@ def create_mask(
     crossmatch: bool, default ``False``
         If ``True``, the detected objects are cross-matched with a
         Gaia catalog.
+    gal_dist_thresh: float, default ``-1``.
+        Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
+        where the object nearest to the galaxy position is considered as the galaxy (within
+        the given threshold). If no objects are found within the given distance threshold,
+        the galaxy is considered as not found and a warning is printed. If a non-positive value
+        is given, the threshold is considered as infinite, i.e. the closest detected object is
+        considered as the galaxy (default option).
     extract_params: bool, default ``False``
         If ``True``, returns the parameters listed below.
     common_params: tuple, default ``None``
@@ -171,8 +179,7 @@ def create_mask(
     if common_params is None:
         # extract objects
         gal_obj, nogal_objs = extract_objects(
-            data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs,
-            pixel_scale
+            data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs, gal_dist_thresh
         )
         # preprocessing: cross-match extracted objects with a catalog
         # using two Gaia catalogs as they do not always include the

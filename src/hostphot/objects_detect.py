@@ -12,7 +12,7 @@ from astropy.coordinates import SkyCoord
 from hostphot.utils import update_axislabels
 
 
-def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs, pixel_scale, dist_thresh=5.0):
+def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs, dist_thresh=-1):
     """Extracts objects and their ellipse parameters. The function :func:`sep.extract()`
     is used.
 
@@ -36,10 +36,14 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs, pixel_scal
         Image's WCS.
     pixel_scale: float
         Pixel scale, in units of arcsec/pixel, used to convert from pixel units
-         to arcseconds.
-    dist_thresh: float, default ``5.0``.
-        Distance in arcsec to crossmatch the galaxy coordinates with
-        a detected object.
+        to arcseconds.
+    dist_thresh: float, default ``-1``.
+        Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
+        where the object nearest to the galaxy position is considered as the galaxy (within
+        the given threshold). If no objects are found within the given distance threshold,
+        the galaxy is considered as not found and a warning is printed. If a non-positive value
+        is given, the threshold is considered as infinite, i.e. the closest detected object is
+        considered as the galaxy (default option).
 
     Returns
     -------
@@ -51,24 +55,14 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs, pixel_scal
     # extract objects with Source Extractor
     objects = sep.extract(data, threshold, err=err)
 
-    '''
-    gal_coords = SkyCoord(
-        ra=host_ra * u.degree, dec=host_dec * u.degree, frame="icrs"
-    )
-    gal_x, gal_y = img_wcs.world_to_pixel(gal_coords)
-
-    # find the galaxy
-    x_diff = np.abs(objects["x"] - gal_x)
-    y_diff = np.abs(objects["y"] - gal_y)
-    dist = np.sqrt(x_diff**2 + y_diff**2)
-    dist_arcsec = dist*pixel_scale
-    '''
-
     objs_coords = img_wcs.pixel_to_world(objects["x"], objects["y"])
     objs_ra, objs_dec = objs_coords.ra.value, objs_coords.dec.value
     dist = np.sqrt((objs_ra - host_ra) ** 2 * (np.cos(host_dec * np.pi / 180) ** 2) +
                    (objs_dec - host_dec) ** 2)  # in degrees
     dist_arcsec = dist*3600
+
+    if dist_thresh <= 0.0:
+        dist_thresh = np.inf
 
     if any(dist_arcsec <= dist_thresh):
         gal_id = np.argmin(dist_arcsec)
