@@ -18,7 +18,7 @@ from hostphot.utils import (
     get_image_exptime,
     get_image_gain,
     get_image_readnoise,
-    magnitude_calc,
+    magnitude_calculation,
     get_survey_filters,
     check_filters_validity,
     bkg_surveys
@@ -330,7 +330,7 @@ class InteractiveAperture:
             * self.eparams["width"]["value"]
             * self.eparams["height"]["value"]
         )
-        mag, mag_err = magnitude_calc(
+        mag, mag_err = magnitude_calculation(
             flux,
             flux_err,
             self.survey,

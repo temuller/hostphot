@@ -30,8 +30,9 @@ from hostphot.utils import (
     get_image_gain,
     pixel2pixel,
     check_work_dir,
-    magnitude_calc,
+    magnitude_calculation,
     survey_pixel_scale,
+    adapt_aperture,
     bkg_surveys
 )
 from hostphot.objects_detect import extract_objects, plot_detected_objects
@@ -74,7 +75,7 @@ def kron_flux(data, err, gain, objects, kronrad, scale):
 
     if kronrad * np.sqrt(objects["a"] * objects["b"]) < r_min:
         print(f"Warning: using circular photometry")
-        flux, flux_err, flag = sep.sum_circle(
+        flux, flux_err, _ = sep.sum_circle(
             data,
             objects["x"],
             objects["y"],
@@ -84,7 +85,13 @@ def kron_flux(data, err, gain, objects, kronrad, scale):
             gain=1.0,
         )
     else:
-        flux, flux_err, flag = sep.sum_ellipse(
+        # theta must be in the range [-pi/2, pi/2] for sep.sum_ellipse()
+        if objects["theta"] > np.pi/2:
+            objects["theta"] -= np.pi
+        elif objects["theta"] < -np.pi/2:
+            objects["theta"] += np.pi
+            
+        flux, flux_err, _ = sep.sum_ellipse(
             data,
             objects["x"],
             objects["y"],
@@ -130,7 +137,7 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
     """
     # iterate over kron radii
     for r in np.arange(1, 6.05, 0.05)[::-1]:
-        kronrad, krflag = sep.kron_radius(
+        kronrad, _ = sep.kron_radius(
             data,
             objects["x"],
             objects["y"],
@@ -184,6 +191,7 @@ def extract_kronparams(
     use_mask=True,
     optimize_kronrad=True,
     eps=0.0001,
+    gal_dist_thresh=-1,
     save_plots=True,
 ):
     """Calculates the aperture parameters for common aperture.
@@ -217,6 +225,13 @@ def extract_kronparams(
     eps: float, default ``0.0001`` (0.1%)
         Minimum percent change in flux allowed between iterations
         when optimizing the Kron radius.
+    gal_dist_thresh: float, default ``-1``.
+        Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
+        where the object nearest to the galaxy position is considered as the galaxy (within
+        the given threshold). If no objects are found within the given distance threshold,
+        the galaxy is considered as not found and a warning is printed. If a non-positive value
+        is given, the threshold is considered as infinite, i.e. the closest detected object is
+        considered as the galaxy (default option).
     save_plots: bool, default `False`
         If `True`, the mask and galaxy aperture figures are saved.
 
@@ -230,6 +245,9 @@ def extract_kronparams(
         Kron radius.
     scale: float
         Scale for the Kron radius.
+    flip: bool
+        Whether to flip the orientation of the
+        aperture. Only used for DES images.
     """
     check_survey_validity(survey)
     check_work_dir(workdir)
@@ -254,20 +272,19 @@ def extract_kronparams(
     data = data.astype(np.float64)
     bkg = sep.Background(data)
     bkg_rms = bkg.globalrms
-    if bkg_sub:
+    if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg)
     else:
         data_sub = np.copy(data)
 
-    pixel_scale = survey_pixel_scale(survey, filt)
-    # extract objects
-    gal_obj, nogal_objs = extract_objects(
-        data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs, pixel_scale
+    # extract galaxy
+    gal_obj, _ = extract_objects(
+        data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs, gal_dist_thresh
     )
     if optimize_kronrad:
         gain = 1  # doesn't matter here
         opt_res = optimize_kron_flux(data_sub, bkg_rms, gain, gal_obj, eps)
-        flux, flux_err, kronrad, scale = opt_res
+        _, _, kronrad, scale = opt_res
     else:
         scale = 2.5
         kronrad, krflag = sep.kron_radius(
@@ -299,8 +316,12 @@ def extract_kronparams(
             data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile
         )
 
-    return gal_obj, img_wcs, kronrad, scale
+    if survey == 'DES':
+        flip = True
+    else:
+        flip = False
 
+    return gal_obj, img_wcs, kronrad, scale, flip
 
 def photometry(
     name,
@@ -317,6 +338,7 @@ def photometry(
     aperture_params=None,
     optimize_kronrad=True,
     eps=0.0001,
+    gal_dist_thresh=-1,
     save_plots=True,
 ):
     """Calculates the global aperture photometry of a galaxy using
@@ -359,9 +381,16 @@ def photometry(
     optimize_kronrad: bool, default `True`
         If `True`, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
-    eps: float, default ``0.0001`` (0.1%)
-        Minimum percent change in flux allowed between iterations
-        when optimizing the Kron radius.
+    eps: float, default ``0.0001``
+        The Kron radius is increased until the change in flux is lower than ``eps``.
+        A value of 0.0001 means 0.01% change in flux.
+    gal_dist_thresh: float, default ``-1``.
+        Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
+        where the object nearest to the galaxy position is considered as the galaxy (within
+        the given threshold). If no objects are found within the given distance threshold,
+        the galaxy is considered as not found and a warning is printed. If a non-positive value
+        is given, the threshold is considered as infinite, i.e. the closest detected object is
+        considered as the galaxy (default option).
     save_plots: bool, default `True`
         If `True`, the mask and galaxy aperture figures are saved.
 
@@ -401,21 +430,30 @@ def photometry(
         data_sub = np.copy(data)
 
     if aperture_params is not None:
-        gal_obj, img_wcs0, kronrad, scale = aperture_params
+        gal_obj, master_img_wcs, kronrad, scale, flip2 = aperture_params
 
-        gal_obj["x"], gal_obj["y"] = pixel2pixel(
-            gal_obj["x"], gal_obj["y"], img_wcs0, img_wcs
-        )
+        if survey=='DES':
+            flip = True
+        else:
+            flip = False
+        if flip == flip2:
+            flip_ = False
+        else:
+            flip_ = True
+
+        a0 = gal_obj['a']
+        gal_obj = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
+        # factor used for scaling the Kron radius between different pixel scales
+        conv_factor = gal_obj['a']/a0  
 
         flux, flux_err = kron_flux(
-            data_sub, bkg_rms, gain, gal_obj, kronrad, scale
+            data_sub, bkg_rms, gain, gal_obj, kronrad*conv_factor, scale
         )
         flux, flux_err = flux[0], flux_err[0]
     else:
-        pixel_scale = survey_pixel_scale(survey, filt)
-        # extract objects
-        gal_obj, nogal_objs = extract_objects(
-            data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs, pixel_scale
+        # extract galaxy
+        gal_obj, _ = extract_objects(
+            data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs, gal_dist_thresh
         )
 
         # aperture photometry
@@ -425,7 +463,7 @@ def photometry(
             opt_res = optimize_kron_flux(data_sub, bkg_rms, gain, gal_obj, eps)
             flux, flux_err, kronrad, scale = opt_res
         else:
-            kronrad, krflag = sep.kron_radius(
+            kronrad, _ = sep.kron_radius(
                 data_sub,
                 gal_obj["x"],
                 gal_obj["y"],
@@ -441,7 +479,8 @@ def photometry(
             flux, flux_err = flux[0], flux_err[0]
 
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
-    mag, mag_err = magnitude_calc(
+
+    mag, mag_err, total_flux_err = magnitude_calculation(
         flux,
         flux_err,
         survey,
@@ -451,12 +490,11 @@ def photometry(
         bkg_rms,
     )
 
-    # extinction correction is optional
-    if correct_extinction:
+    if correct_extinction is True:
         A_ext = calc_extinction(filt, survey, host_ra, host_dec)
         mag -= A_ext
 
-    if save_plots:
+    if save_plots is True:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
         plot_detected_objects(
             data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile
@@ -477,10 +515,12 @@ def multi_band_phot(
     threshold=10,
     use_mask=True,
     correct_extinction=True,
+    aperture_params=None,
     common_aperture=True,
     coadd_filters="riz",
     optimize_kronrad=True,
     eps=0.0001,
+    gal_dist_thresh=-1,
     save_plots=True,
     save_results=True,
     raise_exception = False,
@@ -516,8 +556,13 @@ def multi_band_phot(
         been created beforehand.
     correct_extinction: bool, default ``True``
         If ``True``, the magnitudes are corrected for extinction.
+    aperture_params: tuple, default `None`
+        Tuple with objects info and Kron parameters. Used for common aperture. If given, 
+        the Kron parameters are not re-calculated. If given, this supersedes the use of 
+        coadds for common aperture (``common_aperture`` parameter).
     common_aperture: bool, default ``True``
-        If ``True``, use a coadd image for common aperture photometry.
+        If ``True``, use a coadd image for common aperture photometry. This is not used
+        if ``aperture_params`` is given.
     coadd_filters: str, default ``riz``
         Filters of the coadd image. Used for common aperture photometry.
     optimize_kronrad: bool, default ``True``
@@ -526,6 +571,13 @@ def multi_band_phot(
     eps: float, default ``0.0001`` (0.1%)
         Minimum percent change in flux allowed between iterations
         when optimizing the Kron radius.
+    gal_dist_thresh: float, default ``-1``.
+        Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
+        where the object nearest to the galaxy position is considered as the galaxy (within
+        the given threshold). If no objects are found within the given distance threshold,
+        the galaxy is considered as not found and a warning is printed. If a non-positive value
+        is given, the threshold is considered as infinite, i.e. the closest detected object is
+        considered as the galaxy (default option).
     save_plots: bool, default ``True``
         If ``True``, the mask and galaxy aperture figures are saved.
     save_results: bool, default ``True``
@@ -562,24 +614,24 @@ def multi_band_phot(
         "survey": survey,
     }
 
-    if common_aperture:
+    if common_aperture is True and aperture_params is None:
         aperture_params = extract_kronparams(
             name,
             host_ra,
             host_dec,
             coadd_filters,
             survey,
-            ra,
-            dec,
-            bkg_sub,
-            threshold,
-            use_mask,
-            optimize_kronrad,
-            eps,
-            save_plots,
+            ra=ra,
+            dec=dec,
+            bkg_sub=bkg_sub,
+            threshold=threshold,
+            use_mask=use_mask,
+            optimize_kronrad=optimize_kronrad,
+            eps=eps,
+            gal_dist_thresh=gal_dist_thresh,
+            save_plots=save_plots,
         )
-    else:
-        aperture_params = None
+    
 
     for filt in filters:
         try:
@@ -589,22 +641,23 @@ def multi_band_phot(
                 host_dec,
                 filt,
                 survey,
-                ra,
-                dec,
-                bkg_sub,
-                threshold,
-                use_mask,
-                correct_extinction,
-                aperture_params,
-                optimize_kronrad,
-                eps,
-                save_plots,
+                ra=ra,
+                dec=dec,
+                bkg_sub=bkg_sub,
+                threshold=threshold,
+                use_mask=use_mask,
+                correct_extinction=correct_extinction,
+                aperture_params=aperture_params,
+                optimize_kronrad=optimize_kronrad,
+                eps=eps,
+                gal_dist_thresh=gal_dist_thresh,
+                save_plots=save_plots,
             )
             results_dict[filt] = mag
             results_dict[f"{filt}_err"] = mag_err
         except Exception as exc:
             if raise_exception is True:
-                raise Exception(exc)
+                raise Exception(f'{filt}-band: {exc}')
             else:
                 results_dict[filt] = np.nan
                 results_dict[f"{filt}_err"] = np.nan

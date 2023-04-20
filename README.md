@@ -181,6 +181,21 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 ```
 
 ## What's new!
+v2.5.0:
+* Systematic error floor added to PS1 photometry
+* GALEX now downloads images with largest exposure time by default
+* Added option to output aperture parameters for global photometry
+* Fixed image realignment/orientation between different surveys when using common apertures (for masking and global photometry)
+* Option added to set a distant threshold to identify the host galaxy in the image (by default use the nearest object)
+* Slight change in the column names of the local photometry output file
+* Added missing uncertainties in the error budget of DES (~5 mmag) 
+* Other minor bugs fixed
+
+v2.4.0:
+* Fixed and improved GALEX cutouts
+* Better galaxy identification
+* Better output plots for masked images
+* Option to return NaN or raise an exception when getting photometry
 
 v2.3.2:
 * Improved download of GALEX images (download even if they seem to be just background noise)

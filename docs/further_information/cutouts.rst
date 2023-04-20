@@ -29,11 +29,11 @@ DES images are downloaded from the `NOAO DataLab <https://datalab.noirlab.edu/si
 SDSS
 ~~~~
 
-These images are downloaded using `astroquery.skyview <https://astroquery.readthedocs.io/en/latest/skyview/skyview.html>`_. The `astroquery.sdss <https://astroquery.readthedocs.io/en/latest/sdss/sdss.html>`_ module is not used as it downloads much larger images (taking longer to download) and thus need to be trimmed. The pixel scaling of the images is 0.396 arcsec/pixel, as described in the `SDSS website <https://www.sdss.org/dr12/imaging/images/>`_. **Note:** it is recommended to use PS1 instead of SDSS as PS1 covers the same patch of the sky as SDSS and more (unless :math:`u`-band is needed). Also, PS1 is better calibrated and goes deeper. The available filters are: :math:`ugriz`.
+These images are downloaded using `astroquery.skyview <https://astroquery.readthedocs.io/en/latest/skyview/skyview.html>`_. The `astroquery.sdss <https://astroquery.readthedocs.io/en/latest/sdss/sdss.html>`_ module is not used as it downloads much larger images (taking longer to download) and thus need to be trimmed. The pixel scaling of the images is 0.396 arcsec/pixel, as described in the `SDSS website <https://www.sdss.org/dr12/imaging/images/>`_. **Note:** it is recommended to use PS1 instead of SDSS as PS1 covers the same patch of the sky as SDSS and more (unless :math:`u`-band is needed). Also, PS1 is better calibrated and goes deeper. The available filters are: :math:`ugriz`. Data release 17 is the latest available version for imaging. 
 
 .. figure:: static/sdss_footprint.png
 
-  SDSS survey footprint. Image from `https://www.sdss.org/wp-content/uploads/2016/08/DR13.pdf <https://www.sdss.org/wp-content/uploads/2016/08/DR13.pdf>`_.
+  SDSS survey footprint (data release 12). Image from `<https://ui.adsabs.harvard.edu/abs/2015arXiv151008075P/abstract>`_. Note that the SDSS imaging footprint has had virutally no changes in the last several data releases.
   
   
 GALEX
@@ -69,7 +69,7 @@ These images are downloaded from the WISE database following `https://irsa.ipac.
 unWISE
 ~~~~~~
 
-unWISE is an unblurred coadd of the WISE imaging (i.e. better resolution). These images are directly obtained from the `unWISE image service <http://unwise.me/imgsearch/>`_. The pixel scaling of the images is 2.75 arcsec/pixel, as described in the website. The available filters are :math:`W1`, :math:`W2`, :math:`W3` and :math:`W4` for the AllWISE version, and only :math:`W1` and :math:`W2` for the NeoWISE-R1 and NeoWISE-R2 versions.
+unWISE is an unblurred coadd of the WISE imaging (i.e. better resolution). These images are directly obtained from the `unWISE image service <http://unwise.me/imgsearch/>`_. The pixel scaling of the images is 2.75 arcsec/pixel, as described in the website. The available filters are :math:`W1`, :math:`W2`, :math:`W3` and :math:`W4` for the AllWISE version, and only :math:`W1` and :math:`W2` for the NeoWISE-R1, NeoWISE-R2 and later versions (up to R7).
 
 
 Legacy Survey

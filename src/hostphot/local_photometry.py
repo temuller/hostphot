@@ -36,7 +36,7 @@ from hostphot.utils import (
     survey_pixel_scale,
     check_work_dir,
     update_axislabels,
-    magnitude_calc,
+    magnitude_calculation,
     bkg_surveys
 )
 from hostphot.image_cleaning import remove_nan
@@ -272,7 +272,7 @@ def photometry(
         )
 
         ap_area = 2 * np.pi * (radius_pix**2)
-        mag, mag_err = magnitude_calc(
+        mag, mag_err, total_flux_error = magnitude_calculation(
             flux,
             flux_err,
             survey,

@@ -26,7 +26,8 @@ from hostphot.utils import (
     pixel2pixel,
     update_axislabels,
     survey_pixel_scale,
-    bkg_surveys
+    bkg_surveys,
+    adapt_aperture
 )
 
 import warnings
@@ -148,8 +149,9 @@ def create_mask(
         Non-galaxy objects.
     img_wcs: WCS
         Image's WCS.
-    pixel_scale: float
-        Pixel scale for the survey.
+    flip: bool
+        Whether to flip the orientation of the
+        aperture. Only used for DES images.
     """
     check_survey_validity(survey)
     if isinstance(filt, list):
@@ -174,8 +176,6 @@ def create_mask(
     else:
         data_sub = np.copy(data)
 
-    pixel_scale = survey_pixel_scale(survey, filt)
-
     if common_params is None:
         # extract objects
         gal_obj, nogal_objs = extract_objects(
@@ -191,25 +191,20 @@ def create_mask(
             nogal_objs = cross_match(nogal_objs, img_wcs, cat_coord)
     else:
         # use objects previously extracted
-        # the pixels coordinates are updated accordingly
-        gal_obj, nogal_objs, img_wcs0, pixel_scale0 = common_params
-        scale = pixel_scale0 / pixel_scale
+        # the aperture/ellipse parameters are updated accordingly
+        gal_obj, nogal_objs, master_img_wcs, flip2 = common_params
 
-        # make copies to prevent altering the initial values
-        if gal_obj is not None:
-            gal_obj = gal_obj.copy()
-            gal_obj["x"], gal_obj["y"] = pixel2pixel(
-                gal_obj["x"], gal_obj["y"], img_wcs0, img_wcs
-            )
-            gal_obj["a"] *= scale
-            gal_obj["b"] *= scale
+        if survey=='DES':
+            flip = True
+        else:
+            flip = False
+        if flip == flip2:
+            flip_ = False
+        else:
+            flip_ = True
 
-        nogal_objs = nogal_objs.copy()
-        nogal_objs["x"], nogal_objs["y"] = pixel2pixel(
-            nogal_objs["x"], nogal_objs["y"], img_wcs0, img_wcs
-        )
-        nogal_objs["a"] *= scale
-        nogal_objs["b"] *= scale
+        gal_obj = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
+        nogal_objs = adapt_aperture(nogal_objs, master_img_wcs, img_wcs, flip_)
 
     masked_data = mask_image(data_sub, nogal_objs, sigma=sigma)
     img[0].data = masked_data
@@ -223,8 +218,13 @@ def create_mask(
             host_ra, host_dec, ra, dec, outfile
         )
 
+    if survey == 'DES':
+        flip = True
+    else:
+        flip = False
+
     if extract_params:
-        return gal_obj, nogal_objs, img_wcs, pixel_scale
+        return gal_obj, nogal_objs, img_wcs, flip
 
 
 def plot_masked_image(

@@ -289,7 +289,7 @@ def get_DES_images(ra, dec, size=3, filters=None):
 
 # SDSS
 # ----------------------------------------
-def get_SDSS_images(ra, dec, size=3, filters=None):
+def get_SDSS_images(ra, dec, size=3, filters=None, version=None):
     """Downloads a set of SDSS fits images for a given set
     of coordinates and filters using SkyView.
 
@@ -303,6 +303,8 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
         Image size. If a float is given, the units are assumed to be arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``ugriz``.
+    version: str, default ``None``
+        Data release version to use. If not given, use the latest one (``dr17``).
 
     Return
     ------
@@ -314,6 +316,13 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
+    # check data release version
+    if version is None:
+        version = 'dr17'
+
+    versions = [f'dr{i}' for i in range(12, 17+1)]
+    assert version in versions, f"The given version ({version}) is not a valid data release: {versions}"
+    dr = int(version.replace('dr', ''))
 
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec)
@@ -324,28 +333,33 @@ def get_SDSS_images(ra, dec, size=3, filters=None):
     size_pixels = int(size_arcsec.value / pixel_scale)
 
     pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
-    for radius in np.arange(5, 65, 5):
-        ids = SDSS.query_region(pos, radius=radius * u.arcsec)
+    for radius in np.arange(1, 60, 1):
+        ids = SDSS.query_region(pos, radius=radius * u.arcsec, data_release=dr)
         if ids is not None:
             break
 
     if ids is None:
         return None
 
-    # get images
-    hdu_id = len(ids) // 2
-    if hdu_id == 0:
-        hdu_list = SDSS.get_images(matches=ids, band=filters)
-    else:
-        sub_id = ids[hdu_id - 1 : hdu_id]  # get the one in the middle
-        hdu_list = SDSS.get_images(matches=sub_id, band=filters)
+    pointings_ra = ids['ra'].value
+    pointings_dec = ids['dec'].value
+    dist = np.sqrt((pointings_ra - ra) ** 2 * (np.cos(pointings_dec * np.pi / 180) ** 2) +
+                   (pointings_dec - dec) ** 2)
+
+    # get the pointing closest to the given coordinates
+    pointing_id = np.argmin(dist)
+    ids2remove = list(np.arange(len(dist)))
+    del ids2remove[pointing_id]
+    ids.remove_rows(ids2remove)
+
+    # download images here
+    hdu_list = SDSS.get_images(matches=ids, band=filters, data_release=dr)
 
     # SDSS images are large so need to be trimmed
     for hdu in hdu_list:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", AstropyWarning)
             img_wcs = wcs.WCS(hdu[0].header)
-        pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
 
         trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
         hdu[0].data = trimmed_data.data
@@ -560,21 +574,19 @@ def get_WISE_images(ra, dec, size=3, filters=None):
         size_arcsec = size.to(u.arcsec)
 
     pixel_scale = survey_pixel_scale(survey)
-    size_pixels = int(size_arcsec.value / pixel_scale)
+    # size_pixels = int(size_arcsec.value / pixel_scale)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         coords = SkyCoord(
             ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
         )
-
+        # just to get the original image used
         skyview_fits = SkyView.get_images(
             position=coords,
             coordinates="icrs",
-            pixels=str(size_pixels),
+            pixels='100',
             survey="WISE 3.4",
-            #width=size_arcsec,
-            #height=size_arcsec,
         )
         header = skyview_fits[0][0].header
 
@@ -1142,8 +1154,8 @@ def download_images(
     given survey.
 
     The surveys that use the ``version`` parameter are: GALEX (``AIS``, ``MIS``,
-    ``DIS``, ``NGS`` and ``GII``),  unWISE (``allwise`` and ``neo{i}`` for {i}=1-7)
-    and VISTA (``VHS``, ``VIDEO`` and ``VIKING``).
+    ``DIS``, ``NGS`` and ``GII``),  unWISE (``allwise`` and ``neo{i}`` for {i}=1-7),
+    VISTA (``VHS``, ``VIDEO`` and ``VIKING``) and SDSS (``dr{i}`` for {i}=12-17).
 
     Parameters
     ----------
@@ -1190,7 +1202,7 @@ def download_images(
     elif survey == "DES":
         hdu_list = get_DES_images(ra, dec, size, filters)
     elif survey == "SDSS":
-        hdu_list = get_SDSS_images(ra, dec, size, filters)
+        hdu_list = get_SDSS_images(ra, dec, size, filters, version)
     elif survey == "GALEX":
         hdu_list = get_GALEX_images(ra, dec, size, filters, version)
     elif survey == "WISE":
