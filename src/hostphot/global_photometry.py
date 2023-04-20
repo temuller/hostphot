@@ -90,7 +90,7 @@ def kron_flux(data, err, gain, objects, kronrad, scale):
             objects["theta"] -= np.pi
         elif objects["theta"] < -np.pi/2:
             objects["theta"] += np.pi
-            
+
         flux, flux_err, _ = sep.sum_ellipse(
             data,
             objects["x"],
@@ -568,8 +568,9 @@ def multi_band_phot(
     optimize_kronrad: bool, default ``True``
         If ``True``, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
-    eps: float, default ``0.0001`` (0.1%)
-        Minimum percent change in flux allowed between iterations
+    eps: float, default ``0.0001``
+        The Kron radius is increased until the change in flux is lower than ``eps``.
+        A value of 0.0001 means 0.01% change in flux.
         when optimizing the Kron radius.
     gal_dist_thresh: float, default ``-1``.
         Distance in arcsec to crossmatch the galaxy coordinates with a detected object,

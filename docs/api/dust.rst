@@ -3,6 +3,5 @@
 Dust (extinction correction)
 ============================
 
-.. currentmodule:: hostphot.dust
-.. autofunction:: deredden
-.. autofunction:: calc_extinction
+.. automodule:: hostphot.dust
+   :members:
