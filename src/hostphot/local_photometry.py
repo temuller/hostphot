@@ -224,6 +224,10 @@ def photometry(
         Aperture magnitudes for the given aperture radii.
     mags_err: list
         Aperture magnitude errors for the given aperture radii.
+    fluxes: list
+        Aperture flux for the given aperture radii.
+    fluxes_err: list
+        Aperture flux errors for the given aperture radii.
     """
     check_survey_validity(survey)
     check_work_dir(workdir)
@@ -258,6 +262,7 @@ def photometry(
         ap_radii = [ap_radii]
 
     mags, mags_err = [], []
+    fluxes, fluxes_err = [], []
     px, py = img_wcs.wcs_world2pix(ra, dec, 1)
     pixel_scale = survey_pixel_scale(survey, filt)
     error = calc_sky_unc(data_sub, exptime)
@@ -289,6 +294,8 @@ def photometry(
 
         mags.append(mag)
         mags_err.append(mag_err)
+        fluxes.append(flux)
+        fluxes_err.append(total_flux_error)
 
         if save_plots:
             outfile = os.path.join(
@@ -296,7 +303,7 @@ def photometry(
             )
             plot_aperture(data_sub, px, py, radius_pix, img_wcs, outfile)
 
-    return mags, mags_err
+    return mags, mags_err, fluxes, fluxes_err
 
 
 def multi_band_phot(
@@ -387,7 +394,7 @@ def multi_band_phot(
 
     for filt in filters:
         try:
-            mags, mags_err = photometry(
+            mags, mags_err, fluxes, fluxes_err = photometry(
                 name,
                 ra,
                 dec,
@@ -400,9 +407,13 @@ def multi_band_phot(
                 correct_extinction,
                 save_plots,
             )
-            for radius, mag, mag_err in zip(ap_radii, mags, mags_err):
-                results_dict[f"{filt}{radius}"] = mag
-                results_dict[f"{filt}{radius}_err"] = mag_err
+            for radius, mag, mag_err, flux, flux_err in zip(ap_radii, 
+                                                            mags, mags_err, 
+                                                            fluxes, fluxes_err):
+                results_dict[f"{filt}_{radius}"] = mag
+                results_dict[f"{filt}_{radius}_err"] = mag_err
+                results_dict[f"{filt}_{radius}_flux"] = flux
+                results_dict[f"{filt}_{radius}_flux_err"] = flux_err
         except Exception as exc:
             if raise_exception is True:
                 raise Exception(exc)
@@ -410,6 +421,8 @@ def multi_band_phot(
                 for radius in ap_radii:
                     results_dict[f"{filt}_{radius}"] = np.nan
                     results_dict[f"{filt}_{radius}_err"] = np.nan
+                    results_dict[f"{filt}_{radius}_flux"] = np.nan
+                    results_dict[f"{filt}_{radius}_flux_err"] = np.nan
 
     if save_results is True:
         outfile = os.path.join(workdir, name, f'{survey}_local.csv')

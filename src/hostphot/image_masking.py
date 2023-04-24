@@ -1,4 +1,5 @@
 import os
+import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
@@ -94,6 +95,7 @@ def create_mask(
     extract_params=False,
     common_params=None,
     save_plots=True,
+    save_mask_params=True,
 ):
     """Calculates the aperture parameters for common aperture.
 
@@ -139,6 +141,8 @@ def create_mask(
         These are the same as the outputs of this function.
     save_plots: bool, default ``True``
         If ``True``, the mask and galaxy aperture figures are saved.
+    save_mask_params: bool, default `True`
+        If `True`, the extracted mask parameters are saved into a pickle file.
 
     Returns
     -------
@@ -222,6 +226,12 @@ def create_mask(
         flip = True
     else:
         flip = False
+
+    if save_mask_params is True:
+        outfile = os.path.join(obj_dir, f"{survey}_{filt}_mask_parameters.pickle")
+        with open(outfile, 'wb') as fp:
+            mask_parameters = gal_obj, nogal_objs, img_wcs, flip
+            pickle.dump(mask_parameters, fp, protocol=4)
 
     if extract_params:
         return gal_obj, nogal_objs, img_wcs, flip

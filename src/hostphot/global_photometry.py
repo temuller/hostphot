@@ -15,6 +15,7 @@
 # Some parts of this notebook are based on https://github.com/djones1040/PS1_surface_brightness/blob/master/Surface%20Brightness%20Tutorial.ipynb and codes from Lluís Galbany
 
 import os
+import pickle
 import numpy as np
 import pandas as pd
 
@@ -175,7 +176,7 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
             warnings.warn("Warning: the aperture might not fit in the image!")
             break
 
-    return opt_flux, opt_flux_err, opt_kronrad, opt_scale
+    return opt_flux, opt_flux_err, opt_kronrad[0], opt_scale
 
 
 def extract_kronparams(
@@ -193,6 +194,7 @@ def extract_kronparams(
     eps=0.0001,
     gal_dist_thresh=-1,
     save_plots=True,
+    save_aperture_params=True,
 ):
     """Calculates the aperture parameters for common aperture.
 
@@ -222,9 +224,9 @@ def extract_kronparams(
     optimize_kronrad: bool, default `True`
         If `True`, the Kron radius is optimized, increasing the
         aperture size until the flux does not increase.
-    eps: float, default ``0.0001`` (0.1%)
-        Minimum percent change in flux allowed between iterations
-        when optimizing the Kron radius.
+    eps: float, default ``0.0001``
+        The Kron radius is increased until the change in flux is lower than ``eps``.
+        A value of 0.0001 means 0.01% change in flux.
     gal_dist_thresh: float, default ``-1``.
         Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
         where the object nearest to the galaxy position is considered as the galaxy (within
@@ -232,8 +234,10 @@ def extract_kronparams(
         the galaxy is considered as not found and a warning is printed. If a non-positive value
         is given, the threshold is considered as infinite, i.e. the closest detected object is
         considered as the galaxy (default option).
-    save_plots: bool, default `False`
+    save_plots: bool, default `True`
         If `True`, the mask and galaxy aperture figures are saved.
+    save_aperture_params: bool, default `True`
+        If `True`, the extracted mask parameters are saved into a pickle file.
 
     Returns
     -------
@@ -287,7 +291,7 @@ def extract_kronparams(
         _, _, kronrad, scale = opt_res
     else:
         scale = 2.5
-        kronrad, krflag = sep.kron_radius(
+        kronrad, _ = sep.kron_radius(
             data_sub,
             gal_obj["x"],
             gal_obj["y"],
@@ -296,30 +300,24 @@ def extract_kronparams(
             gal_obj["theta"],
             6.0,
         )
-    save_aperture_params = False
-    if save_aperture_params is True:
-        params_dict = {"x": [gal_obj["x"]],
-                       "y": [gal_obj["y"]],
-                       "a": [gal_obj["a"]],
-                       "b": [gal_obj["b"]],
-                       "theta": [gal_obj["theta"]],
-                       "kron_radius": [kronrad],
-                       "scale": [scale],
-                       }
-        params_df = pd.DataFrame(params_dict)
-        outfile = os.path.join(obj_dir, f"aperture_parameters_{survey}_{filt}.csv")
-        params_df.to_csv(outfile, index=False)
-
+    
     if save_plots is True:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
         plot_detected_objects(
             data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile
         )
+    
 
     if survey == 'DES':
         flip = True
     else:
-        flip = False
+        flip = False        
+
+    if save_aperture_params is True:
+        outfile = os.path.join(obj_dir, f"{survey}_{filt}_aperture_parameters.pickle")
+        with open(outfile, 'wb') as fp:
+            aperture_parameters = gal_obj, img_wcs, kronrad, scale, flip
+            pickle.dump(aperture_parameters, fp, protocol=4)
 
     return gal_obj, img_wcs, kronrad, scale, flip
 
@@ -400,6 +398,10 @@ def photometry(
         Aperture magnitude.
     mag_err: float
         Error on the aperture magnitude.
+    flux: float
+        Aperture flux.
+    total_flux_err: float
+        Total flux error on the aperture flux.
     """
     check_survey_validity(survey)
     check_work_dir(workdir)
@@ -500,7 +502,7 @@ def photometry(
             data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile
         )
 
-    return mag, mag_err
+    return mag, mag_err, flux, total_flux_err
 
 
 def multi_band_phot(
@@ -636,7 +638,7 @@ def multi_band_phot(
 
     for filt in filters:
         try:
-            mag, mag_err = photometry(
+            mag, mag_err, flux, flux_err = photometry(
                 name,
                 host_ra,
                 host_dec,
@@ -656,6 +658,8 @@ def multi_band_phot(
             )
             results_dict[filt] = mag
             results_dict[f"{filt}_err"] = mag_err
+            results_dict[f"{filt}_flux"] = flux
+            results_dict[f"{filt}_flux_err"] = flux_err
         except Exception as exc:
             if raise_exception is True:
                 raise Exception(f'{filt}-band: {exc}')

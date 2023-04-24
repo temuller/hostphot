@@ -65,14 +65,14 @@ class InteractiveAperture:
     ):
         self.name = name
         self.survey = survey
-        if not filters:
+        if filters is None:
             self.filters = get_survey_filters(survey)
         else:
             check_filters_validity(filters, survey)
             self.filters = filters
         self.filt = self.filters[0]
 
-        if masked:
+        if masked is True:
             self.masked = "masked_"
         else:
             self.masked = ""
@@ -304,7 +304,7 @@ class InteractiveAperture:
         self.dec = coords.dec.value[0]
 
         scale = 1  # fixed
-        flux, flux_err, flag = sep.sum_ellipse(
+        flux, flux_err, _ = sep.sum_ellipse(
             self.data,
             x,
             y,
@@ -330,7 +330,7 @@ class InteractiveAperture:
             * self.eparams["width"]["value"]
             * self.eparams["height"]["value"]
         )
-        mag, mag_err = magnitude_calculation(
+        mag, mag_err, total_flux_error = magnitude_calculation(
             flux,
             flux_err,
             self.survey,
@@ -367,7 +367,8 @@ class InteractiveAperture:
     def export_photometry(self, outfile=None):
         """Exports the photometry (magnitudes) into a csv file."""
         if not outfile:
-            outfile = f"{self.name}_phot.csv"
+            basename = f'{self.survey}_interactive_photometry.csv'
+            outfile = os.path.join(workdir, self.name, basename)
 
         mag_phot = self.mag_phot.copy()
         for key in mag_phot.keys():

@@ -121,6 +121,12 @@ def survey_zp(survey):
     if "," in zps:
         zps = zps.split(",")
         zp_dict = {filt: float(zp) for filt, zp in zip(filters, zps)}
+    elif survey=='SDSS':
+        # SDSS zero-points are not exactly in AB:
+        # https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB
+        zp_dict = {filt: float(zps) for filt in filters}
+        zp_dict['u'] -= 0.04
+        zp_dict['z'] += 0.02
     else:
         zp_dict = {filt: float(zps) for filt in filters}
 
