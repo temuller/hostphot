@@ -25,7 +25,7 @@ class TestHostPhot(unittest.TestCase):
             use_mask=False,
             save_plots=True,
         )
-        mags = [phot[filt] for filt in ["g4", "r4", "i4", "z4"]]
+        mags = [phot[filt] for filt in ["g_4", "r_4", "i_4", "z_4"]]
         # pre-calculated magnitudes
         ref_mags = [12.26, 11.89, 11.72, 11.57]
 
