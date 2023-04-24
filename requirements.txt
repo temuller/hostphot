@@ -1,6 +1,7 @@
 pip
 numpy<1.20.0
 pandas
+pickle5; python_version < '3.8'
 matplotlib
 python-dotenv
 astropy
