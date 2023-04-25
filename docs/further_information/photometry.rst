@@ -13,9 +13,7 @@ However, the error propagation can be a lot more problematic for some surveys.
 
 For the global photometry, HostPhot uses :func:`sep.sum_ellipse()` to meaused the counts of the host galaxy, where the value of the parameter ``gain`` depends on each survey+image and the parameter ``err`` is taken to be the global RMS of the background of the image, calculated with :func:`sep.Background()`.
 
-For the local photometry, HostPhot uses :func:`photutils.aperture_photometry()` to meaused the counts of the host galaxy, where the value of the parameter ``error`` is calculated with :func:`astropy.stats.sigma_clipped_stats` (using ``sigma=3``) and :func:`photutils.utils.calc_total_error` (using the exposure time of each image). From the output of :func:`photutils.aperture_photometry()` the counts/flux is given by ``aperture_sum`` while the error is given by ``aperture_sum_err``.
-
-In addition to the `magnitude` uncertainty calculated from the aperture photometry above (:math:`\sigma_{\text{ap}}`), other uncertainties are added in quadrature (see below).
+For the local photometry, HostPhot uses :func:`photutils.aperture_photometry()` to meaused the counts of the host galaxy, where the value of the parameter ``error`` is calculated with :func:`astropy.stats.sigma_clipped_stats` (using ``sigma=3``) and :func:`photutils.utils.calc_total_error` (using the exposure time of each image). From the output of :func:`photutils.aperture_photometry()` the counts/flux is given by ``aperture_sum`` while the error is given by ``aperture_sum_err`` (:math:`\sigma_{\text{ap}}`). Other uncertainties are added in quadrature (see below for the respective surveys).
 
 Note that the global and local photometry are calculates in a similar way as in `Wiseman et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020MNRAS.495.4040W/abstract>`_ and `Kelsey et al. (2021)  <https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.4861K/abstract>`_, respectively. Also note that the only surveys that need background subtraction are 2MASS, WISE and VISTA, which is performed by default by HostPhot.
 
@@ -48,9 +46,9 @@ DES
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1. However, there is an additional component coming from the calibration of the photometric system (see the `DES DR1 Quality website <https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality>`_). The calibration uncertainties (:math:`\sigma_{\text{cal}}`) are 2.6, 2.9, 3.4, 2.5, and 4.5 mmag for the :math:`g`, :math:`r`, :math:`i`, :math:`z`, and :math:`Y` bands, respectively.
+  The errors are propagated in the same way as for PS1. However, there is an additional component coming from the calibration of the photometric system (see the `DES DR1 Quality website <https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality>`_). There are statistical uncertainties on the shifts applied to DES photometry to place it in the AB system (:math:`\sigma_{\text{stat, shift}}`), which are 2.6, 2.9, 3.4, 2.5, and 4.5 mmag for the :math:`g`, :math:`r`, :math:`i`, :math:`z`, and :math:`Y` bands, respectively. In addition, there are median coadd zeropoint statistical uncertainties (:math:`\sigma_{\text{stat, zp}}`): 5, 4, 5, 6, and 5 mmag for the :math:`g`, :math:`r`, :math:`i`, :math:`z`, and :math:`Y` bands, respectively.
   
-  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{cal}}^2)`.
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{stat, shift}}^2 + \sigma_{\text{stat, zp}}^2)`.
 
 
 SDSS
@@ -58,7 +56,7 @@ SDSS
 
 * **ZP**
   
-  Given that the units of the SDSS images are in nanomaggies, the ZP is equal to :math:`22.5` (see `https://www.sdss.org/dr13/help/glossary/#nanomaggie <https://www.sdss.org/dr13/help/glossary/#nanomaggie>`_).
+  Given that the units of the SDSS images are in nanomaggies, the ZP is equal to :math:`22.5` (see `https://www.sdss.org/dr13/help/glossary/#nanomaggie <https://www.sdss.org/dr13/help/glossary/#nanomaggie>`_). However, SDSS magnitudes are not exactly in AB system, as described in `https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB <https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB>`_. Therefore, offsets need to be applied to :math:`u` and :math:`z` bands: :math:`u_{\rm AB} = u_{\rm SDSS} - 0.04` and :math:`z_{\rm AB} = z_{\rm SDSS} + 0.02`.
   
 * **Error Propagation**
 

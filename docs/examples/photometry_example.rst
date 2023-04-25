@@ -25,7 +25,7 @@ Local photometry can be obtained for the downloaded images. For this, a circular
 	                     	     save_plots=True)
 
 
-``results`` is a dictionary with the photometry (magnitudes) of the filters used. Note that the coordinates are at the position of the object (``SN2004eo``). The cosmology can be changed with :func:`lp.choose_cosmology()`. Setting ``use_mask=True`` tells HostPhot to used the masked images previously created (see :ref:`Image Pre-processing <preprocessing>`) and setting ``save_plots=True`` provides output plots with the images and the apertures used, which are saved under the object's directory.
+``results`` is a dictionary with the photometry (flux and magnitudes) of the filters used (the results are saved into a CSV file). Note that the coordinates are at the position of the object (``SN2004eo``). The cosmology can be changed with :func:`lp.choose_cosmology()`. Setting ``use_mask=True`` tells HostPhot to used the masked images previously created (see :ref:`Image Pre-processing <preprocessing>`) and setting ``save_plots=True`` provides output plots with the images and the apertures used, which are saved under the object's directory.
 
 Image with local aperture:
 
@@ -48,7 +48,7 @@ Global photometry relies on `sep <https://github.com/kbarbary/sep/>`_ and uses `
                              	     common_aperture=True, coadd_filters='riz', 
                              	     save_plots=True)
 
-Setting ``common_aperture=True`` tells HostPhot to used the same aperture for all the filters, obtained from the coadded image (``coadd_filters='riz'``; see :ref:`Image Pre-processing <preprocessing>`) and setting ``optimize_kronrad=True`` provides a more reliable aperture than using the default parameters commonly used by SExtractor as the aperture is increased until the change in flux is neglegible (this can be changed with ``eps``). The rest of the parameters are the same as before.
+Setting ``common_aperture=True`` tells HostPhot to used the same aperture for all the filters, obtained from the coadded image (``coadd_filters='riz'``; see :ref:`Image Pre-processing <preprocessing>`) and setting ``optimize_kronrad=True`` provides a more "reliable" aperture than using the default parameters commonly used by SExtractor, as the aperture is increased until the change in flux is samller than a given percent (this can be changed with ``eps``). The rest of the parameters are the same as before.
 
 Image with global aperture:
 

@@ -3,5 +3,5 @@
 Image Cleaning
 ==============
 
-.. auromodule:: hostphot.image_cleaning
+.. automodule:: hostphot.image_cleaning
    :members:
