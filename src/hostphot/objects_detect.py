@@ -12,7 +12,9 @@ from astropy.coordinates import SkyCoord
 from hostphot.utils import update_axislabels
 
 
-def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs, dist_thresh=-1):
+def extract_objects(
+    data, err, host_ra, host_dec, threshold, img_wcs, dist_thresh=-1
+):
     """Extracts objects and their ellipse parameters. The function :func:`sep.extract()`
     is used.
 
@@ -57,20 +59,22 @@ def extract_objects(data, err, host_ra, host_dec, threshold, img_wcs, dist_thres
 
     objs_coords = img_wcs.pixel_to_world(objects["x"], objects["y"])
     objs_ra, objs_dec = objs_coords.ra.value, objs_coords.dec.value
-    dist = np.sqrt((objs_ra - host_ra) ** 2 * (np.cos(host_dec * np.pi / 180) ** 2) +
-                   (objs_dec - host_dec) ** 2)  # in degrees
-    dist_arcsec = dist*3600
+    dist = np.sqrt(
+        (objs_ra - host_ra) ** 2 * (np.cos(host_dec * np.pi / 180) ** 2)
+        + (objs_dec - host_dec) ** 2
+    )  # in degrees
+    dist_arcsec = dist * 3600
 
     if dist_thresh <= 0.0:
         dist_thresh = np.inf
 
     if any(dist_arcsec <= dist_thresh):
         gal_id = np.argmin(dist_arcsec)
-        gal_obj = objects[gal_id: gal_id + 1]
+        gal_obj = objects[gal_id : gal_id + 1]
     else:
         gal_obj = None
         gal_id = -99
-        print('WARNING: the galaxy was no detected')
+        print("WARNING: the galaxy was no detected")
 
     objs_id = [i for i in range(len(objects)) if i != gal_id]
     nogal_objs = objects.take(objs_id)
@@ -254,7 +258,7 @@ def plot_detected_objects(
     if outfile:
         basename = os.path.basename(outfile)
         title = os.path.splitext(basename)[0]
-        title = '-'.join(part for part in title.split('_'))
+        title = "-".join(part for part in title.split("_"))
         fig.suptitle(title, fontsize=28)
         plt.tight_layout()
         plt.savefig(outfile, bbox_inches="tight")

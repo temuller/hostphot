@@ -37,7 +37,7 @@ from hostphot.utils import (
     check_work_dir,
     update_axislabels,
     magnitude_calculation,
-    bkg_surveys
+    bkg_surveys,
 )
 from hostphot.image_cleaning import remove_nan
 from hostphot.dust import calc_extinction
@@ -164,7 +164,7 @@ def plot_aperture(data, px, py, radius_pix, img_wcs, outfile=None):
     if outfile:
         basename = os.path.basename(outfile)
         title = os.path.splitext(basename)[0]
-        title = '-'.join(part for part in title.split('_'))
+        title = "-".join(part for part in title.split("_"))
         fig.suptitle(title, fontsize=28)
         plt.tight_layout()
         plt.savefig(outfile, bbox_inches="tight")
@@ -407,9 +407,9 @@ def multi_band_phot(
                 correct_extinction,
                 save_plots,
             )
-            for radius, mag, mag_err, flux, flux_err in zip(ap_radii, 
-                                                            mags, mags_err, 
-                                                            fluxes, fluxes_err):
+            for radius, mag, mag_err, flux, flux_err in zip(
+                ap_radii, mags, mags_err, fluxes, fluxes_err
+            ):
                 results_dict[f"{filt}_{radius}"] = mag
                 results_dict[f"{filt}_{radius}_err"] = mag_err
                 results_dict[f"{filt}_{radius}_flux"] = flux
@@ -425,8 +425,10 @@ def multi_band_phot(
                     results_dict[f"{filt}_{radius}_flux_err"] = np.nan
 
     if save_results is True:
-        outfile = os.path.join(workdir, name, f'{survey}_local.csv')
-        phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
+        outfile = os.path.join(workdir, name, f"{survey}_local.csv")
+        phot_df = pd.DataFrame(
+            {key: [val] for key, val in results_dict.items()}
+        )
         phot_df.to_csv(outfile, index=False)
 
     return results_dict

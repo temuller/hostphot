@@ -19,7 +19,8 @@ config_file = os.path.join(hostphot_path, "filters", "config.txt")
 config_df = pd.read_csv(config_file, delim_whitespace=True)
 
 # surveys that need background subtraction
-bkg_surveys = ['2MASS', 'WISE', 'VISTA']
+bkg_surveys = ["2MASS", "WISE", "VISTA"]
+
 
 def calc_sky_unc(image, exptime):
     """Calculates the uncertainty of the image from the
@@ -121,12 +122,12 @@ def survey_zp(survey):
     if "," in zps:
         zps = zps.split(",")
         zp_dict = {filt: float(zp) for filt, zp in zip(filters, zps)}
-    elif survey=='SDSS':
+    elif survey == "SDSS":
         # SDSS zero-points are not exactly in AB:
         # https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB
         zp_dict = {filt: float(zps) for filt in filters}
-        zp_dict['u'] -= 0.04
-        zp_dict['z'] += 0.02
+        zp_dict["u"] -= 0.04
+        zp_dict["z"] += 0.02
     else:
         zp_dict = {filt: float(zps) for filt in filters}
 
@@ -406,8 +407,8 @@ def uncertainty_calculation(
         extra_err = unc_dict[filt]
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-        extra_flux_err = np.abs(flux*0.4*np.log(10)*extra_err)
-        total_flux_err = np.sqrt(total_flux_err ** 2 + extra_flux_err ** 2)
+        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * extra_err)
+        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
 
     elif survey == "PS1":
         # add floor systematic error from:
@@ -420,10 +421,10 @@ def uncertainty_calculation(
             "y": 18e-3,
         }
         floor_err = unc_dict[filt]
-        mag_err = np.sqrt(mag_err ** 2 + floor_err ** 2)
+        mag_err = np.sqrt(mag_err**2 + floor_err**2)
 
         extra_flux_err = np.abs(flux * 0.4 * np.log(10) * floor_err)
-        total_flux_err = np.sqrt(total_flux_err ** 2 + extra_flux_err ** 2)
+        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
 
     elif survey == "SDSS":
         # https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
@@ -486,7 +487,7 @@ def uncertainty_calculation(
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
         extra_flux_err = np.sqrt(dark_variance + flux / gain)
-        total_flux_err = np.sqrt(total_flux_err ** 2 + extra_flux_err ** 2)
+        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
 
     elif survey == "GALEX":
         # https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html
@@ -500,7 +501,9 @@ def uncertainty_calculation(
                     / exptime
                 )
             )
-            flux_uv_err = np.sqrt(CPS*exptime + (0.050 * CPS * exptime)**2)/exptime
+            flux_uv_err = (
+                np.sqrt(CPS * exptime + (0.050 * CPS * exptime) ** 2) / exptime
+            )
         elif filt == "NUV":
             uv_err = -2.5 * (
                 np.log10(CPS)
@@ -510,11 +513,13 @@ def uncertainty_calculation(
                     / exptime
                 )
             )
-            flux_uv_err = np.sqrt(CPS * exptime + (0.027 * CPS * exptime) ** 2) / exptime
+            flux_uv_err = (
+                np.sqrt(CPS * exptime + (0.027 * CPS * exptime) ** 2) / exptime
+            )
 
         mag_err = np.sqrt(mag_err**2 + uv_err**2)
 
-        total_flux_err = np.sqrt(total_flux_err ** 2 + flux_uv_err ** 2)
+        total_flux_err = np.sqrt(total_flux_err**2 + flux_uv_err**2)
 
     elif survey == "2MASS":
         # see: https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/
@@ -533,8 +538,8 @@ def uncertainty_calculation(
 
         mag_err = 1.0857 / SNR
 
-        extra_flux_err = flux/SNR
-        total_flux_err = np.sqrt(total_flux_err ** 2 + extra_flux_err ** 2)
+        extra_flux_err = flux / SNR
+        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
 
     elif "WISE" in survey:
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
@@ -565,21 +570,21 @@ def uncertainty_calculation(
 
         mag_err = np.sqrt(1.179 * sigma_src**2 / F_src**2)
 
-        total_flux_err = f_apcor ** 2
+        total_flux_err = f_apcor**2
 
         # add uncertainty from the ZP
-        if survey=="unWISE":
+        if survey == "unWISE":
             # These values are the same for all Atlas Images of a given band...
             # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
-            unc_dict = {'W1':0.006, 'W2':0.007, 'W3':0.012, 'W4':0.012}
+            unc_dict = {"W1": 0.006, "W2": 0.007, "W3": 0.012, "W4": 0.012}
             zp_unc = unc_dict[filt]
-        elif survey=="WISE":
+        elif survey == "WISE":
             zp_unc = header["MAGZPUNC"]
 
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
         extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
-        total_flux_err = np.sqrt(total_flux_err ** 2 + extra_flux_err ** 2)
+        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
 
     elif survey == "LegacySurvey":
         # already added at the beginning
@@ -593,7 +598,7 @@ def uncertainty_calculation(
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
         extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
-        total_flux_err = np.sqrt(total_flux_err ** 2 + extra_flux_err ** 2)
+        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
 
     else:
         raise Exception(
@@ -650,10 +655,10 @@ def check_filters_validity(filters, survey):
 
     Parameters
     ----------
-    filters: str
+    filters: str or list
         Filters to use, e,g, ``griz``.
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
+        Survey name, e.g. ``PS1``, ``DES`` and ``GALEX``.
     """
     if filters is not None:
         valid_filters = get_survey_filters(survey)
@@ -664,6 +669,34 @@ def check_filters_validity(filters, survey):
                 f"'{survey}' survey ({valid_filters})"
             )
             assert filt in valid_filters, message
+
+
+def check_HST_inputs(filt, instrument):
+    """Check whether the given filter and instrument are whithin the valid
+    options for HST.
+
+    Parameters
+    ----------
+    filt: str
+        Filter to use, e,g, ``F225W``.
+    instrument: str
+        Instrument name, e.g. ``WFC3/UVIS1``.
+    """
+    hst_file = os.path.join(hostphot_path, "filters/HST", "HST_filters.txt")
+    valid_instruments, valid_filters = np.loadtxt(hst_file, dtype=str).T
+
+    assert (
+        instrument in valid_instruments
+    ), f"Not a valid HST instrument ({instrument}): {valid_instruments}"
+    assert (
+        filt in valid_filters
+    ), f"Not a valid HST filter ({filt}): {valid_filters}"
+
+    indexes_inst = [i for i, f in enumerate(valid_filters) if f == filt]
+    matched_instruments = valid_instruments[indexes_inst]
+    assert (
+        instrument in matched_instruments
+    ), f"Not a valid HST instrument-filter combination -> {instrument}-{filt}"
 
 
 def extract_filters(filters, survey, version=None):
@@ -771,6 +804,7 @@ def integrate_filter(
 
     return flux_filter
 
+
 def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
     """Changes the aperture parameters to consider differences
     in WCS between surveys.
@@ -788,7 +822,7 @@ def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
     img_wcs2: ~wcs.WCS
         WCS used to adapt the apertures.
     flip: bool, default ``False``
-        Whether to flip the orientation of the aperture. Only 
+        Whether to flip the orientation of the aperture. Only
         used for DES images.
 
     Returns
@@ -798,23 +832,25 @@ def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
     """
     objects_ = objects.copy()  # avoid modifying the intial objects
     for obj in objects_:
-        center = (obj['x'], obj['y'])
-        apertures = EllipticalAperture(center, obj['a'],
-                                       obj['b'], obj['theta'])
+        center = (obj["x"], obj["y"])
+        apertures = EllipticalAperture(
+            center, obj["a"], obj["b"], obj["theta"]
+        )
         sky_apertures = apertures.to_sky(img_wcs)
 
         new_apertures = sky_apertures.to_pixel(img_wcs2)
         new_center = new_apertures.positions
-        obj['x'], obj['y'] = new_center
-        obj['a'] = new_apertures.a
-        obj['b'] = new_apertures.b
-        obj['theta'] = new_apertures.theta
+        obj["x"], obj["y"] = new_center
+        obj["a"] = new_apertures.a
+        obj["b"] = new_apertures.b
+        obj["theta"] = new_apertures.theta
 
         if flip is True:
             # flip aperture orientation
-            obj['theta'] *= -1
+            obj["theta"] *= -1
 
     return objects_
+
 
 def check_work_dir(wokrdir):
     """Checks if the working directory exists. If it
@@ -881,7 +917,7 @@ def plot_fits(fits_file, ext=0):
         vmax=m + s,
         origin="lower",
     )
-    
+
     plt.show()
 
 

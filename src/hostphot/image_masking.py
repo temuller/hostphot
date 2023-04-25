@@ -28,7 +28,7 @@ from hostphot.utils import (
     update_axislabels,
     survey_pixel_scale,
     bkg_surveys,
-    adapt_aperture
+    adapt_aperture,
 )
 
 import warnings
@@ -183,7 +183,13 @@ def create_mask(
     if common_params is None:
         # extract objects
         gal_obj, nogal_objs = extract_objects(
-            data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs, gal_dist_thresh
+            data_sub,
+            bkg_rms,
+            host_ra,
+            host_dec,
+            threshold,
+            img_wcs,
+            gal_dist_thresh,
         )
         # preprocessing: cross-match extracted objects with a catalog
         # using two Gaia catalogs as they do not always include the
@@ -198,7 +204,7 @@ def create_mask(
         # the aperture/ellipse parameters are updated accordingly
         gal_obj, nogal_objs, master_img_wcs, flip2 = common_params
 
-        if survey=='DES':
+        if survey == "DES":
             flip = True
         else:
             flip = False
@@ -218,18 +224,28 @@ def create_mask(
     if save_plots:
         outfile = os.path.join(obj_dir, f"masked_{survey}_{filt}.jpg")
         plot_masked_image(
-            data_sub, masked_data, nogal_objs, img_wcs, gal_obj,
-            host_ra, host_dec, ra, dec, outfile
+            data_sub,
+            masked_data,
+            nogal_objs,
+            img_wcs,
+            gal_obj,
+            host_ra,
+            host_dec,
+            ra,
+            dec,
+            outfile,
         )
 
-    if survey == 'DES':
+    if survey == "DES":
         flip = True
     else:
         flip = False
 
     if save_mask_params is True:
-        outfile = os.path.join(obj_dir, f"{survey}_{filt}_mask_parameters.pickle")
-        with open(outfile, 'wb') as fp:
+        outfile = os.path.join(
+            obj_dir, f"{survey}_{filt}_mask_parameters.pickle"
+        )
+        with open(outfile, "wb") as fp:
             mask_parameters = gal_obj, nogal_objs, img_wcs, flip
             pickle.dump(mask_parameters, fp, protocol=4)
 
@@ -238,8 +254,16 @@ def create_mask(
 
 
 def plot_masked_image(
-    data, masked_data, objects, img_wcs, gal_obj=None,
-    host_ra=None, host_dec=None, ra=None, dec=None, outfile=None
+    data,
+    masked_data,
+    objects,
+    img_wcs,
+    gal_obj=None,
+    host_ra=None,
+    host_dec=None,
+    ra=None,
+    dec=None,
+    outfile=None,
 ):
     """Plots the masked image together with the original image and
     the detected objects.
@@ -316,8 +340,14 @@ def plot_masked_image(
         e.set_linewidth(3)
         ax1.add_artist(e)
 
-        ax1.scatter(gal_obj["x"][0], gal_obj["y"][0], marker="x", s=140, c="r",
-                    label='Identified galaxy center')
+        ax1.scatter(
+            gal_obj["x"][0],
+            gal_obj["y"][0],
+            marker="x",
+            s=140,
+            c="r",
+            label="Identified galaxy center",
+        )
 
     ax2.imshow(
         masked_data,
@@ -339,7 +369,15 @@ def plot_masked_image(
         )
         x, y = img_wcs.world_to_pixel(coord)
         for ax in axes[1:]:
-            ax.scatter(x, y, marker="P", s=140, c="r", edgecolor="gold", label='Galaxy position')
+            ax.scatter(
+                x,
+                y,
+                marker="P",
+                s=140,
+                c="r",
+                edgecolor="gold",
+                label="Galaxy position",
+            )
 
     # plot SN position
     if (ra is not None) and (dec is not None):
@@ -348,13 +386,21 @@ def plot_masked_image(
         )
         x, y = img_wcs.world_to_pixel(coord)
         for ax in axes[1:]:
-            ax.scatter(x, y, marker="*", s=200, c="g", edgecolor="gold", label='SN position')
+            ax.scatter(
+                x,
+                y,
+                marker="*",
+                s=200,
+                c="g",
+                edgecolor="gold",
+                label="SN position",
+            )
 
     axes[1].legend(ncol=2, fontsize=14)
     if outfile:
         basename = os.path.basename(outfile)
         title = os.path.splitext(basename)[0]
-        title = '-'.join(part for part in title.split('_'))
+        title = "-".join(part for part in title.split("_"))
         fig.suptitle(title, fontsize=28)
         plt.tight_layout()
         plt.savefig(outfile, bbox_inches="tight")

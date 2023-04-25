@@ -1,5 +1,6 @@
 import os
 import copy
+import shutil
 import tarfile
 import requests  # for several surveys
 import numpy as np
@@ -30,6 +31,7 @@ from hostphot.utils import (
     check_work_dir,
     check_survey_validity,
     check_filters_validity,
+    check_HST_inputs,
     survey_pixel_scale,
 )
 
@@ -318,11 +320,13 @@ def get_SDSS_images(ra, dec, size=3, filters=None, version=None):
     check_filters_validity(filters, survey)
     # check data release version
     if version is None:
-        version = 'dr17'
+        version = "dr17"
 
-    versions = [f'dr{i}' for i in range(12, 17+1)]
-    assert version in versions, f"The given version ({version}) is not a valid data release: {versions}"
-    dr = int(version.replace('dr', ''))
+    versions = [f"dr{i}" for i in range(12, 17 + 1)]
+    assert (
+        version in versions
+    ), f"The given version ({version}) is not a valid data release: {versions}"
+    dr = int(version.replace("dr", ""))
 
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec)
@@ -341,10 +345,12 @@ def get_SDSS_images(ra, dec, size=3, filters=None, version=None):
     if ids is None:
         return None
 
-    pointings_ra = ids['ra'].value
-    pointings_dec = ids['dec'].value
-    dist = np.sqrt((pointings_ra - ra) ** 2 * (np.cos(pointings_dec * np.pi / 180) ** 2) +
-                   (pointings_dec - dec) ** 2)
+    pointings_ra = ids["ra"].value
+    pointings_dec = ids["dec"].value
+    dist = np.sqrt(
+        (pointings_ra - ra) ** 2 * (np.cos(pointings_dec * np.pi / 180) ** 2)
+        + (pointings_dec - dec) ** 2
+    )
 
     # get the pointing closest to the given coordinates
     pointing_id = np.argmin(dist)
@@ -390,13 +396,16 @@ def get_img_dist(host_ra, host_dec, header):
         position in pixel units.
     """
     # coordinates of the image center
-    img_ra, img_dec = float(header['RA_CENT']), float(header['DEC_CENT'])
+    img_ra, img_dec = float(header["RA_CENT"]), float(header["DEC_CENT"])
 
     # distance to the galaxy
-    dist_from_center = np.sqrt((img_ra - host_ra) ** 2 * (np.cos(img_dec*np.pi/180) ** 2)
-                               + (img_dec - host_dec) ** 2)
+    dist_from_center = np.sqrt(
+        (img_ra - host_ra) ** 2 * (np.cos(img_dec * np.pi / 180) ** 2)
+        + (img_dec - host_dec) ** 2
+    )
 
     return dist_from_center
+
 
 def get_GALEX_images(ra, dec, size=3, filters=None, version=None):
     """Downloads a set of GALEX fits images for a given set
@@ -452,13 +461,13 @@ def get_GALEX_images(ra, dec, size=3, filters=None, version=None):
 
     if version is None:
         # starts from the survey with the deepest images first
-        obs_df_ = obs_df_.sort_values('t_exptime', ascending=False)
+        obs_df_ = obs_df_.sort_values("t_exptime", ascending=False)
         projects = obs_df_.project.unique()
     else:
         # only use the survey requested by the user
         projects = [version]
 
-    hdu_dict = {'NUV': None, 'FUV': None}
+    hdu_dict = {"NUV": None, "FUV": None}
     for project in projects:
         obs_df = obs_df_[obs_df_.project == project]
 
@@ -468,14 +477,18 @@ def get_GALEX_images(ra, dec, size=3, filters=None, version=None):
                 continue
 
             # get only "intensity" images
-            filt_extension = {'NUV': '-nd-int.fits.gz',
-                              'FUV': '-fd-int.fits.gz',
-                              }
+            filt_extension = {
+                "NUV": "-nd-int.fits.gz",
+                "FUV": "-fd-int.fits.gz",
+            }
             # get unique image sectors
             files = []
             for file in obs_df.dataURL.values:
-                sector_info = file.split('-')[:-2]
-                file = '-'.join(string for string in sector_info) + filt_extension[filt]
+                sector_info = file.split("-")[:-2]
+                file = (
+                    "-".join(string for string in sector_info)
+                    + filt_extension[filt]
+                )
                 if file not in files:
                     files.append(file)
 
@@ -585,7 +598,7 @@ def get_WISE_images(ra, dec, size=3, filters=None):
         skyview_fits = SkyView.get_images(
             position=coords,
             coordinates="icrs",
-            pixels='100',
+            pixels="100",
             survey="WISE 3.4",
         )
         header = skyview_fits[0][0].header
@@ -640,12 +653,14 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
     """
     survey = "unWISE"
     if version is None:
-        version = 'allwise'
+        version = "allwise"
     else:
         # check validity of the version used
-        neo_versions = [f'neo{i}' for i in range(1, 8)]
-        all_versions = ['allwise'] + neo_versions
-        assert version in all_versions, f'Not a valid version ({version}): {all_versions}'
+        neo_versions = [f"neo{i}" for i in range(1, 8)]
+        all_versions = ["allwise"] + neo_versions
+        assert (
+            version in all_versions
+        ), f"Not a valid version ({version}): {all_versions}"
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
@@ -751,8 +766,8 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
 
         hdu_list = []
         for i, filt in enumerate(filters):
-            if filt=='Ks':
-                filt = 'K'
+            if filt == "Ks":
+                filt = "K"
             band_df = twomass_df[twomass_df.band == filt]
             if len(band_df) == 0:
                 # no data for this band:
@@ -765,7 +780,7 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
             scanno = band_df.scan.values[0]
             # add leading zeros for scanno bellow 100
             n_zeros = 3 - len(str(scanno))
-            scanno = n_zeros * '0' + str(scanno)
+            scanno = n_zeros * "0" + str(scanno)
 
             tile_url = os.path.join(f"{ordate}{hemisphere}", f"s{scanno}")
             fits_url = os.path.join("image", f"{fname}.gz")
@@ -780,7 +795,7 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
 
 # HST
 # ----------------------------------------
-def get_HST_images(ra, dec, size=3, filters=None):
+def get_HST_images(ra, dec, size=3, filt=None, instrument=None):
     """Downloads a set of HST fits images for a given set
     of coordinates and filters using SkyView.
 
@@ -792,25 +807,24 @@ def get_HST_images(ra, dec, size=3, filters=None):
         Declination in degrees.
     size: float or ~astropy.units.Quantity, default ``3``
         Image size. If a float is given, the units are assumed to be arcmin.
-    filters: str, default ``None``
-        Filters to use.
+    filt: str, default ``None``
+        Filter to use.
+    instrument: str, default ``None``
+        Instrument to use.
 
     Return
     ------
     hdu_list: list
-        List with fits images for the given filters.
+        List with fits image for the given filter.
         `None` is returned if no image is found.
     """
-    survey = "HST"
-    if filters is None:
-        filters = get_survey_filters(survey)
-    check_filters_validity(filters, survey)
+    check_HST_inputs(filt, instrument)
 
     if isinstance(size, (float, int)):
-        size_degree = (size * u.arcmin).to(u.degree)
+        size_arcsec = (size * u.arcmin).to(u.arcsec)
     else:
-        size_degree = size.to(u.degree)
-    size_degree = size_degree.value
+        size_arcsec = size.to(u.arcsec)
+    size_arcsec = size_arcsec.value
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
@@ -818,63 +832,78 @@ def get_HST_images(ra, dec, size=3, filters=None):
             ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
         )
 
-    obs_table = Observations.query_criteria(
-        coordinates=coords, radius=size_degree, obs_collection=["HST"]
-    )
+    obs_table = Observations.query_region(coords, radius=size)
+    obs_table = obs_table.filled()  # remove masked rows
     obs_df = obs_table.to_pandas()
 
-    df_list = []
-    for inst in obs_df.instrument_name.unique():
-        inst_df = obs_df[obs_df.instrument_name == inst]
+    obs_df = obs_df[
+        (obs_df.obs_collection == "HST") | (obs_df.obs_collection == "HLA")
+    ]
+    obs_df = obs_df[obs_df.dataproduct_type == "image"]
+    obs_df = obs_df[obs_df.t_exptime > 15]  # remove short exposures
 
-        for filt in inst_df.filters.unique():
-            if not filt.startswith("F") or ";" in filt:
-                continue  # skip these odd filters
-            filt_df = inst_df[inst_df.filters == filt]
+    # filter by instrument+filter
+    inst = instrument.split("/")[0]
+    # inst_df = obs_df[obs_df.instrument_name==instrument]
+    inst_df = obs_df[obs_df.instrument_name.str.contains(inst)]
+    filt_df = inst_df[inst_df.filters == filt]
+    # just use one image
+    filt_df = filt_df[filt_df.t_exptime == filt_df.t_exptime.max()]
 
-            dist = np.sqrt(
-                (filt_df.s_dec.values - dec) ** 2
-                + (filt_df.s_ra.values - ra) ** 2 * (np.cos(dec*np.pi/180) ** 2)
-            )
-            filt_df = filt_df[
-                dist == dist.min()
-            ]  # take the most centred image
-            filt_df = filt_df[:1]  # take first image
-            df_list.append(filt_df)
-    obs_df = pd.concat(df_list)
-
-    # identify products to download
-    data_products = Observations.get_product_list(Table.from_pandas(obs_df))
+    # get data products
+    data_products = Observations.get_product_list(Table.from_pandas(filt_df))
     dp_df = data_products.to_pandas()
-    dp_df = dp_df[dp_df.productType == "SCIENCE"]
+    dp_df = dp_df[dp_df.type == "S"]
+    dp_df = dp_df[dp_df.productSubGroupDescription == "FLT"]  # only images
+    # choose first image
+    single_dp_df = dp_df[dp_df.obs_id == dp_df.obs_id.values[0]]
 
-    df_list = []
-    for filt in obs_df.filters.unique():
-        if filt.lower() in dp_df.dataURI.values:
-            filt_df = dp_df[dp_df.dataURI.contains(filt.lower())]
-        elif filt.upper() in dp_df.dataURI.values:
-            filt_df = dp_df[dp_df.dataURI.contains(filt.upper())]
-        else:
-            continue
-
-        if "HLA" in filt_df.obs_collection:
-            # choose images from the legacy archive
-            filt_df = filt_df[filt_df.obs_collection == "HLA"]
-
-        filt_df = filt_df[:1]  # take first image
-        df_list.append(filt_df)
-    dp_df = pd.concat(df_list)
-
-    # download images
     Observations.download_products(
-        Table.from_pandas(dp_df), productType="SCIENCE", extension="fits"
+        Table.from_pandas(single_dp_df),
+        download_dir=None,
+        cache=False,
+        productType="SCIENCE",
+        extension=["fits"],
     )
 
-    # return hdu_list
+    for path, subdirs, files in os.walk("mastDownload"):
+        for file in files:
+            fits_file = os.path.join(path, file)
+
+    hdu = fits.open(fits_file)
+    hdu[0].data = hdu[1].data
+
+    # add zeropoints
+    # https://www.stsci.edu/hst/instrumentation/acs/data-analysis/zeropoints
+    photflam = hdu[0].header["PHOTFLAM"]
+    photplam = hdu[0].header["PHOTFLAM"]
+    hdu[0].header["MAGZP"] = (
+        -2.5 * np.log10(photflam) - 5 * np.log10(photplam) - 2.408
+    )
+    hdu_list = [hdu]
+
+    # remove directory created by MAST download
+    shutil.rmtree("mastDownload", ignore_errors=True)
+
+    # HST images can be large so need to be trimmed
+    pixel_scale = survey_pixel_scale(survey)
+    size_pixels = int(size_arcsec / pixel_scale)
+    pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
+
+    for hdu in hdu_list:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", AstropyWarning)
+            img_wcs = wcs.WCS(hdu[0].header)
+
+        trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
+        hdu[0].data = trimmed_data.data
+        hdu[0].header.update(trimmed_data.wcs.to_header())
+
+    return hdu_list
 
 
 # Legacy Survey
-def get_LegacySurvey_images(ra, dec, size=3, filters=None, version='dr10'):
+def get_LegacySurvey_images(ra, dec, size=3, filters=None, version="dr10"):
     """Gets Legacy Survey fits images for the given coordinates and
     filters.
 
@@ -909,7 +938,7 @@ def get_LegacySurvey_images(ra, dec, size=3, filters=None, version='dr10'):
     size_pixels = int(size_arcsec / pixel_scale)
 
     if version is None:
-        version = 'dr10'  # latest data release
+        version = "dr10"  # latest data release
 
     base_url = "https://www.legacysurvey.org/viewer/fits-cutout?"
     params = f"ra={ra}&dec={dec}&layer=ls-{version}&pixscale={pixel_scale}&bands={filters}&size={size_pixels}"
@@ -1051,7 +1080,7 @@ def get_VISTA_images(ra, dec, size=3, filters=None, version="VHS"):
         size = size.to(u.arcmin).value
 
     if version is None:
-        version = 'VHS'
+        version = "VHS"
     # These are final data releases except for VHS(?):
     # VHSDR5: https://www.eso.org/sci/publications/announcements/sciann17290.html
     # VHSDR6: https://b2find.eudat.eu/dataset/0b10d3a0-1cfe-5e67-8a5c-0949db9d19cb
@@ -1146,7 +1175,7 @@ def download_images(
     dec,
     size=3,
     filters=None,
-    overwrite=False,
+    overwrite=True,
     survey="PS1",
     version=None,
 ):
@@ -1170,7 +1199,7 @@ def download_images(
         Image size. If a float is given, the units are assumed to be arcmin.
     filters: str, default ``None``
         Filters for the images.
-    overwrite: bool, default ``False``
+    overwrite: bool, default ``True``
         If ``True``, the images are overwritten if they already
         exist.
     survey: str, default ``PS1``
@@ -1187,9 +1216,6 @@ def download_images(
     >>> download_images(name, host_ra, host_dec, survey=survey)
     """
     check_survey_validity(survey)
-    check_filters_validity(filters, survey)
-    if filters is None:
-        filters = get_survey_filters(survey)
 
     check_work_dir(workdir)
     obj_dir = os.path.join(workdir, name)
@@ -1211,42 +1237,36 @@ def download_images(
         hdu_list = get_unWISE_images(ra, dec, size, filters, version)
     elif survey == "2MASS":
         hdu_list = get_2MASS_images(ra, dec, size, filters)
+    elif survey == "HST":
+        hdu_list = get_HST_images(ra, dec, size, filters, version)
     elif survey == "LegacySurvey":
         hdu_list = get_LegacySurvey_images(ra, dec, size, filters, version)
     elif survey == "Spitzer":
         hdu_list = get_Spitzer_images(ra, dec, size, filters)
     elif survey == "VISTA":
         hdu_list = get_VISTA_images(ra, dec, size, filters, version)
+    else:
+        raise ValueError(
+            "The given survey is not properly added to HostPhot..."
+        )
 
     if hdu_list:
-        # NOT WORKING: this corrects any possible shifts between the images
-        # fits_files = match_wcs(fits_files)
-        # fix wcs (some have rotated wcs)
-        """
-        if survey in ["XXX"]:
-            for hdu in hdu_list:
-                fits_file = hdu[0]
-                wcs_out, shape_out = find_optimal_celestial_wcs(
-                    [fits_file], auto_rotate=True
-                )
-                fixed_data, footprint = reproject_exact(
-                    fits_file, wcs_out, shape_out=shape_out
-                )
-                fits_file.header.update(wcs_out.to_header())
-                fits_file.data = fixed_data
-        """
-
         for hdu, filt in zip(hdu_list, filters):
             if hdu is None:
                 continue  # skip missing filter/image
-            outfile = os.path.join(obj_dir, f"{survey}_{filt}.fits")
-            if not os.path.isfile(outfile):
-                hdu.writeto(outfile)
+
+            if survey == "HST":
+                inst = version.replace("/", "-")
+                outfile = os.path.join(
+                    obj_dir, f"{survey}_{inst}-{filters}.fits"
+                )
             else:
-                if overwrite:
-                    hdu.writeto(outfile, overwrite=overwrite)
-                else:
-                    continue
+                outfile = os.path.join(obj_dir, f"{survey}_{filt}.fits")
+
+            if overwrite is True or os.path.isfile(outfile) is False:
+                hdu.writeto(outfile, overwrite=overwrite)
+            else:
+                continue
 
     # remove directory if it ends up empty
     clean_dir(obj_dir)

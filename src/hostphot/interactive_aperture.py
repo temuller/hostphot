@@ -21,7 +21,7 @@ from hostphot.utils import (
     magnitude_calculation,
     get_survey_filters,
     check_filters_validity,
-    bkg_surveys
+    bkg_surveys,
 )
 from hostphot.dust import calc_extinction
 
@@ -126,7 +126,9 @@ class InteractiveAperture:
         self.bkg = sep.Background(self.data)
         self.bkg_rms = self.bkg.globalrms
 
-        if (self.bkg_sub is None and self.survey in bkg_surveys) or self.bkg_sub is True:
+        if (
+            self.bkg_sub is None and self.survey in bkg_surveys
+        ) or self.bkg_sub is True:
             self.data = np.copy(self.data - self.bkg)
 
         with warnings.catch_warnings():
@@ -367,7 +369,7 @@ class InteractiveAperture:
     def export_photometry(self, outfile=None):
         """Exports the photometry (magnitudes) into a csv file."""
         if not outfile:
-            basename = f'{self.survey}_interactive_photometry.csv'
+            basename = f"{self.survey}_interactive_photometry.csv"
             outfile = os.path.join(workdir, self.name, basename)
 
         mag_phot = self.mag_phot.copy()

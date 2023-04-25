@@ -34,7 +34,7 @@ from hostphot.utils import (
     magnitude_calculation,
     survey_pixel_scale,
     adapt_aperture,
-    bkg_surveys
+    bkg_surveys,
 )
 from hostphot.objects_detect import extract_objects, plot_detected_objects
 from hostphot.image_cleaning import remove_nan
@@ -87,9 +87,9 @@ def kron_flux(data, err, gain, objects, kronrad, scale):
         )
     else:
         # theta must be in the range [-pi/2, pi/2] for sep.sum_ellipse()
-        if objects["theta"] > np.pi/2:
+        if objects["theta"] > np.pi / 2:
             objects["theta"] -= np.pi
-        elif objects["theta"] < -np.pi/2:
+        elif objects["theta"] < -np.pi / 2:
             objects["theta"] += np.pi
 
         flux, flux_err, _ = sep.sum_ellipse(
@@ -283,7 +283,13 @@ def extract_kronparams(
 
     # extract galaxy
     gal_obj, _ = extract_objects(
-        data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs, gal_dist_thresh
+        data_sub,
+        bkg_rms,
+        host_ra,
+        host_dec,
+        threshold,
+        img_wcs,
+        gal_dist_thresh,
     )
     if optimize_kronrad:
         gain = 1  # doesn't matter here
@@ -300,26 +306,28 @@ def extract_kronparams(
             gal_obj["theta"],
             6.0,
         )
-    
+
     if save_plots is True:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
         plot_detected_objects(
             data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile
         )
-    
 
-    if survey == 'DES':
+    if survey == "DES":
         flip = True
     else:
-        flip = False        
+        flip = False
 
     if save_aperture_params is True:
-        outfile = os.path.join(obj_dir, f"{survey}_{filt}_aperture_parameters.pickle")
-        with open(outfile, 'wb') as fp:
+        outfile = os.path.join(
+            obj_dir, f"{survey}_{filt}_aperture_parameters.pickle"
+        )
+        with open(outfile, "wb") as fp:
             aperture_parameters = gal_obj, img_wcs, kronrad, scale, flip
             pickle.dump(aperture_parameters, fp, protocol=4)
 
     return gal_obj, img_wcs, kronrad, scale, flip
+
 
 def photometry(
     name,
@@ -434,7 +442,7 @@ def photometry(
     if aperture_params is not None:
         gal_obj, master_img_wcs, kronrad, scale, flip2 = aperture_params
 
-        if survey=='DES':
+        if survey == "DES":
             flip = True
         else:
             flip = False
@@ -443,19 +451,25 @@ def photometry(
         else:
             flip_ = True
 
-        a0 = gal_obj['a']
+        a0 = gal_obj["a"]
         gal_obj = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
         # factor used for scaling the Kron radius between different pixel scales
-        conv_factor = gal_obj['a']/a0  
+        conv_factor = gal_obj["a"] / a0
 
         flux, flux_err = kron_flux(
-            data_sub, bkg_rms, gain, gal_obj, kronrad*conv_factor, scale
+            data_sub, bkg_rms, gain, gal_obj, kronrad * conv_factor, scale
         )
         flux, flux_err = flux[0], flux_err[0]
     else:
         # extract galaxy
         gal_obj, _ = extract_objects(
-            data_sub, bkg_rms, host_ra, host_dec, threshold, img_wcs, gal_dist_thresh
+            data_sub,
+            bkg_rms,
+            host_ra,
+            host_dec,
+            threshold,
+            img_wcs,
+            gal_dist_thresh,
         )
 
         # aperture photometry
@@ -525,7 +539,7 @@ def multi_band_phot(
     gal_dist_thresh=-1,
     save_plots=True,
     save_results=True,
-    raise_exception = False,
+    raise_exception=False,
 ):
     """Calculates multi-band aperture photometry of the host galaxy
     for an object.
@@ -559,8 +573,8 @@ def multi_band_phot(
     correct_extinction: bool, default ``True``
         If ``True``, the magnitudes are corrected for extinction.
     aperture_params: tuple, default `None`
-        Tuple with objects info and Kron parameters. Used for common aperture. If given, 
-        the Kron parameters are not re-calculated. If given, this supersedes the use of 
+        Tuple with objects info and Kron parameters. Used for common aperture. If given,
+        the Kron parameters are not re-calculated. If given, this supersedes the use of
         coadds for common aperture (``common_aperture`` parameter).
     common_aperture: bool, default ``True``
         If ``True``, use a coadd image for common aperture photometry. This is not used
@@ -634,7 +648,6 @@ def multi_band_phot(
             gal_dist_thresh=gal_dist_thresh,
             save_plots=save_plots,
         )
-    
 
     for filt in filters:
         try:
@@ -662,14 +675,16 @@ def multi_band_phot(
             results_dict[f"{filt}_flux_err"] = flux_err
         except Exception as exc:
             if raise_exception is True:
-                raise Exception(f'{filt}-band: {exc}')
+                raise Exception(f"{filt}-band: {exc}")
             else:
                 results_dict[filt] = np.nan
                 results_dict[f"{filt}_err"] = np.nan
 
     if save_results is True:
-        outfile = os.path.join(workdir, name, f'{survey}_global.csv')
-        phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
+        outfile = os.path.join(workdir, name, f"{survey}_global.csv")
+        phot_df = pd.DataFrame(
+            {key: [val] for key, val in results_dict.items()}
+        )
         phot_df.to_csv(outfile, index=False)
 
     return results_dict

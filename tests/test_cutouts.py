@@ -40,12 +40,16 @@ class TestHostPhot(unittest.TestCase):
         download_images(
             self.sn_name, self.ra, self.dec, overwrite=True, survey="2MASS"
         )
-    
+
     def test_cutouts_unWISE(self):
         for version in ["neo1", "neo2", "allwise"]:
             download_images(
-                self.sn_name, self.ra, self.dec, overwrite=True, survey="unWISE",
-                version=version
+                self.sn_name,
+                self.ra,
+                self.dec,
+                overwrite=True,
+                survey="unWISE",
+                version=version,
             )
 
     def test_cutouts_LegacySurvey(self):
@@ -65,22 +69,30 @@ class TestHostPhot(unittest.TestCase):
     def test_cutouts_VISTA(self):
         name = "VISTA_test"
         # use different coordinates for each survey as they don't overlap
-        surveys = {"VHS": [120, -60],
-                   "VIDEO": [36.1, -5],
-                   "VIKING": [220.5, 0.0]}
+        surveys = {
+            "VHS": [120, -60],
+            "VIDEO": [36.1, -5],
+            "VIKING": [220.5, 0.0],
+        }
 
         try:
             for version, coords in surveys.items():
                 ra, dec = coords
                 download_images(
-                    name, ra, dec,
-                    overwrite=True, survey="VISTA",
-                    version=version
+                    name,
+                    ra,
+                    dec,
+                    overwrite=True,
+                    survey="VISTA",
+                    version=version,
                 )
         except Exception as exc:
-            warnings.warn("The VISTA SCIENCE ARCHIVE might be having issues...")
-            print('Skipping this test...')
+            warnings.warn(
+                "The VISTA SCIENCE ARCHIVE might be having issues..."
+            )
+            print("Skipping this test...")
             print(exc)
+
 
 if __name__ == "__main__":
     unittest.main()
