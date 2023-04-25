@@ -792,7 +792,7 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
 
     return hdu_list
 
-
+'''
 # HST
 # ----------------------------------------
 def get_HST_images(ra, dec, size=3, filt=None, instrument=None):
@@ -900,7 +900,7 @@ def get_HST_images(ra, dec, size=3, filt=None, instrument=None):
         hdu[0].header.update(trimmed_data.wcs.to_header())
 
     return hdu_list
-
+'''
 
 # Legacy Survey
 def get_LegacySurvey_images(ra, dec, size=3, filters=None, version="dr10"):
@@ -954,7 +954,7 @@ def get_LegacySurvey_images(ra, dec, size=3, filters=None, version="dr10"):
         hdu_list.append(hdu)
 
     return hdu_list
-
+    
 
 # Spitzer
 def get_Spitzer_images(ra, dec, size=3, filters=None):
@@ -1237,8 +1237,8 @@ def download_images(
         hdu_list = get_unWISE_images(ra, dec, size, filters, version)
     elif survey == "2MASS":
         hdu_list = get_2MASS_images(ra, dec, size, filters)
-    elif survey == "HST":
-        hdu_list = get_HST_images(ra, dec, size, filters, version)
+    #elif survey == "HST":
+    #    hdu_list = get_HST_images(ra, dec, size, filters, version)
     elif survey == "LegacySurvey":
         hdu_list = get_LegacySurvey_images(ra, dec, size, filters, version)
     elif survey == "Spitzer":
@@ -1249,6 +1249,9 @@ def download_images(
         raise ValueError(
             "The given survey is not properly added to HostPhot..."
         )
+    
+    if filters is None and survey != 'HST':
+        filters = get_survey_filters(survey)
 
     if hdu_list:
         for hdu, filt in zip(hdu_list, filters):
