@@ -886,7 +886,7 @@ def get_HST_images(ra, dec, size=3, filt=None, instrument=None):
     shutil.rmtree("mastDownload", ignore_errors=True)
 
     # HST images can be large so need to be trimmed
-    pixel_scale = survey_pixel_scale(survey)
+    pixel_scale = survey_pixel_scale('HST')
     size_pixels = int(size_arcsec / pixel_scale)
     pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
 
