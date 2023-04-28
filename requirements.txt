@@ -1,5 +1,5 @@
 pip
-numpy<1.20.0
+numpy
 pandas
 pickle5; python_version < '3.8'
 matplotlib
@@ -9,7 +9,7 @@ reproject
 photutils
 astroquery
 extinction
-sfdmap
+sfdmap2
 pyvo
 sep
 ipywidgets

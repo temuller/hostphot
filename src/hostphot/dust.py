@@ -3,7 +3,7 @@ import tarfile
 import requests
 import numpy as np
 
-import sfdmap
+from sfdmap2 import sfdmap
 import extinction
 from astropy.coordinates import SkyCoord
 from astropy import units as u

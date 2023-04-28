@@ -11,6 +11,7 @@ with open("src/hostphot/_version.py") as version_file:
         if "__version__" in line:
             __version__ = line.split()[-1].replace('"', "")
 
+
 setuptools.setup(
     name="hostphot",
     version=__version__,
@@ -24,7 +25,7 @@ setuptools.setup(
     package_dir={"": "src"},
     packages=setuptools.find_packages(where="src"),
     # scripts=["bin/hostphot"],
-    python_requires=">=3.8, <3.10",
+    python_requires=">=3.8",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
