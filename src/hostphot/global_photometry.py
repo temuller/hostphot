@@ -214,8 +214,10 @@ def extract_kronparams(
        Right ascension of an object, in degrees. Used for plotting the position of the object.
     dec: float, default ``None``
        Declination of an object, in degrees. Used for plotting the position of the object.
-    bkg_sub: bool, default `False`
-        If `True`, the image gets background subtracted.
+    bkg_sub: bool, default `None`
+        If `True`, the image gets background subtracted. By default, only
+        the images that need it get background subtracted (WISE, 2MASS and
+        VISTA).
     threshold: float, default `10`
         Threshold used by `sep.extract()` to extract objects.
     use_mask: bool, default `True`
@@ -496,7 +498,7 @@ def photometry(
 
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
 
-    mag, mag_err, total_flux_err = magnitude_calculation(
+    mag, mag_err, flux, flux_err = magnitude_calculation(
         flux,
         flux_err,
         survey,
@@ -516,7 +518,7 @@ def photometry(
             data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile
         )
 
-    return mag, mag_err, flux, total_flux_err
+    return mag, mag_err, flux, flux_err
 
 
 def multi_band_phot(

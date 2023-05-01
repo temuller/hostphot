@@ -9,7 +9,7 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 
 import hostphot
-from .utils import integrate_filter, get_survey_filters, extract_filters
+from .utils import integrate_filter, extract_filter
 
 import warnings
 
@@ -155,8 +155,6 @@ def calc_extinction(
     A_ext : float
         Extinction value in magnitudes.
     """
-    # extract transmission function for the given filter+survey
-    filters = get_survey_filters(survey)
     if survey == "LegacySurvey":
         # https://datalab.noirlab.edu/ls/bass.php
         # declination above ~32 and above the galactic plane
@@ -170,10 +168,8 @@ def calc_extinction(
     else:
         version = None
 
-    filters_dict = extract_filters(filters, survey, version)
-
-    filter_wave = filters_dict[filt]["wave"]
-    filter_response = filters_dict[filt]["transmission"]
+    # extract transmission function for the given filter+survey
+    filter_wave, filter_response = extract_filter(filt, survey, version)
 
     # calculate extinction
     flux = 100

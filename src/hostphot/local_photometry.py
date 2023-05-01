@@ -277,7 +277,7 @@ def photometry(
         )
 
         ap_area = 2 * np.pi * (radius_pix**2)
-        mag, mag_err, total_flux_error = magnitude_calculation(
+        mag, mag_err, flux, flux_err = magnitude_calculation(
             flux,
             flux_err,
             survey,
@@ -295,7 +295,7 @@ def photometry(
         mags.append(mag)
         mags_err.append(mag_err)
         fluxes.append(flux)
-        fluxes_err.append(total_flux_error)
+        fluxes_err.append(flux_err)
 
         if save_plots:
             outfile = os.path.join(

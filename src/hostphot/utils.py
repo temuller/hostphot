@@ -1,4 +1,5 @@
 import os
+import glob
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -19,8 +20,7 @@ config_file = os.path.join(hostphot_path, "filters", "config.txt")
 config_df = pd.read_csv(config_file, delim_whitespace=True)
 
 # surveys that need background subtraction
-bkg_surveys = ["2MASS", "WISE", "VISTA"]
-
+bkg_surveys = ['2MASS', 'WISE', 'VISTA']
 
 def calc_sky_unc(image, exptime):
     """Calculates the uncertainty of the image from the
@@ -60,11 +60,11 @@ def check_survey_validity(survey):
     Parameters
     ----------
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
+        Survey name: e.g. ``PS1``, ``GALEX``.
     """
     global config_df
     surveys = list(config_df.survey)
-    assert survey in surveys, f"survey '{survey}' not" f" in {surveys}"
+    assert survey in surveys, f"Survey '{survey}' not in {surveys}"
 
 
 def get_survey_filters(survey):
@@ -73,7 +73,7 @@ def get_survey_filters(survey):
     Parameters
     ----------
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
+        Survey name: e.g. ``PS1``, ``GALEX``.
 
     Returns
     -------
@@ -81,6 +81,10 @@ def get_survey_filters(survey):
         Filters for the given survey.
     """
     check_survey_validity(survey)
+
+    if survey=='HST':
+        # For HST, the filter needs to be specified
+        return None
 
     global config_df
     survey_df = config_df[config_df.survey == survey]
@@ -101,7 +105,7 @@ def survey_zp(survey):
     Parameters
     ----------
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
+        Survey name: e.g. ``PS1``, ``GALEX``.
 
     Returns
     -------
@@ -122,12 +126,12 @@ def survey_zp(survey):
     if "," in zps:
         zps = zps.split(",")
         zp_dict = {filt: float(zp) for filt, zp in zip(filters, zps)}
-    elif survey == "SDSS":
+    elif survey=='SDSS':
         # SDSS zero-points are not exactly in AB:
         # https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB
         zp_dict = {filt: float(zps) for filt in filters}
-        zp_dict["u"] -= 0.04
-        zp_dict["z"] += 0.02
+        zp_dict['u'] -= 0.04
+        zp_dict['z'] += 0.02
     else:
         zp_dict = {filt: float(zps) for filt in filters}
 
@@ -145,7 +149,7 @@ def get_image_gain(header, survey):
     header: fits header
         Header of an image.
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
+        Survey name: e.g. ``PS1``, ``GALEX``.
 
     Returns
     -------
@@ -178,6 +182,8 @@ def get_image_gain(header, survey):
     elif survey == "VISTA":
         # use median from http://casu.ast.cam.ac.uk/surveys-projects/vista/technical/vista-gain
         gain = 4.19
+    elif survey=='HST':
+        gain = header['CCDGAIN']
     else:
         gain = 1.0
 
@@ -196,7 +202,7 @@ def get_image_readnoise(header, survey):
     header: fits header
         Header of an image.
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
+        Survey name: e.g. ``PS1``, ``GALEX``.
 
     Returns
     -------
@@ -231,6 +237,9 @@ def get_image_readnoise(header, survey):
         # very rough average for all filters in
         # http://casu.ast.cam.ac.uk/surveys-projects/vista/technical/vista-gain
         readnoise = 24.0
+    elif survey=='HST':
+        # tipically 0.0
+        readnoise = header['PCTERNOI']
     else:
         readnoise = 0.0
 
@@ -245,7 +254,7 @@ def get_image_exptime(header, survey):
     header: fits header
         Header of an image.
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
+        Survey name: e.g. ``PS1``, ``GALEX``.
 
     Returns
     -------
@@ -253,7 +262,7 @@ def get_image_exptime(header, survey):
         Exposure time in seconds.
     """
     check_survey_validity(survey)
-    if survey in ["PS1", "DES", "GALEX", "VISTA", "Spitzer"]:
+    if survey in ["PS1", "DES", "GALEX", "VISTA", "Spitzer", "HST"]:
         exptime = float(header["EXPTIME"])
     elif survey == "WISE":
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/
@@ -273,6 +282,50 @@ def get_image_exptime(header, survey):
     return exptime
 
 
+def correct_HST_aperture(filt, ap_area):
+    """Get the aperture correction for the given configuration.
+
+    Parameters
+    ----------
+    filt : str
+        HST filter, e.g. ``WFC3_UVIS_F225W``.
+    ap_area: float
+        Aperture area.
+
+    Returns
+    -------
+    correction: float
+        Aperture correction (encircled energy fraction).
+    """
+    # split instrument and filter
+    filt_split = filt.split('_')
+    filt = filt_split[-1]
+    instrument = filt_split[-2]
+
+    # assuming circular aperture
+    # for an ellipse, this would take the average of the axes
+    ap_radius = np.sqrt(ap_area/np.pi)
+
+    # get correction curve
+    ac_files = glob.glob(os.path.join(hostphot_path, 'filters/HST/*'))
+    ac_file = [file for file in ac_files 
+               if f'{instrument.lower()}_aper' in file][0]
+    ac_df = pd.read_csv(ac_file)
+
+    # linear interpolation of the aperture correction
+    apertures = np.array([float(col.replace('APER#', '')) for col in ac_df.columns 
+                          if col.startswith('AP')])
+    ap_corr = ac_df[ac_df.FILTER==filt].values[0][2:].astype(float)
+
+    cont_apertures = np.arange(0, 9, 0.01)
+    cont_ap_corr = np.interp(cont_apertures, apertures, ap_corr)
+
+    # get the closest value
+    ind = np.argmin(np.abs(cont_apertures-ap_radius))
+    correction = cont_ap_corr[ind]
+
+    return correction
+
 def magnitude_calculation(
     flux,
     flux_err,
@@ -289,7 +342,7 @@ def magnitude_calculation(
     flux: float
         Aperture flux.
     survey: str
-        Survey name. E.g. ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, etc.
+        Survey name: e.g. ``PS1``, ``GALEX``.
     filt: str, default ``None``
         Survey-specific filter.
     ap_area: float, default ``0.0``
@@ -305,24 +358,23 @@ def magnitude_calculation(
         Apparent magnitude.
     mag_err: float
         Apparent magnitude uncertainty.
-    total_flux_error: float
-        Total uncertainty in flux units.
+    flux: float
+        Total flux.
+    flux_error: float
+        Total uncertainty in flux.
     """
+    # get zeropoint
     zp_dict = survey_zp(survey)
     if zp_dict == "header":
         zp = header["MAGZP"]
     else:
         zp = zp_dict[filt]
-
     if survey == "PS1":
         exptime = get_image_exptime(header, survey)
         zp += 2.5 * np.log10(exptime)
 
-    mag = -2.5 * np.log10(flux) + zp
-    mag_err = 2.5 / np.log(10) * flux_err / flux
-
     # error propagation
-    extra_err, total_flux_error = uncertainty_calculation(
+    mag_err, flux_err = uncertainty_calculation(
         flux,
         flux_err,
         survey,
@@ -331,10 +383,56 @@ def magnitude_calculation(
         header,
         bkg_rms,
     )
-    mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-    return mag, mag_err, total_flux_error
+    if survey == 'HST':
+        # HST needs and aperture correction for the flux
+        # see, e.g. https://www.stsci.edu/hst/instrumentation/acs/data-analysis/aperture-corrections
+        if 'UVIS' in filt:
+            # get the mean correction between UVIS1 and UVIS2
+            ap_corr1 = correct_HST_aperture(filt.replace('UVIS', 'UVIS1'), ap_area)
+            ap_corr2 = correct_HST_aperture(filt.replace('UVIS', 'UVIS2'), ap_area)
+            ap_corr = np.mean(ap_corr1, ap_corr2)
+        else:
+            ap_corr = correct_HST_aperture(filt, ap_area)
+        flux = flux*ap_corr
 
+    mag = -2.5 * np.log10(flux) + zp
+
+    return mag, mag_err, flux, flux_err
+
+
+def get_HST_err(filt):
+    """Obtaines the error propagation from the zeropoint.
+
+    Parameters
+    ----------
+    filt : str
+        HST filter, e.g. ``WFC3_UVIS_F225W``.
+
+    Returns
+    -------
+    flux_err: float
+        Error on PHOTFLAM.
+    mag_err: float
+        Magnitude error on PHOTFLAM.
+    """
+    # split instrument and filter
+    filt_split = filt.split('_')
+    filt = filt_split[-1]
+    instrument = filt_split[-2]
+
+    # get uncertainty file
+    err_file = os.path.join(hostphot_path, 
+                            'filters/HST/', 
+                            f'{instrument}_err.txt')
+    err_df = pd.read_csv(err_file, delim_whitespace=True)
+    filt_err_df = err_df[err_df.Filter==filt]
+
+    flux = filt_err_df.PHOTFLAM.values[0]
+    flux_err = filt_err_df.ERR_PHOTFLAM.values[0]
+    mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
+    
+    return flux_err, mag_err
 
 def uncertainty_calculation(
     flux, flux_err, survey, filt=None, ap_area=0.0, header=None, bkg_rms=0.0
@@ -348,7 +446,7 @@ def uncertainty_calculation(
     flux_err: float
         Aperture flux error.
     survey: str
-        Survey name. E.g. ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, etc.
+        Survey name: e.g. ``PS1``, ``GALEX``.
     filt: str, default ``None``
         Survey-specific filter.
     ap_area: float, default ``0.0``
@@ -362,16 +460,16 @@ def uncertainty_calculation(
     -------
     mag_err: float
         Extra uncertainty in magnitudes.
-    total_flux_err: float
+    flux_err: float
         Total uncertainty in flux units.
     """
     exptime = get_image_exptime(header, survey)
     gain = get_image_gain(header, survey)
     readnoise = get_image_readnoise(header, survey)
 
-    mag_err = 0.0
-    total_flux_err = np.copy(flux_err)
-    if survey in ["PS1", "DES", "LegacySurvey", "Spitzer", "VISTA"]:
+    mag_err = 2.5 / np.log(10) * flux_err / flux
+
+    if survey in ["PS1", "DES", "LegacySurvey", "Spitzer", "VISTA", "HST"]:
         if survey == "Spitzer":
             flux /= header["EFCONV"]  # conv. factor (MJy/sr)/(DN/s)
         # 1.0857 = 2.5/ln(10)
@@ -381,7 +479,7 @@ def uncertainty_calculation(
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
         extra_flux_err = np.sqrt(ap_area * (readnoise**2) + flux / gain)
-        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     if survey == "DES":
         # see the photometry section in https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality
@@ -407,8 +505,8 @@ def uncertainty_calculation(
         extra_err = unc_dict[filt]
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * extra_err)
-        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
+        extra_flux_err = np.abs(flux*0.4*np.log(10)*extra_err)
+        flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
 
     elif survey == "PS1":
         # add floor systematic error from:
@@ -421,10 +519,10 @@ def uncertainty_calculation(
             "y": 18e-3,
         }
         floor_err = unc_dict[filt]
-        mag_err = np.sqrt(mag_err**2 + floor_err**2)
+        mag_err = np.sqrt(mag_err ** 2 + floor_err ** 2)
 
         extra_flux_err = np.abs(flux * 0.4 * np.log(10) * floor_err)
-        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
+        flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
 
     elif survey == "SDSS":
         # https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
@@ -487,7 +585,7 @@ def uncertainty_calculation(
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
         extra_flux_err = np.sqrt(dark_variance + flux / gain)
-        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
+        flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
 
     elif survey == "GALEX":
         # https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html
@@ -501,9 +599,7 @@ def uncertainty_calculation(
                     / exptime
                 )
             )
-            flux_uv_err = (
-                np.sqrt(CPS * exptime + (0.050 * CPS * exptime) ** 2) / exptime
-            )
+            flux_uv_err = np.sqrt(CPS*exptime + (0.050 * CPS * exptime)**2)/exptime
         elif filt == "NUV":
             uv_err = -2.5 * (
                 np.log10(CPS)
@@ -513,13 +609,11 @@ def uncertainty_calculation(
                     / exptime
                 )
             )
-            flux_uv_err = (
-                np.sqrt(CPS * exptime + (0.027 * CPS * exptime) ** 2) / exptime
-            )
+            flux_uv_err = np.sqrt(CPS * exptime + (0.027 * CPS * exptime) ** 2) / exptime
 
         mag_err = np.sqrt(mag_err**2 + uv_err**2)
 
-        total_flux_err = np.sqrt(total_flux_err**2 + flux_uv_err**2)
+        flux_err = np.sqrt(flux_err ** 2 + flux_uv_err ** 2)
 
     elif survey == "2MASS":
         # see: https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/
@@ -538,8 +632,8 @@ def uncertainty_calculation(
 
         mag_err = 1.0857 / SNR
 
-        extra_flux_err = flux / SNR
-        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
+        extra_flux_err = flux/SNR
+        flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
 
     elif "WISE" in survey:
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
@@ -570,21 +664,21 @@ def uncertainty_calculation(
 
         mag_err = np.sqrt(1.179 * sigma_src**2 / F_src**2)
 
-        total_flux_err = f_apcor**2
+        flux_err = f_apcor ** 2
 
         # add uncertainty from the ZP
-        if survey == "unWISE":
+        if survey=="unWISE":
             # These values are the same for all Atlas Images of a given band...
             # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
-            unc_dict = {"W1": 0.006, "W2": 0.007, "W3": 0.012, "W4": 0.012}
+            unc_dict = {'W1':0.006, 'W2':0.007, 'W3':0.012, 'W4':0.012}
             zp_unc = unc_dict[filt]
-        elif survey == "WISE":
+        elif survey=="WISE":
             zp_unc = header["MAGZPUNC"]
 
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
         extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
-        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
+        flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
 
     elif survey == "LegacySurvey":
         # already added at the beginning
@@ -598,14 +692,25 @@ def uncertainty_calculation(
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
         extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
-        total_flux_err = np.sqrt(total_flux_err**2 + extra_flux_err**2)
+        flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
+    elif survey == "HST":
+        if 'UVIS' in filt:
+            # get the largest error between UVIS1 and UVIS2
+            flux_zp_unc1, zp_unc1 = get_HST_err(filt.replace('UVIS', 'UVIS1'))
+            flux_zp_unc2, zp_unc2 = get_HST_err(filt.replace('UVIS', 'UVIS2'))
+            flux_zp_unc = max(flux_zp_unc1, flux_zp_unc2)
+            zp_unc = max(zp_unc1, zp_unc2)
+        else:
+            flux_zp_unc, zp_unc = get_HST_err(filt)
 
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
+        flux_err = np.sqrt(flux_err ** 2 + flux_zp_unc ** 2)
     else:
         raise Exception(
             f"Survey {survey} has not been added for error propagation."
         )
 
-    return mag_err, total_flux_err
+    return mag_err, flux_err
 
 
 def survey_pixel_scale(survey, filt=None):
@@ -614,7 +719,7 @@ def survey_pixel_scale(survey, filt=None):
     Parameters
     ----------
     survey: str
-        Survey name: ``PS1``, ``DES``, ``SDSS``, ``GALEX``, ``WISE``, ``2MASS``.
+        Survey name: e.g. ``PS1``, ``GALEX``.
     filt: str, default ``None``
         Filter to use by surveys that have different pixel scales
         for different filters (e.g. Spitzer's IRAC and MIPS instruments).
@@ -658,9 +763,12 @@ def check_filters_validity(filters, survey):
     filters: str or list
         Filters to use, e,g, ``griz``.
     survey: str
-        Survey name, e.g. ``PS1``, ``DES`` and ``GALEX``.
+        Survey name: e.g. ``PS1``, ``GALEX``.
     """
-    if filters is not None:
+    if survey=='HST':
+        check_HST_filters(filters)
+
+    else:
         valid_filters = get_survey_filters(survey)
 
         for filt in filters:
@@ -670,97 +778,81 @@ def check_filters_validity(filters, survey):
             )
             assert filt in valid_filters, message
 
-
-def check_HST_inputs(filt, instrument):
-    """Check whether the given filter and instrument are whithin the valid
+def check_HST_filters(filt):
+    """Check whether the given filter is whithin the valid
     options for HST.
 
     Parameters
     ----------
-    filt: str
-        Filter to use, e,g, ``F225W``.
-    instrument: str
-        Instrument name, e.g. ``WFC3/UVIS1``.
-    """
-    hst_file = os.path.join(hostphot_path, "filters/HST", "HST_filters.txt")
-    valid_instruments, valid_filters = np.loadtxt(hst_file, dtype=str).T
+    filt: str 
+        Filter to use, e,g, ``WFC3_UVIS_F225W``.
+    """        
+    if filt is None:
+        raise ValueError(f"'{filt}' is not a valid HST filter.")
+    
+    # For UVIS, only the filters of UVIS1 are used as the
+    # detector 2 is scaled to match detector 1
+    if 'UVIS' in filter:
+        filt = filt.replace('UVIS', 'UVIS1')
 
-    assert (
-        instrument in valid_instruments
-    ), f"Not a valid HST instrument ({instrument}): {valid_instruments}"
-    assert (
-        filt in valid_filters
-    ), f"Not a valid HST filter ({filt}): {valid_filters}"
+    hostphot_path = hostphot.__path__[0]
+    hst_file = glob.glob(os.path.join(hostphot_path, "filters/HST/*/*"))
+    hst_filters = [os.path.basename(file).split('.')[0] for file in hst_file]
 
-    indexes_inst = [i for i, f in enumerate(valid_filters) if f == filt]
-    matched_instruments = valid_instruments[indexes_inst]
-    assert (
-        instrument in matched_instruments
-    ), f"Not a valid HST instrument-filter combination -> {instrument}-{filt}"
+    assert filt in hst_filters, f"Not a valid HST filter ({filt}): {hst_filters}"
 
 
-def extract_filters(filters, survey, version=None):
-    """Extracts transmission functions.
+def extract_filter(filt, survey, version=None):
+    """Extracts the transmission function for the filter.
 
     Parameters
     ----------
-    filters: str
-        Filters to extract.
+    filt: str
+        Filter to extract.
     survey: str
         Survey of the filters.
-    version: str
+    version: str, default ``None``
         Version of the filters to use. E.g. for the
         Legacy Survey as it uses DECam for the south
         and BASS+MzLS for the north.
 
     Returns
     -------
-    filters_dict: dict
-        Dictionary with transmission functions
-        and their respective wavelengths.
+    wave: array
+        Wavelength range of the filter.
+    transmission: array
+        Transmission function.
     """
     check_survey_validity(survey)
     check_filters_validity(filters, survey)
-    filters_dict = {filt: None for filt in filters}
 
     if "WISE" in survey:
         survey = "WISE"  # for unWISE to use the same filters as WISE
+
     filters_path = os.path.join(hostphot.__path__[0], "filters", survey)
 
     # Assume DECaLS filters below 32 degrees and BASS+MzLS above
     # https://www.legacysurvey.org/status/
     if survey == "LegacySurvey":
-        filters_path = os.path.join(
-            hostphot.__path__[0], "filters", "LegacySurvey"
-        )
         if version == "BASS+MzLS":
-            for filt in filters:
-                if filt != "z":
-                    filt_file = os.path.join(filters_path, f"BASS_{filt}.dat")
-                else:
-                    filt_file = os.path.join(filters_path, f"MzLS_z.dat")
-                wave, transmission = np.loadtxt(filt_file).T
-                filters_dict[filt] = {
-                    "wave": wave,
-                    "transmission": transmission,
-                }
+            if filt == "z":
+                filt_file = os.path.join(filters_path, f"MzLS_z.dat")
+            else:
+                filt_file = os.path.join(filters_path, f"BASS_{filt}.dat")       
         elif version == "DECam":
-            for filt in filters:
-                filt_file = os.path.join(filters_path, f"DECAM_{filt}.dat")
-                wave, transmission = np.loadtxt(filt_file).T
-                filters_dict[filt] = {
-                    "wave": wave,
-                    "transmission": transmission,
-                }
+            filt_file = os.path.join(filters_path, f"DECAM_{filt}.dat")
 
-        return filters_dict
-
-    for filt in filters:
+    elif survey == "HST":
+        hst_files = glob.glob(os.path.join(filters_path, '*/*'))
+        if 'UVIS' in filters:
+            filters.replace('UVIS', 'UVIS1')
+        filt_file = [file for file in hst_files if filters in file][0]
+    else:
         filt_file = os.path.join(filters_path, f"{survey}_{filt}.dat")
-        wave, transmission = np.loadtxt(filt_file).T
-        filters_dict[filt] = {"wave": wave, "transmission": transmission}
+    
+    wave, transmission = np.loadtxt(filt_file).T
 
-    return filters_dict
+    return wave, transmission
 
 
 def integrate_filter(
@@ -804,7 +896,6 @@ def integrate_filter(
 
     return flux_filter
 
-
 def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
     """Changes the aperture parameters to consider differences
     in WCS between surveys.
@@ -822,7 +913,7 @@ def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
     img_wcs2: ~wcs.WCS
         WCS used to adapt the apertures.
     flip: bool, default ``False``
-        Whether to flip the orientation of the aperture. Only
+        Whether to flip the orientation of the aperture. Only 
         used for DES images.
 
     Returns
@@ -832,25 +923,23 @@ def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
     """
     objects_ = objects.copy()  # avoid modifying the intial objects
     for obj in objects_:
-        center = (obj["x"], obj["y"])
-        apertures = EllipticalAperture(
-            center, obj["a"], obj["b"], obj["theta"]
-        )
+        center = (obj['x'], obj['y'])
+        apertures = EllipticalAperture(center, obj['a'],
+                                       obj['b'], obj['theta'])
         sky_apertures = apertures.to_sky(img_wcs)
 
         new_apertures = sky_apertures.to_pixel(img_wcs2)
         new_center = new_apertures.positions
-        obj["x"], obj["y"] = new_center
-        obj["a"] = new_apertures.a
-        obj["b"] = new_apertures.b
-        obj["theta"] = new_apertures.theta
+        obj['x'], obj['y'] = new_center
+        obj['a'] = new_apertures.a
+        obj['b'] = new_apertures.b
+        obj['theta'] = new_apertures.theta
 
         if flip is True:
             # flip aperture orientation
-            obj["theta"] *= -1
+            obj['theta'] *= -1
 
     return objects_
-
 
 def check_work_dir(wokrdir):
     """Checks if the working directory exists. If it
@@ -917,7 +1006,7 @@ def plot_fits(fits_file, ext=0):
         vmax=m + s,
         origin="lower",
     )
-
+    
     plt.show()
 
 
