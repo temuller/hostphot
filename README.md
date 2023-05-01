@@ -181,6 +181,8 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 ```
 
 ## What's new!
+v2.5.1:
+* Using sfdmap2 instead of sfdmap to avoid issues with numpy version (requires Python>=3.9)
 v2.5.0:
 * Systematic error floor added to PS1 photometry
 * Added missing uncertainties in the error budget of DES (~5 mmag) 
