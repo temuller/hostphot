@@ -844,9 +844,9 @@ def extract_filter(filt, survey, version=None):
 
     elif survey == "HST":
         hst_files = glob.glob(os.path.join(filters_path, '*/*'))
-        if 'UVIS' in filters:
-            filters.replace('UVIS', 'UVIS1')
-        filt_file = [file for file in hst_files if filters in file][0]
+        if 'UVIS' in filt:
+            filt = filt.replace('UVIS', 'UVIS1')
+        filt_file = [file for file in hst_files if filt in file][0]
     else:
         filt_file = os.path.join(filters_path, f"{survey}_{filt}.dat")
     
