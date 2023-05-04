@@ -341,25 +341,21 @@ def get_SDSS_images(ra, dec, size=3, filters=None, version=None):
     pixel_scale = survey_pixel_scale(survey)
     size_pixels = int(size_arcsec.value / pixel_scale)
 
-    pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
+    coords = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
     for radius in np.arange(1, 60, 1):
-        ids = SDSS.query_region(pos, radius=radius * u.arcsec, data_release=dr)
+        ids = SDSS.query_region(coords, radius=radius * u.arcsec, data_release=dr)
         if ids is not None:
             break
 
     if ids is None:
         return None
 
-    pointings_ra = ids["ra"].value
-    pointings_dec = ids["dec"].value
-    dist = np.sqrt(
-        (pointings_ra - ra) ** 2 * (np.cos(pointings_dec * np.pi / 180) ** 2)
-        + (pointings_dec - dec) ** 2
-    )
-
     # get the pointing closest to the given coordinates
-    pointing_id = np.argmin(dist)
-    ids2remove = list(np.arange(len(dist)))
+    coords_imgs = SkyCoord(ra=ids["ra"].value, dec=ids["dec"].value, unit=(u.degree, u.degree), frame="icrs")
+    separation = coords.separation(coords_imgs).value
+
+    pointing_id = np.argmin(separation)
+    ids2remove = list(np.arange(len(separation)))
     del ids2remove[pointing_id]
     ids.remove_rows(ids2remove)
 
@@ -372,7 +368,7 @@ def get_SDSS_images(ra, dec, size=3, filters=None, version=None):
             warnings.simplefilter("ignore", AstropyWarning)
             img_wcs = wcs.WCS(hdu[0].header)
 
-        trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
+        trimmed_data = Cutout2D(hdu[0].data, coords, size_pixels, img_wcs)
         hdu[0].data = trimmed_data.data
         hdu[0].header.update(trimmed_data.wcs.to_header())
 
@@ -381,37 +377,6 @@ def get_SDSS_images(ra, dec, size=3, filters=None, version=None):
 
 # GALEX
 # ----------------------------------------
-def get_img_dist(host_ra, host_dec, header):
-    """Obtains the distance from the image center
-    to the galaxy position.
-
-    Parameters
-    ----------
-    host_ra: str or float
-        Right ascension of the galaxy in degrees.
-    host_dec: str or float
-        Declination of the galaxy in degrees.
-    header: fits header
-        Header of an image.
-
-    Returns
-    -------
-    dist_from_center: float
-        Distance of from the image center to the galaxy
-        position in pixel units.
-    """
-    # coordinates of the image center
-    img_ra, img_dec = float(header["RA_CENT"]), float(header["DEC_CENT"])
-
-    # distance to the galaxy
-    dist_from_center = np.sqrt(
-        (img_ra - host_ra) ** 2 * (np.cos(img_dec * np.pi / 180) ** 2)
-        + (img_dec - host_dec) ** 2
-    )
-
-    return dist_from_center
-
-
 def get_GALEX_images(ra, dec, size=3, filters=None, version=None):
     """Downloads a set of GALEX fits images for a given set
     of coordinates and filters.
@@ -506,16 +471,18 @@ def get_GALEX_images(ra, dec, size=3, filters=None, version=None):
                 except:
                     pass
 
-            # calculate the distance of the galaxy to the image center
-            distances = []
+            # calculate the separation of the galaxy to the image center
+            separations = []
             for hdu in hdu_list:
-                header = hdu[0].header
-                dist_from_center = get_img_dist(ra, dec, header)
-                distances.append(dist_from_center)
+                ra_img = float(hdu[0].header["RA_CENT"])
+                dec_img = float(hdu[0].header["DEC_CENT"])
+                coords_img = SkyCoord(ra=ra_img, dec=dec_img, unit=(u.degree, u.degree), frame="icrs")
+                separation = coords.separation(coords_img).value
+                separations.append(separation)
 
             # get the image with the galaxy closest to the center
-            if len(distances) != 0:
-                id_file = np.argmin(np.array(distances))
+            if len(separations) != 0:
+                id_file = np.argmin(separations)
                 hdu = hdu_list[id_file]
             else:
                 hdu = None
@@ -770,7 +737,7 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
         )
 
         hdu_list = []
-        for i, filt in enumerate(filters):
+        for filt in filters:
             if filt == "Ks":
                 filt = "K"
             band_df = twomass_df[twomass_df.band == filt]
@@ -779,10 +746,16 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
                 hdu_list.append(None)
                 continue
 
-            fname = band_df.download.values[0].split("=")[-1]
-            hemisphere = band_df.hem.values[0]
-            ordate = band_df.date.values[0]
-            scanno = band_df.scan.values[0]
+            # get image with the image's coordinates closest to the given coordinates
+            coords_imgs = SkyCoord(ra=band_df.center_ra.values, 
+                                   dec=band_df.center_dec.values, unit=(u.degree, u.degree), frame="icrs")
+            separation = coords.separation(coords_imgs).value
+            i = np.argmin(separation)
+
+            fname = band_df.download.values[i].split("=")[-1]
+            hemisphere = band_df.hem.values[i]
+            ordate = band_df.date.values[i]
+            scanno = band_df.scan.values[i]
             # add leading zeros for scanno bellow 100
             n_zeros = 3 - len(str(scanno))
             scanno = n_zeros * "0" + str(scanno)
@@ -811,7 +784,11 @@ def updated_HST_header(hdu):
     # get WCS
     with warnings.catch_warnings():
             warnings.simplefilter("ignore", AstropyWarning)
-            img_wcs = wcs.WCS(hdu[1].header)
+            for i in range(1, len(hdu)-1):
+                try:
+                    img_wcs = wcs.WCS(hdu[i].header)
+                except:
+                    continue
     hdu[0].header.update(img_wcs.to_header())
     hdu[0].header['PHOTPLAM'] = hdu[1].header['PHOTPLAM']
     hdu[0].data = hdu[1].data
@@ -874,15 +851,14 @@ def get_HST_images(ra, dec, size=3, filt=None):
         )
 
     result = esahubble.cone_search_criteria(radius=3,
-                                        #obs_collection=['HST'],
-                                        coordinates=coords,
-                                        calibration_level='PRODUCT',
-                                        data_product_type = 'image',
-                                        instrument_name = instrument,
-                                        filters = filt,
-                                        async_job = True,
-                                       )
-
+                                            coordinates=coords,
+                                            calibration_level='CALIBRATED',
+                                            data_product_type = 'image',
+                                            instrument_name = instrument,
+                                            filters = filt,
+                                            async_job = True,
+                                        )
+    
     obs_df = result.to_pandas()
     obs_df = obs_df[obs_df['filter']==filt]
     # get only exposures shorter than one hour
@@ -895,7 +871,7 @@ def get_HST_images(ra, dec, size=3, filt=None):
         try:
             esahubble.download_product(observation_id=obs_id, 
                                        product_type="SCIENCE", 
-                                       calibration_level="PRODUCT", 
+                                       calibration_level="CALIBRATED", 
                                        filename='tmp')
             break
         except:
