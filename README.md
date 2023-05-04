@@ -181,6 +181,9 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 ```
 
 ## What's new!
+v2.6.0:
+* HST (WFC3 only) included
+* 2MASS cutouts fixed (it now downloads the image closest to the given coordinates)
 v2.5.1:
 * Using sfdmap2 instead of sfdmap to avoid issues with numpy version (requires Python>=3.9)
 v2.5.0:
