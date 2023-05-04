@@ -29,10 +29,8 @@ from hostphot.utils import (
     check_survey_validity,
     check_filters_validity,
     get_image_gain,
-    pixel2pixel,
     check_work_dir,
     magnitude_calculation,
-    survey_pixel_scale,
     adapt_aperture,
     bkg_surveys,
 )
