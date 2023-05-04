@@ -76,6 +76,12 @@ The configureration file (``config.txt``) contains most of the necessary informa
      - 0.339
      - Vega
      - 0.502,0.600,0.916,1.366,1.827
+   * - HST
+     - WFC3
+     - header
+     - 0.06
+     - AB
+     - 0.0
 
-where **survey** is the internal name of the survey used by HostPhot, **filters** are the available filters either as a single string (for single character filters, e.g. grizy) or separated by commas (no spaces), **zp** are the zero-points (ZPs) separated by commas if multiple ZPs are used or the string `header` in which case HostPhot will look for the keyword ``MAGZP``, **pixel_scale** is the pixel scaling of the images in units of arcsec/pixel, **mag_sys** is the magnitude system, and **mag_sys_conv** is the magnitude system convertion factor such that :math:`m_{\text{AB}} = m_{\text{Vega}} + \text{mag_sys_conv}`. The last twos columns are not used by HostPhot (at the moment at least). They are mainly for completeness in case a user needs the photometry in different units.
+where **survey** is the internal name of the survey used by HostPhot, **filters** are the available filters (or instrument for HST) either as a single string (for single character filters, e.g. grizy) or separated by commas (no spaces), **zp** are the zero-points (ZPs) separated by commas if multiple ZPs are used or the string `header` in which case HostPhot will look for the keyword ``MAGZP`` (sometimes added by HostPhot), **pixel_scale** is the pixel scaling of the images in units of arcsec/pixel, **mag_sys** is the magnitude system, and **mag_sys_conv** is the magnitude system convertion factor such that :math:`m_{\text{AB}} = m_{\text{Vega}} + \text{mag_sys_conv}`. The last twos columns are not used by HostPhot (at the moment at least). They are mainly for completeness in case a user needs the photometry in different units.
 

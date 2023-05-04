@@ -182,3 +182,23 @@ VISTA
   The errors are propagated in the same way as for PS1, with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword).
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{ZP}})`.
+  
+  
+HST/WFC3
+~~~~~~~~
+
+* **ZP**
+  
+  HST zeropoints can be calculated using the `PHOTFLAM` and `PHOTPLAM` keywords from the image' header, as explained in `https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration>`_ and `https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration>`_: 
+  
+  :math:`\ZP_{\text{AB}} = -2.5\log(PHOTFLAM) - 5\log(PHOTPLAM) - 2.408`.
+  
+  This is saved in the header under the ``MAGZP`` keyword. 
+  
+  In addition, the image's counts should be multiplied by the encircled energy fraction, which mainly affects small apertures (see `EE-UVIS <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/uvis-encircled-energy>`_ and `EE-IR <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/ir-encircled-energy>`_ for WFC3/UVIS and WFC3/IR instruments, respectively). WFC3/UVIS has two detectors, UVIS1 and UVIS2, where the downloaded images have the detector UVIS2 scaled to UVIS1. The encircled energy fraction depends on each detector, so an average is taken between both. The value of `PHOTFLAM` also depends on the detector (`PHOTFLAM1` and `PHOTFLAM2`), but it is already calibrated to a single value (`PHOTFLAM`) and the same thing for `PHOTPLAM`.
+  
+* **Error Propagation**
+
+  The errors are propagated in the same way as for PS1, with an additional component coming from the ZP calibration (`ERR_PHOTFLAM`; :math:`\sigma_{\text{ZP}}`), taken from the tables found in the photometric calibration websites of the instruments (see `UVIS photometric calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/uvis-photometric-calibration>`_ `IR photometric calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/ir-photometric-calibration>`_), which is of the order of a few percent at most.
+  
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}})`.
