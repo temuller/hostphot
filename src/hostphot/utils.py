@@ -792,7 +792,7 @@ def check_HST_filters(filt):
     
     # For UVIS, only the filters of UVIS1 are used as the
     # detector 2 is scaled to match detector 1
-    if 'UVIS' in filter:
+    if 'UVIS' in filt:
         filt = filt.replace('UVIS', 'UVIS1')
 
     hostphot_path = hostphot.__path__[0]
@@ -824,7 +824,7 @@ def extract_filter(filt, survey, version=None):
         Transmission function.
     """
     check_survey_validity(survey)
-    check_filters_validity(filters, survey)
+    check_filters_validity([filt], survey)
 
     if "WISE" in survey:
         survey = "WISE"  # for unWISE to use the same filters as WISE
