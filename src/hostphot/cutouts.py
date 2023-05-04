@@ -932,7 +932,7 @@ def get_HST_images_(ra, dec, size=3, filt=None, instrument=None):
         List with fits image for the given filter.
         `None` is returned if no image is found.
     """
-    check_HST_inputs(filt, instrument)
+    check_HST_filters(filt, instrument)
 
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec)
