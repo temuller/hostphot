@@ -1129,7 +1129,7 @@ def get_HST_images(ra, dec, size=3, filt=None):
         obs_df = obs_df[obs_df.Mode=='IMAGE']
         obs_df = obs_df[obs_df.Format.str.endswith('fits')]
         obs_df = obs_df[obs_df.Detector==instrument]
-        obs_df = imgs_df[obs_df.Spectral_Elt==filt]
+        obs_df = obs_df[obs_df.Spectral_Elt==filt]
         obs_df = obs_df[obs_df.ExpTime==obs_df.ExpTime.max()]
         
         hdu = fits.open(obs_df.URL.values[0])
