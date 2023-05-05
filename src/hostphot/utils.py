@@ -282,7 +282,7 @@ def get_image_exptime(header, survey):
     return exptime
 
 
-def correct_HST_aperture(filt, ap_area):
+def correct_HST_aperture(filt, ap_area, header):
     """Get the aperture correction for the given configuration.
 
     Parameters
@@ -291,6 +291,8 @@ def correct_HST_aperture(filt, ap_area):
         HST filter, e.g. ``WFC3_UVIS_F225W``.
     ap_area: float
         Aperture area.
+    header: fits header
+        Header of an image.
 
     Returns
     -------
@@ -301,6 +303,9 @@ def correct_HST_aperture(filt, ap_area):
     filt_split = filt.split('_')
     filt = filt_split[-1]
     instrument = filt_split[-2]
+
+    if instrument=='UVIS':
+        instrument = header['APERTURE']
 
     # assuming circular aperture
     # for an ellipse, this would take the average of the axes
@@ -387,13 +392,7 @@ def magnitude_calculation(
     if survey == 'HST':
         # HST needs and aperture correction for the flux
         # see, e.g. https://www.stsci.edu/hst/instrumentation/acs/data-analysis/aperture-corrections
-        if 'UVIS' in filt:
-            # get the mean correction between UVIS1 and UVIS2
-            ap_corr1 = correct_HST_aperture(filt.replace('UVIS', 'UVIS1'), ap_area)
-            ap_corr2 = correct_HST_aperture(filt.replace('UVIS', 'UVIS2'), ap_area)
-            ap_corr = np.mean(ap_corr1, ap_corr2)
-        else:
-            ap_corr = correct_HST_aperture(filt, ap_area)
+        ap_corr = correct_HST_aperture(filt, ap_area, header)
         flux = flux*ap_corr
 
     mag = -2.5 * np.log10(flux) + zp
@@ -401,13 +400,15 @@ def magnitude_calculation(
     return mag, mag_err, flux, flux_err
 
 
-def get_HST_err(filt):
+def get_HST_err(filt, header):
     """Obtaines the error propagation from the zeropoint.
 
     Parameters
     ----------
     filt : str
         HST filter, e.g. ``WFC3_UVIS_F225W``.
+    header: fits header
+        Header of an image.
 
     Returns
     -------
@@ -420,6 +421,10 @@ def get_HST_err(filt):
     filt_split = filt.split('_')
     filt = filt_split[-1]
     instrument = filt_split[-2]
+
+    if instrument=='UVIS':
+        # APERTURE usually point to UVIS2
+        instrument = header['APERTURE']
 
     # get uncertainty file
     err_file = os.path.join(hostphot_path, 
@@ -468,8 +473,8 @@ def uncertainty_calculation(
     readnoise = get_image_readnoise(header, survey)
 
     mag_err = 2.5 / np.log(10) * flux_err / flux
-
-    if survey in ["PS1", "DES", "LegacySurvey", "Spitzer", "VISTA", "HST"]:
+    
+    if survey in ["PS1", "DES", "LegacySurvey", "Spitzer", "VISTA"]:
         if survey == "Spitzer":
             flux /= header["EFCONV"]  # conv. factor (MJy/sr)/(DN/s)
         # 1.0857 = 2.5/ln(10)
@@ -480,7 +485,7 @@ def uncertainty_calculation(
 
         extra_flux_err = np.sqrt(ap_area * (readnoise**2) + flux / gain)
         flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
-
+    
     if survey == "DES":
         # see the photometry section in https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality
         # statistical uncertainties on the AB magnitud system zeropoints
@@ -694,14 +699,7 @@ def uncertainty_calculation(
         extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
         flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
     elif survey == "HST":
-        if 'UVIS' in filt:
-            # get the largest error between UVIS1 and UVIS2
-            flux_zp_unc1, zp_unc1 = get_HST_err(filt.replace('UVIS', 'UVIS1'))
-            flux_zp_unc2, zp_unc2 = get_HST_err(filt.replace('UVIS', 'UVIS2'))
-            flux_zp_unc = max(flux_zp_unc1, flux_zp_unc2)
-            zp_unc = max(zp_unc1, zp_unc2)
-        else:
-            flux_zp_unc, zp_unc = get_HST_err(filt)
+        flux_zp_unc, zp_unc = get_HST_err(filt, header)
 
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
         flux_err = np.sqrt(flux_err ** 2 + flux_zp_unc ** 2)
@@ -824,7 +822,10 @@ def extract_filter(filt, survey, version=None):
         Transmission function.
     """
     check_survey_validity(survey)
-    check_filters_validity([filt], survey)
+    if survey=='HST':
+        check_filters_validity(filt, survey)
+    else:
+        check_filters_validity([filt], survey)
 
     if "WISE" in survey:
         survey = "WISE"  # for unWISE to use the same filters as WISE
@@ -843,9 +844,10 @@ def extract_filter(filt, survey, version=None):
             filt_file = os.path.join(filters_path, f"DECAM_{filt}.dat")
 
     elif survey == "HST":
-        hst_files = glob.glob(os.path.join(filters_path, '*/*'))
         if 'UVIS' in filt:
-            filt = filt.replace('UVIS', 'UVIS1')
+            # Usually UVIS2 is used, but there is no large difference
+            filt = filt.replace('UVIS', 'UVIS2')
+        hst_files = glob.glob(os.path.join(filters_path, '*/*'))
         filt_file = [file for file in hst_files if filt in file][0]
     else:
         filt_file = os.path.join(filters_path, f"{survey}_{filt}.dat")

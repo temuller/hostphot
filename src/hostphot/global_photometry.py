@@ -620,9 +620,13 @@ def multi_band_phot(
     """
     check_survey_validity(survey)
     if filters is None:
+        if survey=='HST':
+            raise ValueError("For HST, the filter needs to be specified!")
         filters = get_survey_filters(survey)
     else:
         check_filters_validity(filters, survey)
+    if survey=='HST':
+        filters = [filters]
 
     results_dict = {
         "name": name,

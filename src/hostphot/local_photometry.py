@@ -376,9 +376,13 @@ def multi_band_phot(
     """
     check_survey_validity(survey)
     if filters is None:
+        if survey=='HST':
+            raise ValueError("For HST, the filter needs to be specified!")
         filters = get_survey_filters(survey)
     else:
         check_filters_validity(filters, survey)
+    if survey=='HST':
+        filters = [filters]
 
     # turn float into a list
     if isinstance(ap_radii, (float, int)):
@@ -391,7 +395,7 @@ def multi_band_phot(
         "redshift": z,
         "survey": survey,
     }
-
+    
     for filt in filters:
         try:
             mags, mags_err, fluxes, fluxes_err = photometry(

@@ -50,6 +50,7 @@ HostPhot is being actively developed in `a public repository on GitHub
    examples/photometry_example.rst
    examples/interactive_aperture.rst
    examples/test_full.ipynb
+   examples/hst_example.ipynb
    
 .. toctree::
    :maxdepth: 2

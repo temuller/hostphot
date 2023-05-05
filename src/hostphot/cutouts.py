@@ -663,7 +663,7 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
     master_url = base_url + params_url
 
     response = requests.get(master_url, stream=True)
-    target_file = "unWISE_images.tar.gz"  # current directory
+    target_file = f"unWISE_images_{ra}_{dec}.tar.gz"  # current directory
     if response.status_code == 200:
         with open(target_file, "wb") as f:
             f.write(response.raw.read())
@@ -679,7 +679,9 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
                     hdu_list.append(hdu)
                     os.remove(fits_file)
 
-    os.remove(target_file)
+    # sometimes, the file is not downloaded, so let's check if it exists
+    if os.path.isfile(target_file) is True:
+        os.remove(target_file)
 
     return hdu_list
 
@@ -769,252 +771,6 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
             hdu_list.append(hdu)
 
     return hdu_list
-
-
-# HST
-# ----------------------------------------
-def updated_HST_header(hdu):
-    """Updates the HST image header with the necessary keywords.
-
-    Parameters
-    ----------
-    hdu : Header Data Unit.
-        HST FITS image.
-    """
-    # get WCS
-    with warnings.catch_warnings():
-            warnings.simplefilter("ignore", AstropyWarning)
-            for i in range(1, len(hdu)-1):
-                try:
-                    img_wcs = wcs.WCS(hdu[i].header)
-                except:
-                    continue
-    hdu[0].header.update(img_wcs.to_header())
-    hdu[0].header['PHOTPLAM'] = hdu[1].header['PHOTPLAM']
-    hdu[0].data = hdu[1].data
-
-    # add zeropoints
-    # https://www.stsci.edu/hst/instrumentation/acs/data-analysis/zeropoints
-    photflam = hdu[0].header["PHOTFLAM"]
-    photplam = hdu[0].header["PHOTFLAM"]
-    hdu[0].header["MAGZP"] = (
-        -2.5 * np.log10(photflam) - 5 * np.log10(photplam) - 2.408
-    )
-
-
-def get_HST_images(ra, dec, size=3, filt=None):
-    """Downloads a set of HST fits images for a given set
-    of coordinates and filters using the MAST archive.
-
-    Parameters
-    ----------
-    ra: str or float
-        Right ascension in degrees.
-    dec: str or float
-        Declination in degrees.
-    size: float or ~astropy.units.Quantity, default ``3``
-        Image size. If a float is given, the units are assumed to be arcmin.
-    filt: str, default ``None``
-        Filter to use, e.g. ``WFC3_UVIS_F225W``.
-
-    Return
-    ------
-    hdu_list: list
-        List with fits image for the given filter.
-        `None` is returned if no image is found.
-    """
-    global esahubble
-    esahubble.get_status_messages()
-    check_HST_filters(filt)
-
-    # separate the instrument name from the actual filter
-    split_filt = filt.split('_')
-    if len(split_filt)==2:
-        filt = split_filt[-1]
-        instrument = split_filt[0]
-    elif len(split_filt)==3:
-        filt = split_filt[-1]
-        instrument = f'{split_filt[0]}/{split_filt[1]}'
-    else:
-        raise ValueError(f"Incorrect filter name: {filt}")
-
-    if isinstance(size, (float, int)):
-        size_arcsec = (size * u.arcmin).to(u.arcsec)
-    else:
-        size_arcsec = size.to(u.arcsec)
-    size_arcsec = size_arcsec.value
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", AstropyWarning)
-        coords = SkyCoord(
-            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
-        )
-
-    result = esahubble.cone_search_criteria(radius=3,
-                                            coordinates=coords,
-                                            calibration_level='CALIBRATED',
-                                            data_product_type = 'image',
-                                            instrument_name = instrument,
-                                            filters = filt,
-                                            async_job = True,
-                                        )
-    
-    obs_df = result.to_pandas()
-    obs_df = obs_df[obs_df['filter']==filt]
-    # get only exposures shorter than one hour
-    obs_df = obs_df[obs_df.exposure_duration<3600]  
-    obs_df.sort_values(by=['exposure_duration'], 
-                       ascending=False, inplace=True) 
-
-    print('Looking for HST images...')
-    for obs_id in obs_df.observation_id:
-        try:
-            esahubble.download_product(observation_id=obs_id, 
-                                       product_type="SCIENCE", 
-                                       calibration_level="CALIBRATED", 
-                                       filename='tmp')
-            break
-        except:
-            pass
-
-    if os.path.isfile('tmp.fits.gz') is False:
-        return None
-    
-    with zipfile.ZipFile('tmp.fits.gz', 'r') as zip_ref:
-        zip_ref.extractall('tmp')
-        fits_file = [file for file in glob.glob('tmp/**', recursive=True) 
-                     if file.endswith('.gz')][0]
-
-    hdu = fits.open(fits_file)
-    updated_HST_header(hdu)
-    
-    hdu_list = [hdu]
-
-    # remove the temporary files
-    os.remove("tmp.fits.gz") 
-    shutil.rmtree("tmp", ignore_errors=True)
-
-    # HST images can be large so need to be trimmed
-    pixel_scale = survey_pixel_scale('HST')
-    size_pixels = int(size_arcsec / pixel_scale)
-
-    for hdu in hdu_list:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", AstropyWarning)
-            img_wcs = wcs.WCS(hdu[0].header)
-
-        trimmed_data = Cutout2D(hdu[0].data, coords, size_pixels, img_wcs)
-        hdu[0].data = trimmed_data.data
-        hdu[0].header.update(trimmed_data.wcs.to_header())
-
-    return hdu_list
-
-def get_HST_images_(ra, dec, size=3, filt=None, instrument=None):
-    """Downloads a set of HST fits images for a given set
-    of coordinates and filters using the MAST archive.
-
-    Parameters
-    ----------
-    ra: str or float
-        Right ascension in degrees.
-    dec: str or float
-        Declination in degrees.
-    size: float or ~astropy.units.Quantity, default ``3``
-        Image size. If a float is given, the units are assumed to be arcmin.
-    filt: str, default ``None``
-        Filter to use.
-    instrument: str, default ``None``
-        Instrument to use.
-
-    Return
-    ------
-    hdu_list: list
-        List with fits image for the given filter.
-        `None` is returned if no image is found.
-    """
-    check_HST_filters(filt, instrument)
-
-    if isinstance(size, (float, int)):
-        size_arcsec = (size * u.arcmin).to(u.arcsec)
-    else:
-        size_arcsec = size.to(u.arcsec)
-    size_arcsec = size_arcsec.value
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", AstropyWarning)
-        coords = SkyCoord(
-            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
-        )
-
-    obs_table = Observations.query_region(coords, radius=size)
-    obs_table = obs_table.filled()  # remove masked rows
-    obs_df = obs_table.to_pandas()
-
-    obs_df = obs_df[
-        (obs_df.obs_collection == "HST") | (obs_df.obs_collection == "HLA")
-    ]
-    obs_df = obs_df[obs_df.dataproduct_type == "image"]
-    obs_df = obs_df[obs_df.t_exptime > 15]  # remove short exposures
-
-    # filter by instrument+filter
-    inst = instrument.split("/")[0]
-    # inst_df = obs_df[obs_df.instrument_name==instrument]
-    inst_df = obs_df[obs_df.instrument_name.str.contains(inst)]
-    filt_df = inst_df[inst_df.filters == filt]
-    # just use one image
-    filt_df = filt_df[filt_df.t_exptime == filt_df.t_exptime.max()]
-
-    # get data products
-    data_products = Observations.get_product_list(Table.from_pandas(filt_df))
-    dp_df = data_products.to_pandas()
-    dp_df = dp_df[dp_df.type == "S"]
-    dp_df = dp_df[dp_df.productSubGroupDescription == "FLT"]  # only images
-    # choose first image
-    single_dp_df = dp_df[dp_df.obs_id == dp_df.obs_id.values[0]]
-
-    Observations.download_products(
-        Table.from_pandas(single_dp_df),
-        download_dir=None,
-        cache=False,
-        productType="SCIENCE",
-        extension=["fits"],
-    )
-
-    for path, subdirs, files in os.walk("mastDownload"):
-        for file in files:
-            fits_file = os.path.join(path, file)
-
-    hdu = fits.open(fits_file)
-    hdu[0].data = hdu[1].data
-
-    # add zeropoints
-    # https://www.stsci.edu/hst/instrumentation/acs/data-analysis/zeropoints
-    photflam = hdu[0].header["PHOTFLAM"]
-    photplam = hdu[0].header["PHOTFLAM"]
-    hdu[0].header["MAGZP"] = (
-        -2.5 * np.log10(photflam) - 5 * np.log10(photplam) - 2.408
-    )
-    hdu_list = [hdu]
-
-    # remove directory created by MAST download
-    shutil.rmtree("mastDownload", ignore_errors=True)
-
-    # HST images can be large so need to be trimmed
-    pixel_scale = survey_pixel_scale('HST')
-    size_pixels = int(size_arcsec / pixel_scale)
-    pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
-
-    for hdu in hdu_list:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", AstropyWarning)
-            img_wcs = wcs.WCS(hdu[0].header)
-
-        trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
-        hdu[0].data = trimmed_data.data
-        hdu[0].header.update(trimmed_data.wcs.to_header())
-
-    return hdu_list
-
 
 # Legacy Survey
 def get_LegacySurvey_images(ra, dec, size=3, filters=None, version="dr10"):
@@ -1246,6 +1002,290 @@ def get_VISTA_images(ra, dec, size=3, filters=None, version="VHS"):
             hdu_list.append(hdu[1])  # extension 1
         else:
             hdu_list.append(None)
+
+    return hdu_list
+
+
+# HST
+# ----------------------------------------
+def update_HST_header(hdu):
+    """Updates the HST image header with the necessary keywords.
+
+    Parameters
+    ----------
+    hdu : Header Data Unit.
+        HST FITS image.
+    """
+    # get WCS
+    with warnings.catch_warnings():
+            warnings.simplefilter("ignore", AstropyWarning)
+            for i in range(1, len(hdu)-1):
+                try:
+                    img_wcs = wcs.WCS(hdu[i].header)
+                except:
+                    continue
+    hdu[0].header.update(img_wcs.to_header())
+    hdu[0].header['PHOTFLAM'] = hdu[1].header['PHOTFLAM']
+    hdu[0].header['PHOTPLAM'] = hdu[1].header['PHOTPLAM']
+    hdu[0].data = hdu[1].data
+
+    # add zeropoints
+    # https://www.stsci.edu/hst/instrumentation/acs/data-analysis/zeropoints
+    photflam = hdu[0].header["PHOTFLAM"]
+    photplam = hdu[0].header["PHOTPLAM"]
+    hdu[0].header["MAGZP"] = (
+        -2.5 * np.log10(photflam) - 5 * np.log10(photplam) - 2.408
+    )
+
+def set_HST_image(file, filt, name):
+    """Moves a previously downloaded HST image into the work directory.
+
+    The image's header is updated with the necessary keywords to obtain
+    photometry and is also moved under the objects directory inside the 
+    work directory.
+
+    HST images take very long to download, so the user might prefer to
+    download the images manually and then use this function to include
+    the image into the workflow.
+
+    Parameters
+    ----------
+    file : str
+        HST image to use.
+    filt : str
+        HST filter, e.g. ``WFC3_UVIS_F275W``.
+    name : str
+        Object's name.
+    """
+    check_work_dir(workdir)
+    obj_dir = os.path.join(workdir, name)
+    if not os.path.isdir(obj_dir):
+        os.mkdir(obj_dir)
+
+    hdu = fits.open(file)
+    update_HST_header(hdu)
+    outfile = os.path.join(obj_dir, f'HST_{filt}.fits')
+    hdu.writeto(outfile, overwrite=True)
+
+def get_HST_images(ra, dec, size=3, filt=None):
+    """Downloads a set of HST fits images for a given set
+    of coordinates and filters using the MAST archive.
+
+    Parameters
+    ----------
+    ra: str or float
+        Right ascension in degrees.
+    dec: str or float
+        Declination in degrees.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
+    filt: str, default ``None``
+        Filter to use, e.g. ``WFC3_UVIS_F225W``.
+
+    Return
+    ------
+    hdu_list: list
+        List with fits image for the given filter.
+        `None` is returned if no image is found.
+    """
+    global esahubble
+    esahubble.get_status_messages()
+    check_HST_filters(filt)
+
+    # separate the instrument name from the actual filter
+    split_filt = filt.split('_')
+    if len(split_filt)==2:
+        filt = split_filt[-1]
+        instrument = split_filt[0]
+    elif len(split_filt)==3:
+        filt = split_filt[-1]
+        instrument = f'{split_filt[0]}/{split_filt[1]}'
+    else:
+        raise ValueError(f"Incorrect filter name: {filt}")
+
+    if isinstance(size, (float, int)):
+        size_arcsec = (size * u.arcmin).to(u.arcsec)
+    else:
+        size_arcsec = size.to(u.arcsec)
+    size_arcsec = size_arcsec.value
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        coords = SkyCoord(
+            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
+        )
+
+    version = None
+    if version=='HLA':
+        # This does not seem to be faster
+        fov = 0.2   # field-of-view win degrees
+        access_url = " https://hla.stsci.edu/cgi-bin/hlaSIAP.cgi"
+        svc = sia.SIAService(access_url)
+        imgs_table = svc.search(
+            (ra, dec), (fov / np.cos(dec * np.pi / 180), fov), verbosity=2
+        )
+
+        obs_df = pd.DataFrame(imgs_table)
+        obs_df = obs_df[obs_df.Mode=='IMAGE']
+        obs_df = obs_df[obs_df.Format.str.endswith('fits')]
+        obs_df = obs_df[obs_df.Detector==instrument]
+        obs_df = imgs_df[obs_df.Spectral_Elt==filt]
+        obs_df = obs_df[obs_df.ExpTime==obs_df.ExpTime.max()]
+        
+        hdu = fits.open(obs_df.URL.values[0])
+    else:
+        result = esahubble.cone_search_criteria(radius=3,
+                                                coordinates=coords,
+                                                calibration_level='PRODUCT',
+                                                data_product_type = 'image',
+                                                instrument_name = instrument,
+                                                filters = filt,
+                                                async_job = True,
+                                            )
+        
+        obs_df = result.to_pandas()
+        obs_df = obs_df[obs_df['filter']==filt]
+        # get only exposures shorter than one hour
+        obs_df = obs_df[obs_df.exposure_duration<3600]  
+        obs_df.sort_values(by=['exposure_duration'], 
+                        ascending=False, inplace=True) 
+
+        print('Looking for HST images...')
+        filename = f'HST_tmp_{ra}_{dec}'  # the extension is added below
+        for obs_id in obs_df.observation_id:
+            try:
+                esahubble.download_product(observation_id=obs_id, 
+                                        product_type="SCIENCE", 
+                                        calibration_level="PRODUCT", 
+                                        filename=filename)
+                break
+            except:
+                pass
+
+        temp_file = f'{filename}.fits.gz'
+        if os.path.isfile(temp_file) is False:
+            return None
+        
+        temp_dir = filename # same name as the extension-less file above
+        with zipfile.ZipFile(temp_file, 'r') as zip_ref:
+            zip_ref.extractall(temp_dir)
+            fits_file = [file for file in glob.glob(f'{temp_dir}/**', recursive=True) 
+                        if file.endswith('.gz')][0]
+
+        hdu = fits.open(fits_file)    
+
+        # remove the temporary files and directory
+        os.remove(temp_file) 
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    update_HST_header(hdu)
+    hdu_list = [hdu]
+    
+    return hdu_list
+
+def get_HST_images_OLD(ra, dec, size=3, filt=None, instrument=None):
+    """Downloads a set of HST fits images for a given set
+    of coordinates and filters using the MAST archive.
+
+    Parameters
+    ----------
+    ra: str or float
+        Right ascension in degrees.
+    dec: str or float
+        Declination in degrees.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
+    filt: str, default ``None``
+        Filter to use.
+    instrument: str, default ``None``
+        Instrument to use.
+
+    Return
+    ------
+    hdu_list: list
+        List with fits image for the given filter.
+        `None` is returned if no image is found.
+    """
+    check_HST_filters(filt, instrument)
+
+    if isinstance(size, (float, int)):
+        size_arcsec = (size * u.arcmin).to(u.arcsec)
+    else:
+        size_arcsec = size.to(u.arcsec)
+    size_arcsec = size_arcsec.value
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        coords = SkyCoord(
+            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
+        )
+
+    obs_table = Observations.query_region(coords, radius=size)
+    obs_table = obs_table.filled()  # remove masked rows
+    obs_df = obs_table.to_pandas()
+
+    obs_df = obs_df[
+        (obs_df.obs_collection == "HST") | (obs_df.obs_collection == "HLA")
+    ]
+    obs_df = obs_df[obs_df.dataproduct_type == "image"]
+    obs_df = obs_df[obs_df.t_exptime > 15]  # remove short exposures
+
+    # filter by instrument+filter
+    inst = instrument.split("/")[0]
+    # inst_df = obs_df[obs_df.instrument_name==instrument]
+    inst_df = obs_df[obs_df.instrument_name.str.contains(inst)]
+    filt_df = inst_df[inst_df.filters == filt]
+    # just use one image
+    filt_df = filt_df[filt_df.t_exptime == filt_df.t_exptime.max()]
+
+    # get data products
+    data_products = Observations.get_product_list(Table.from_pandas(filt_df))
+    dp_df = data_products.to_pandas()
+    dp_df = dp_df[dp_df.type == "S"]
+    dp_df = dp_df[dp_df.productSubGroupDescription == "FLT"]  # only images
+    # choose first image
+    single_dp_df = dp_df[dp_df.obs_id == dp_df.obs_id.values[0]]
+
+    Observations.download_products(
+        Table.from_pandas(single_dp_df),
+        download_dir=None,
+        cache=False,
+        productType="SCIENCE",
+        extension=["fits"],
+    )
+
+    for path, subdirs, files in os.walk("mastDownload"):
+        for file in files:
+            fits_file = os.path.join(path, file)
+
+    hdu = fits.open(fits_file)
+    hdu[0].data = hdu[1].data
+
+    # add zeropoints
+    # https://www.stsci.edu/hst/instrumentation/acs/data-analysis/zeropoints
+    photflam = hdu[0].header["PHOTFLAM"]
+    photplam = hdu[0].header["PHOTFLAM"]
+    hdu[0].header["MAGZP"] = (
+        -2.5 * np.log10(photflam) - 5 * np.log10(photplam) - 2.408
+    )
+    hdu_list = [hdu]
+
+    # remove directory created by MAST download
+    shutil.rmtree("mastDownload", ignore_errors=True)
+
+    # HST images can be large so need to be trimmed
+    pixel_scale = survey_pixel_scale('HST')
+    size_pixels = int(size_arcsec / pixel_scale)
+    pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
+
+    for hdu in hdu_list:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", AstropyWarning)
+            img_wcs = wcs.WCS(hdu[0].header)
+
+        trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
+        hdu[0].data = trimmed_data.data
+        hdu[0].header.update(trimmed_data.wcs.to_header())
 
     return hdu_list
 
