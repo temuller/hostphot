@@ -2,7 +2,7 @@ import sphinx_rtd_theme
 import sys
 import os
 
-# to be able to import piscola
+# to be able to import hostphot
 sys.path.insert(0, os.path.abspath("../src"))
 
 with open("../src/hostphot/_version.py") as version_file:
