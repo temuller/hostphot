@@ -748,31 +748,7 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
                 hdu_list.append(None)
                 continue
 
-            """
-            # get image with the image's coordinates closest to the given coordinates
-            coords_imgs = SkyCoord(ra=band_df.center_ra.values, 
-                                   dec=band_df.center_dec.values, unit=(u.degree, u.degree), frame="icrs")
-            separation = coords.separation(coords_imgs).value
-
-            i_dist = np.argmin(separation)
-            fname = band_df.download.values[i].split("=")[-1]
-            hemisphere = band_df.hem.values[i]
-            ordate = band_df.date.values[i]
-            scanno = band_df.scan.values[i]
-            # add leading zeros for scanno bellow 100
-            n_zeros = 3 - len(str(scanno))
-            scanno = n_zeros * "0" + str(scanno)
-
-            tile_url = os.path.join(f"{ordate}{hemisphere}", f"s{scanno}")
-            fits_url = os.path.join("image", f"{fname}.gz")
-            params_url = f"center={ra},{dec}&size={size_degree}degree&gzip=0"  # center and size of the image
-
-            url = os.path.join(base_url, tile_url, fits_url + "?" + params_url)
-            hdu = fits.open(url)
-            hdu_list.append(hdu)
-            """
-
-            # pick the largest images which is also the most squared one
+            # pick the largest images which is also the most "square" one
             # this works better than picking the image closest to the given coordinates
             # don't know why
             sizes = []
