@@ -18,7 +18,7 @@ HostPhot is being actively developed in `a public repository on GitHub
 
 .. image:: https://img.shields.io/badge/GitHub-temuller%2Fpiscola-blue.svg?style=flat
     :target: https://github.com/temuller/hostphot
-.. image:: https://readthedocs.org/projects/piscola/badge/?version=latest&style=flat
+.. image:: https://readthedocs.org/projects/hostphot/badge/?version=latest
     :target: https://hostphot.readthedocs.io/en/latest/?badge=latest
 .. image:: http://img.shields.io/badge/license-MIT-blue.svg?style=flat
     :target: https://github.com/temuller/hostphot/blob/master/LICENSE
