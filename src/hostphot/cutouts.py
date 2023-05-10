@@ -25,6 +25,7 @@ from astroquery.skyview import SkyView  # other surveys
 from astroquery.mast import Observations  # for GALEX
 
 from astroquery.esa.hubble import ESAHubble
+
 esahubble = ESAHubble()
 
 from reproject import reproject_interp
@@ -343,7 +344,9 @@ def get_SDSS_images(ra, dec, size=3, filters=None, version=None):
 
     coords = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
     for radius in np.arange(1, 60, 1):
-        ids = SDSS.query_region(coords, radius=radius * u.arcsec, data_release=dr)
+        ids = SDSS.query_region(
+            coords, radius=radius * u.arcsec, data_release=dr
+        )
         if ids is not None:
             break
 
@@ -351,7 +354,12 @@ def get_SDSS_images(ra, dec, size=3, filters=None, version=None):
         return None
 
     # get the pointing closest to the given coordinates
-    coords_imgs = SkyCoord(ra=ids["ra"].value, dec=ids["dec"].value, unit=(u.degree, u.degree), frame="icrs")
+    coords_imgs = SkyCoord(
+        ra=ids["ra"].value,
+        dec=ids["dec"].value,
+        unit=(u.degree, u.degree),
+        frame="icrs",
+    )
     separation = coords.separation(coords_imgs).value
 
     pointing_id = np.argmin(separation)
@@ -476,7 +484,12 @@ def get_GALEX_images(ra, dec, size=3, filters=None, version=None):
             for hdu in hdu_list:
                 ra_img = float(hdu[0].header["RA_CENT"])
                 dec_img = float(hdu[0].header["DEC_CENT"])
-                coords_img = SkyCoord(ra=ra_img, dec=dec_img, unit=(u.degree, u.degree), frame="icrs")
+                coords_img = SkyCoord(
+                    ra=ra_img,
+                    dec=dec_img,
+                    unit=(u.degree, u.degree),
+                    frame="icrs",
+                )
                 separation = coords.separation(coords_img).value
                 separations.append(separation)
 
@@ -766,16 +779,19 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
                 fits_url = os.path.join("image", f"{fname}.gz")
                 params_url = f"center={ra},{dec}&size={size_degree}degree&gzip=0"  # center and size of the image
 
-                url = os.path.join(base_url, tile_url, fits_url + "?" + params_url)
+                url = os.path.join(
+                    base_url, tile_url, fits_url + "?" + params_url
+                )
                 hdu = fits.open(url)
                 ny, nx = hdu[0].data.shape
-                sizes.append(nx*ny)
+                sizes.append(nx * ny)
                 tmp_hdu_list.append(hdu)
 
             i = np.argmax(sizes)
             hdu_list.append(tmp_hdu_list[i])
-            
+
     return hdu_list
+
 
 # Legacy Survey
 def get_LegacySurvey_images(ra, dec, size=3, filters=None, version="dr10"):
@@ -829,7 +845,7 @@ def get_LegacySurvey_images(ra, dec, size=3, filters=None, version="dr10"):
         hdu_list.append(hdu)
 
     return hdu_list
-    
+
 
 # Spitzer
 def get_Spitzer_images(ra, dec, size=3, filters=None):
@@ -1023,15 +1039,15 @@ def update_HST_header(hdu):
     """
     # get WCS
     with warnings.catch_warnings():
-            warnings.simplefilter("ignore", AstropyWarning)
-            for i in range(1, len(hdu)-1):
-                try:
-                    img_wcs = wcs.WCS(hdu[i].header)
-                except:
-                    continue
+        warnings.simplefilter("ignore", AstropyWarning)
+        for i in range(1, len(hdu) - 1):
+            try:
+                img_wcs = wcs.WCS(hdu[i].header)
+            except:
+                continue
     hdu[0].header.update(img_wcs.to_header())
-    hdu[0].header['PHOTFLAM'] = hdu[1].header['PHOTFLAM']
-    hdu[0].header['PHOTPLAM'] = hdu[1].header['PHOTPLAM']
+    hdu[0].header["PHOTFLAM"] = hdu[1].header["PHOTFLAM"]
+    hdu[0].header["PHOTPLAM"] = hdu[1].header["PHOTPLAM"]
     hdu[0].data = hdu[1].data
 
     # add zeropoints
@@ -1042,11 +1058,12 @@ def update_HST_header(hdu):
         -2.5 * np.log10(photflam) - 5 * np.log10(photplam) - 2.408
     )
 
+
 def set_HST_image(file, filt, name):
     """Moves a previously downloaded HST image into the work directory.
 
     The image's header is updated with the necessary keywords to obtain
-    photometry and is also moved under the objects directory inside the 
+    photometry and is also moved under the objects directory inside the
     work directory.
 
     HST images take very long to download, so the user might prefer to
@@ -1069,8 +1086,9 @@ def set_HST_image(file, filt, name):
 
     hdu = fits.open(file)
     update_HST_header(hdu)
-    outfile = os.path.join(obj_dir, f'HST_{filt}.fits')
+    outfile = os.path.join(obj_dir, f"HST_{filt}.fits")
     hdu.writeto(outfile, overwrite=True)
+
 
 def get_HST_images(ra, dec, size=3, filt=None):
     """Downloads a set of HST fits images for a given set
@@ -1098,13 +1116,13 @@ def get_HST_images(ra, dec, size=3, filt=None):
     check_HST_filters(filt)
 
     # separate the instrument name from the actual filter
-    split_filt = filt.split('_')
-    if len(split_filt)==2:
+    split_filt = filt.split("_")
+    if len(split_filt) == 2:
         filt = split_filt[-1]
         instrument = split_filt[0]
-    elif len(split_filt)==3:
+    elif len(split_filt) == 3:
         filt = split_filt[-1]
-        instrument = f'{split_filt[0]}/{split_filt[1]}'
+        instrument = f"{split_filt[0]}/{split_filt[1]}"
     else:
         raise ValueError(f"Incorrect filter name: {filt}")
 
@@ -1121,9 +1139,9 @@ def get_HST_images(ra, dec, size=3, filt=None):
         )
 
     version = None
-    if version=='HLA':
+    if version == "HLA":
         # This does not seem to be faster
-        fov = 0.2   # field-of-view win degrees
+        fov = 0.2  # field-of-view win degrees
         access_url = " https://hla.stsci.edu/cgi-bin/hlaSIAP.cgi"
         svc = sia.SIAService(access_url)
         imgs_table = svc.search(
@@ -1131,62 +1149,70 @@ def get_HST_images(ra, dec, size=3, filt=None):
         )
 
         obs_df = pd.DataFrame(imgs_table)
-        obs_df = obs_df[obs_df.Mode=='IMAGE']
-        obs_df = obs_df[obs_df.Format.str.endswith('fits')]
-        obs_df = obs_df[obs_df.Detector==instrument]
-        obs_df = obs_df[obs_df.Spectral_Elt==filt]
-        obs_df = obs_df[obs_df.ExpTime==obs_df.ExpTime.max()]
-        
+        obs_df = obs_df[obs_df.Mode == "IMAGE"]
+        obs_df = obs_df[obs_df.Format.str.endswith("fits")]
+        obs_df = obs_df[obs_df.Detector == instrument]
+        obs_df = obs_df[obs_df.Spectral_Elt == filt]
+        obs_df = obs_df[obs_df.ExpTime == obs_df.ExpTime.max()]
+
         hdu = fits.open(obs_df.URL.values[0])
     else:
-        result = esahubble.cone_search_criteria(radius=3,
-                                                coordinates=coords,
-                                                calibration_level='PRODUCT',
-                                                data_product_type = 'image',
-                                                instrument_name = instrument,
-                                                filters = filt,
-                                                async_job = True,
-                                            )
-        
-        obs_df = result.to_pandas()
-        obs_df = obs_df[obs_df['filter']==filt]
-        # get only exposures shorter than one hour
-        obs_df = obs_df[obs_df.exposure_duration<3600]  
-        obs_df.sort_values(by=['exposure_duration'], 
-                        ascending=False, inplace=True) 
+        result = esahubble.cone_search_criteria(
+            radius=3,
+            coordinates=coords,
+            calibration_level="PRODUCT",
+            data_product_type="image",
+            instrument_name=instrument,
+            filters=filt,
+            async_job=True,
+        )
 
-        print('Looking for HST images...')
-        filename = f'HST_tmp_{ra}_{dec}'  # the extension is added below
+        obs_df = result.to_pandas()
+        obs_df = obs_df[obs_df["filter"] == filt]
+        # get only exposures shorter than one hour
+        obs_df = obs_df[obs_df.exposure_duration < 3600]
+        obs_df.sort_values(
+            by=["exposure_duration"], ascending=False, inplace=True
+        )
+
+        print("Looking for HST images...")
+        filename = f"HST_tmp_{ra}_{dec}"  # the extension is added below
         for obs_id in obs_df.observation_id:
             try:
-                esahubble.download_product(observation_id=obs_id, 
-                                        product_type="SCIENCE", 
-                                        calibration_level="PRODUCT", 
-                                        filename=filename)
+                esahubble.download_product(
+                    observation_id=obs_id,
+                    product_type="SCIENCE",
+                    calibration_level="PRODUCT",
+                    filename=filename,
+                )
                 break
             except:
                 pass
 
-        temp_file = f'{filename}.fits.gz'
+        temp_file = f"{filename}.fits.gz"
         if os.path.isfile(temp_file) is False:
             return None
-        
-        temp_dir = filename # same name as the extension-less file above
-        with zipfile.ZipFile(temp_file, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
-            fits_file = [file for file in glob.glob(f'{temp_dir}/**', recursive=True) 
-                        if file.endswith('.gz')][0]
 
-        hdu = fits.open(fits_file)    
+        temp_dir = filename  # same name as the extension-less file above
+        with zipfile.ZipFile(temp_file, "r") as zip_ref:
+            zip_ref.extractall(temp_dir)
+            fits_file = [
+                file
+                for file in glob.glob(f"{temp_dir}/**", recursive=True)
+                if file.endswith(".gz")
+            ][0]
+
+        hdu = fits.open(fits_file)
 
         # remove the temporary files and directory
-        os.remove(temp_file) 
+        os.remove(temp_file)
         shutil.rmtree(temp_dir, ignore_errors=True)
 
     update_HST_header(hdu)
     hdu_list = [hdu]
-    
+
     return hdu_list
+
 
 def get_HST_images_OLD(ra, dec, size=3, filt=None, instrument=None):
     """Downloads a set of HST fits images for a given set
@@ -1279,7 +1305,7 @@ def get_HST_images_OLD(ra, dec, size=3, filt=None, instrument=None):
     shutil.rmtree("mastDownload", ignore_errors=True)
 
     # HST images can be large so need to be trimmed
-    pixel_scale = survey_pixel_scale('HST')
+    pixel_scale = survey_pixel_scale("HST")
     size_pixels = int(size_arcsec / pixel_scale)
     pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
 
@@ -1408,7 +1434,7 @@ def download_images(
         raise ValueError(
             "The given survey is not properly added to HostPhot..."
         )
-    
+
     if filters is None:
         filters = get_survey_filters(survey)
 

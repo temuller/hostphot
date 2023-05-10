@@ -22,7 +22,7 @@ class TestHostPhot(unittest.TestCase):
         ra, dec = 50.527333, -15.400056
         get_PS1_RGB_image("PS1.jpg", ra=ra, dec=dec)
 
-    #def test_get_SDSS_RGB_image(self):
+    # def test_get_SDSS_RGB_image(self):
     #    ra, dec = 50.527333, -15.400056
     #    get_SDSS_RGB_image("SDSS.jpg", ra=ra, dec=dec)
 

@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 import aplpy
 
-font = 'GFS Artemisia'
-plt.rcParams['mathtext.fontset'] = "cm"
+font = "GFS Artemisia"
+plt.rcParams["mathtext.fontset"] = "cm"
 
 import sep
 from astroquery.gaia import Gaia
@@ -17,6 +17,7 @@ from hostphot.utils import suppress_stdout
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
+
 
 def extract_objects(
     data, bkg, host_ra, host_dec, threshold, img_wcs, dist_thresh=-1
@@ -63,7 +64,9 @@ def extract_objects(
     # extract objects with Source Extractor
     objects = sep.extract(data, threshold, err=bkg)
 
-    host_coords = SkyCoord(ra=host_ra, dec=host_dec, unit=(u.degree, u.degree), frame="icrs")
+    host_coords = SkyCoord(
+        ra=host_ra, dec=host_dec, unit=(u.degree, u.degree), frame="icrs"
+    )
     objs_coords = img_wcs.pixel_to_world(objects["x"], objects["y"])
     distances = host_coords.separation(objs_coords).to(u.arcsec)
     dist_arcsec = distances.value
@@ -203,7 +206,15 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
 
 
 def plot_detected_objects(
-    hdu, objects, scale, ra=None, dec=None, host_ra=None, host_dec=None, title=None, outfile=None
+    hdu,
+    objects,
+    scale,
+    ra=None,
+    dec=None,
+    host_ra=None,
+    host_dec=None,
+    title=None,
+    outfile=None,
 ):
     """Plots the objects extracted with :func:`sep.extract()``.
 
@@ -226,7 +237,7 @@ def plot_detected_objects(
     host_dec: float, default ``None``
        Declination of a galaxy.
     title: str, default ``None``
-        Title of the image. 
+        Title of the image.
     outfile: str, default ``None``
         If given, path where to save the output figure.
     """
@@ -236,33 +247,56 @@ def plot_detected_objects(
         fig = aplpy.FITSFigure(hdu, figure=figure)
 
     with suppress_stdout():
-        fig.show_grayscale(stretch='arcsinh')
+        fig.show_grayscale(stretch="arcsinh")
 
     # plot SN marker
     if (ra is not None) and (dec is not None):
-        fig.show_markers(ra, dec, edgecolor='k', facecolor='aqua', 
-                        marker='*', s=200, label='SN')
-    
+        fig.show_markers(
+            ra,
+            dec,
+            edgecolor="k",
+            facecolor="aqua",
+            marker="*",
+            s=200,
+            label="SN",
+        )
+
     # plot galaxy marker and aperture
     if (host_ra is not None) and (host_dec is not None):
-        fig.show_markers(host_ra, host_dec, edgecolor='k', facecolor='r', alpha=0.7,
-                            marker='P', s=200, label='Galaxy position')
-    fig.show_ellipses(objects["x"][0], objects["y"][0], 
-                    2 * scale* objects["a"][0], 2 *scale* objects["b"][0], 
-                    objects["theta"][0] * 180.0 / np.pi, 
-                    coords_frame='pixel', linewidth=3, edgecolor='r')
+        fig.show_markers(
+            host_ra,
+            host_dec,
+            edgecolor="k",
+            facecolor="r",
+            alpha=0.7,
+            marker="P",
+            s=200,
+            label="Galaxy position",
+        )
+    fig.show_ellipses(
+        objects["x"][0],
+        objects["y"][0],
+        2 * scale * objects["a"][0],
+        2 * scale * objects["b"][0],
+        objects["theta"][0] * 180.0 / np.pi,
+        coords_frame="pixel",
+        linewidth=3,
+        edgecolor="r",
+    )
 
-    #ticks
-    fig.tick_labels.set_font(**{'family':font, 'size':18})
-    fig.tick_labels.set_xformat('dd.dd')
-    fig.tick_labels.set_yformat('dd.dd')
+    # ticks
+    fig.tick_labels.set_font(**{"family": font, "size": 18})
+    fig.tick_labels.set_xformat("dd.dd")
+    fig.tick_labels.set_yformat("dd.dd")
     fig.ticks.set_length(6)
 
-    fig.axis_labels.set_font(**{'family':font, 'size':18})
+    fig.axis_labels.set_font(**{"family": font, "size": 18})
 
-    fig.set_title(title, **{'family':font, 'size':24})
-    fig.set_theme('publication')
-    fig.ax.legend(fancybox=True, framealpha=1, prop={'size':20, 'family':font})
+    fig.set_title(title, **{"family": font, "size": 24})
+    fig.set_theme("publication")
+    fig.ax.legend(
+        fancybox=True, framealpha=1, prop={"size": 20, "family": font}
+    )
 
     if outfile:
         plt.savefig(outfile, bbox_inches="tight")

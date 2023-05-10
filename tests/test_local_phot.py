@@ -24,7 +24,7 @@ class TestHostPhot(unittest.TestCase):
             ap_radii=ap_radii,
             use_mask=False,
             save_plots=True,
-            raise_exception=True
+            raise_exception=True,
         )
         mags = [phot[filt] for filt in ["g_4", "r_4", "i_4", "z_4"]]
         # pre-calculated magnitudes

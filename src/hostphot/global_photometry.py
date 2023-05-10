@@ -309,9 +309,17 @@ def extract_kronparams(
 
     if save_plots is True:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
-        title = f'{name}: {survey}-${filt}$'
+        title = f"{name}: {survey}-${filt}$"
         plot_detected_objects(
-            hdu, gal_obj, scale * kronrad, ra, dec, host_ra, host_dec, title, outfile
+            hdu,
+            gal_obj,
+            scale * kronrad,
+            ra,
+            dec,
+            host_ra,
+            host_dec,
+            title,
+            outfile,
         )
 
     if survey == "DES":
@@ -513,9 +521,17 @@ def photometry(
 
     if save_plots is True:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
-        title = f'{name}: {survey}-${filt}$'
+        title = f"{name}: {survey}-${filt}$"
         plot_detected_objects(
-            hdu, gal_obj, scale * kronrad, ra, dec, host_ra, host_dec, title, outfile
+            hdu,
+            gal_obj,
+            scale * kronrad,
+            ra,
+            dec,
+            host_ra,
+            host_dec,
+            title,
+            outfile,
         )
 
     return mag, mag_err, flux, flux_err
@@ -622,12 +638,12 @@ def multi_band_phot(
     """
     check_survey_validity(survey)
     if filters is None:
-        if survey=='HST':
+        if survey == "HST":
             raise ValueError("For HST, the filter needs to be specified!")
         filters = get_survey_filters(survey)
     else:
         check_filters_validity(filters, survey)
-    if survey=='HST':
+    if survey == "HST":
         filters = [filters]
 
     results_dict = {

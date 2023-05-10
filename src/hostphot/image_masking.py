@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 import aplpy
 
-font = 'GFS Artemisia'
-plt.rcParams['mathtext.fontset'] = "cm"
+font = "GFS Artemisia"
+plt.rcParams["mathtext.fontset"] = "cm"
 
 import sep
 from astropy.io import fits
@@ -233,7 +233,7 @@ def create_mask(
 
     if save_plots:
         outfile = os.path.join(obj_dir, f"masked_{survey}_{filt}.jpg")
-        title = f'{name}: {survey}-${filt}$'
+        title = f"{name}: {survey}-${filt}$"
         plot_masked_image(
             hdu,
             masked_hdu,
@@ -317,58 +317,104 @@ def plot_masked_image(
 
     fig2.tick_labels.hide_y()
     fig2.axis_labels.hide_y()
-    fig3.tick_labels.set_yposition('right')
-    fig3.axis_labels.set_yposition('right')
+    fig3.tick_labels.set_yposition("right")
+    fig3.axis_labels.set_yposition("right")
 
     figures = [fig1, fig2, fig3]
-    titles = ['Initial Image', 'Detected Sources', 'Masked Image']
+    titles = ["Initial Image", "Detected Sources", "Masked Image"]
     for i, fig in enumerate(figures):
-        fig.set_theme('publication')
-        fig.set_title(titles[i], **{'family':font, 'size':24})
+        fig.set_theme("publication")
+        fig.set_title(titles[i], **{"family": font, "size": 24})
         with suppress_stdout():
-            fig.show_grayscale(stretch='arcsinh')
-        
-        #ticks
-        fig.tick_labels.set_font(**{'family':font, 'size':18})
-        fig.tick_labels.set_xformat('dd.dd')
-        fig.tick_labels.set_yformat('dd.dd')
+            fig.show_grayscale(stretch="arcsinh")
+
+        # ticks
+        fig.tick_labels.set_font(**{"family": font, "size": 18})
+        fig.tick_labels.set_xformat("dd.dd")
+        fig.tick_labels.set_yformat("dd.dd")
         fig.ticks.set_length(6)
 
-        fig.axis_labels.set_font(**{'family':font, 'size':18})
-        
+        fig.axis_labels.set_font(**{"family": font, "size": 18})
+
     # galaxy markers
-    fig2.show_markers(host_ra, host_dec, edgecolor='k', facecolor='r', alpha=0.7,
-                        marker='P', s=200, label='Given galaxy')
-    fig2.show_markers(gal_obj["x"][0], gal_obj["y"][0], edgecolor='k', facecolor='r', alpha=0.7,
-                        marker='X', s=200, label='Identified galaxy', coords_frame='pixel')
+    fig2.show_markers(
+        host_ra,
+        host_dec,
+        edgecolor="k",
+        facecolor="r",
+        alpha=0.7,
+        marker="P",
+        s=200,
+        label="Given galaxy",
+    )
+    fig2.show_markers(
+        gal_obj["x"][0],
+        gal_obj["y"][0],
+        edgecolor="k",
+        facecolor="r",
+        alpha=0.7,
+        marker="X",
+        s=200,
+        label="Identified galaxy",
+        coords_frame="pixel",
+    )
     # galaxy pseudo-aperture
-    fig2.show_ellipses(gal_obj["x"][0], gal_obj["y"][0], 
-                    2 * r*gal_obj["a"][0], 2 * r*gal_obj["b"][0], 
-                    gal_obj["theta"][0] * 180.0 / np.pi, 
-                    coords_frame='pixel', linewidth=3, edgecolor='r')
+    fig2.show_ellipses(
+        gal_obj["x"][0],
+        gal_obj["y"][0],
+        2 * r * gal_obj["a"][0],
+        2 * r * gal_obj["b"][0],
+        gal_obj["theta"][0] * 180.0 / np.pi,
+        coords_frame="pixel",
+        linewidth=3,
+        edgecolor="r",
+    )
 
     # other sources markers
-    fig2.show_ellipses(objects["x"], objects["y"], 
-                    2 * r*objects["a"], 2 * r*objects["b"], 
-                    gal_obj["theta"] * 180.0 / np.pi, 
-                    coords_frame='pixel', linewidth=2, edgecolor='orangered', linestyle='dotted')
+    fig2.show_ellipses(
+        objects["x"],
+        objects["y"],
+        2 * r * objects["a"],
+        2 * r * objects["b"],
+        gal_obj["theta"] * 180.0 / np.pi,
+        coords_frame="pixel",
+        linewidth=2,
+        edgecolor="orangered",
+        linestyle="dotted",
+    )
 
     # SN marker
     if (ra is not None) and (dec is not None):
         for fig in figures[1:]:
-            fig.show_markers(ra, dec, edgecolor='k', facecolor='aqua', 
-                            marker='*', s=200, label='SN')
+            fig.show_markers(
+                ra,
+                dec,
+                edgecolor="k",
+                facecolor="aqua",
+                marker="*",
+                s=200,
+                label="SN",
+            )
 
-    fig2.ax.legend(fancybox=True, framealpha=1, prop={'size':20, 'family':font})
+    fig2.ax.legend(
+        fancybox=True, framealpha=1, prop={"size": 20, "family": font}
+    )
 
     # title
-    length = len(title)-2
-    text = fig1.ax.text(0.022*length, 0.06, title, fontsize=28, 
-                        horizontalalignment='center',
-                        verticalalignment='center',
-                        transform = fig1.ax.transAxes, font=font)
-    text.set_bbox(dict(facecolor='white', edgecolor='white', 
-                           alpha=0.9, boxstyle='round'))
+    length = len(title) - 2
+    text = fig1.ax.text(
+        0.022 * length,
+        0.06,
+        title,
+        fontsize=28,
+        horizontalalignment="center",
+        verticalalignment="center",
+        transform=fig1.ax.transAxes,
+        font=font,
+    )
+    text.set_bbox(
+        dict(facecolor="white", edgecolor="white", alpha=0.9, boxstyle="round")
+    )
 
     if outfile:
         plt.savefig(outfile, bbox_inches="tight")

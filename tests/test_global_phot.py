@@ -21,7 +21,7 @@ class TestHostPhot(unittest.TestCase):
             common_aperture=False,
             optimize_kronrad=True,
             save_plots=True,
-            raise_exception=True
+            raise_exception=True,
         )
         mags = [phot[filt] for filt in "griz"]
         # griz SIMBAD reference magnitudes of the host galaxy of SN 2002fk

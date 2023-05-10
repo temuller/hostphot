@@ -20,8 +20,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import aplpy
 
-font = 'GFS Artemisia'
-plt.rcParams['mathtext.fontset'] = "cm"
+font = "GFS Artemisia"
+plt.rcParams["mathtext.fontset"] = "cm"
 
 import sep
 from photutils.aperture import aperture_photometry, CircularAperture
@@ -148,38 +148,51 @@ def plot_aperture(hdu, px, py, radius_pix, title, outfile=None):
     """
 
     figure = plt.figure(figsize=(10, 10))
-    title, label = title.split('|')
+    title, label = title.split("|")
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         fig = aplpy.FITSFigure(hdu, figure=figure)
 
     with suppress_stdout():
-        fig.show_grayscale(stretch='arcsinh')
+        fig.show_grayscale(stretch="arcsinh")
 
     # plot SN and aperture
-    fig.show_markers(px, py, edgecolor='k', facecolor='aqua', 
-                     marker='*', s=200, label='SN', coords_frame='pixel')
-    fig.show_circles(px, py, radius_pix, coords_frame='pixel', linewidth=2, edgecolor='r')
-    fig.show_lines([], [], color='r', lw=3, label=label)  # for the legend only
+    fig.show_markers(
+        px,
+        py,
+        edgecolor="k",
+        facecolor="aqua",
+        marker="*",
+        s=200,
+        label="SN",
+        coords_frame="pixel",
+    )
+    fig.show_circles(
+        px, py, radius_pix, coords_frame="pixel", linewidth=2, edgecolor="r"
+    )
+    fig.show_lines([], [], color="r", lw=3, label=label)  # for the legend only
 
-    #ticks
-    fig.tick_labels.set_font(**{'family':font, 'size':18})
-    fig.tick_labels.set_xformat('dd.dd')
-    fig.tick_labels.set_yformat('dd.dd')
+    # ticks
+    fig.tick_labels.set_font(**{"family": font, "size": 18})
+    fig.tick_labels.set_xformat("dd.dd")
+    fig.tick_labels.set_yformat("dd.dd")
     fig.ticks.set_length(6)
 
-    fig.axis_labels.set_font(**{'family':font, 'size':18})
+    fig.axis_labels.set_font(**{"family": font, "size": 18})
 
-    fig.set_title(title, **{'family':font, 'size':24})
-    fig.set_theme('publication')
-    fig.ax.legend(fancybox=True, framealpha=1, prop={'size':20, 'family':font})
+    fig.set_title(title, **{"family": font, "size": 24})
+    fig.set_theme("publication")
+    fig.ax.legend(
+        fancybox=True, framealpha=1, prop={"size": 20, "family": font}
+    )
 
     if outfile:
         plt.savefig(outfile, bbox_inches="tight")
         plt.close(figure)
     else:
         plt.show()
+
 
 def photometry(
     name,
@@ -309,7 +322,7 @@ def photometry(
             outfile = os.path.join(
                 obj_dir, f"local_{survey}_{filt}_{ap_radius}kpc.jpg"
             )
-            title = f'{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$'
+            title = f"{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$"
             plot_aperture(hdu, px, py, radius_pix, title, outfile)
 
     return mags, mags_err, fluxes, fluxes_err
@@ -385,12 +398,12 @@ def multi_band_phot(
     """
     check_survey_validity(survey)
     if filters is None:
-        if survey=='HST':
+        if survey == "HST":
             raise ValueError("For HST, the filter needs to be specified!")
         filters = get_survey_filters(survey)
     else:
         check_filters_validity(filters, survey)
-    if survey=='HST':
+    if survey == "HST":
         filters = [filters]
 
     # turn float into a list
@@ -404,7 +417,7 @@ def multi_band_phot(
         "redshift": z,
         "survey": survey,
     }
-    
+
     for filt in filters:
         try:
             mags, mags_err, fluxes, fluxes_err = photometry(

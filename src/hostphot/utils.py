@@ -7,8 +7,9 @@ import matplotlib.pyplot as plt
 
 import aplpy
 from contextlib import contextmanager
-font = 'GFS Artemisia'
-plt.rcParams['mathtext.fontset'] = "cm"
+
+font = "GFS Artemisia"
+plt.rcParams["mathtext.fontset"] = "cm"
 
 from astropy import wcs
 from astropy.io import fits
@@ -26,7 +27,8 @@ config_file = os.path.join(hostphot_path, "filters", "config.txt")
 config_df = pd.read_csv(config_file, delim_whitespace=True)
 
 # surveys that need background subtraction
-bkg_surveys = ['2MASS', 'WISE', 'VISTA']
+bkg_surveys = ["2MASS", "WISE", "VISTA"]
+
 
 def calc_sky_unc(image, exptime):
     """Calculates the uncertainty of the image from the
@@ -88,7 +90,7 @@ def get_survey_filters(survey):
     """
     check_survey_validity(survey)
 
-    if survey=='HST':
+    if survey == "HST":
         # For HST, the filter needs to be specified
         return None
 
@@ -132,12 +134,12 @@ def survey_zp(survey):
     if "," in zps:
         zps = zps.split(",")
         zp_dict = {filt: float(zp) for filt, zp in zip(filters, zps)}
-    elif survey=='SDSS':
+    elif survey == "SDSS":
         # SDSS zero-points are not exactly in AB:
         # https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB
         zp_dict = {filt: float(zps) for filt in filters}
-        zp_dict['u'] -= 0.04
-        zp_dict['z'] += 0.02
+        zp_dict["u"] -= 0.04
+        zp_dict["z"] += 0.02
     else:
         zp_dict = {filt: float(zps) for filt in filters}
 
@@ -188,8 +190,8 @@ def get_image_gain(header, survey):
     elif survey == "VISTA":
         # use median from http://casu.ast.cam.ac.uk/surveys-projects/vista/technical/vista-gain
         gain = 4.19
-    elif survey=='HST':
-        gain = header['CCDGAIN']
+    elif survey == "HST":
+        gain = header["CCDGAIN"]
     else:
         gain = 1.0
 
@@ -243,9 +245,9 @@ def get_image_readnoise(header, survey):
         # very rough average for all filters in
         # http://casu.ast.cam.ac.uk/surveys-projects/vista/technical/vista-gain
         readnoise = 24.0
-    elif survey=='HST':
+    elif survey == "HST":
         # tipically 0.0
-        readnoise = header['PCTERNOI']
+        readnoise = header["PCTERNOI"]
     else:
         readnoise = 0.0
 
@@ -306,36 +308,43 @@ def correct_HST_aperture(filt, ap_area, header):
         Aperture correction (encircled energy fraction).
     """
     # split instrument and filter
-    filt_split = filt.split('_')
+    filt_split = filt.split("_")
     filt = filt_split[-1]
     instrument = filt_split[-2]
 
-    if instrument=='UVIS':
-        instrument = header['APERTURE']
+    if instrument == "UVIS":
+        instrument = header["APERTURE"]
 
     # assuming circular aperture
     # for an ellipse, this would take the average of the axes
-    ap_radius = np.sqrt(ap_area/np.pi)
+    ap_radius = np.sqrt(ap_area / np.pi)
 
     # get correction curve
-    ac_files = glob.glob(os.path.join(hostphot_path, 'filters/HST/*'))
-    ac_file = [file for file in ac_files 
-               if f'{instrument.lower()}_aper' in file][0]
+    ac_files = glob.glob(os.path.join(hostphot_path, "filters/HST/*"))
+    ac_file = [
+        file for file in ac_files if f"{instrument.lower()}_aper" in file
+    ][0]
     ac_df = pd.read_csv(ac_file)
 
     # linear interpolation of the aperture correction
-    apertures = np.array([float(col.replace('APER#', '')) for col in ac_df.columns 
-                          if col.startswith('AP')])
-    ap_corr = ac_df[ac_df.FILTER==filt].values[0][2:].astype(float)
+    apertures = np.array(
+        [
+            float(col.replace("APER#", ""))
+            for col in ac_df.columns
+            if col.startswith("AP")
+        ]
+    )
+    ap_corr = ac_df[ac_df.FILTER == filt].values[0][2:].astype(float)
 
     cont_apertures = np.arange(0, 9, 0.01)
     cont_ap_corr = np.interp(cont_apertures, apertures, ap_corr)
 
     # get the closest value
-    ind = np.argmin(np.abs(cont_apertures-ap_radius))
+    ind = np.argmin(np.abs(cont_apertures - ap_radius))
     correction = cont_ap_corr[ind]
 
     return correction
+
 
 def magnitude_calculation(
     flux,
@@ -395,11 +404,11 @@ def magnitude_calculation(
         bkg_rms,
     )
 
-    if survey == 'HST':
+    if survey == "HST":
         # HST needs and aperture correction for the flux
         # see, e.g. https://www.stsci.edu/hst/instrumentation/acs/data-analysis/aperture-corrections
         ap_corr = correct_HST_aperture(filt, ap_area, header)
-        flux = flux*ap_corr
+        flux = flux * ap_corr
 
     mag = -2.5 * np.log10(flux) + zp
 
@@ -424,26 +433,27 @@ def get_HST_err(filt, header):
         Magnitude error on PHOTFLAM.
     """
     # split instrument and filter
-    filt_split = filt.split('_')
+    filt_split = filt.split("_")
     filt = filt_split[-1]
     instrument = filt_split[-2]
 
-    if instrument=='UVIS':
+    if instrument == "UVIS":
         # APERTURE usually point to UVIS2
-        instrument = header['APERTURE']
+        instrument = header["APERTURE"]
 
     # get uncertainty file
-    err_file = os.path.join(hostphot_path, 
-                            'filters/HST/', 
-                            f'{instrument}_err.txt')
+    err_file = os.path.join(
+        hostphot_path, "filters/HST/", f"{instrument}_err.txt"
+    )
     err_df = pd.read_csv(err_file, delim_whitespace=True)
-    filt_err_df = err_df[err_df.Filter==filt]
+    filt_err_df = err_df[err_df.Filter == filt]
 
     flux = filt_err_df.PHOTFLAM.values[0]
     flux_err = filt_err_df.ERR_PHOTFLAM.values[0]
     mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
-    
+
     return flux_err, mag_err
+
 
 def uncertainty_calculation(
     flux, flux_err, survey, filt=None, ap_area=0.0, header=None, bkg_rms=0.0
@@ -479,7 +489,7 @@ def uncertainty_calculation(
     readnoise = get_image_readnoise(header, survey)
 
     mag_err = 2.5 / np.log(10) * flux_err / flux
-    
+
     if survey in ["PS1", "DES", "LegacySurvey", "Spitzer", "VISTA"]:
         if survey == "Spitzer":
             flux /= header["EFCONV"]  # conv. factor (MJy/sr)/(DN/s)
@@ -491,7 +501,7 @@ def uncertainty_calculation(
 
         extra_flux_err = np.sqrt(ap_area * (readnoise**2) + flux / gain)
         flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
-    
+
     if survey == "DES":
         # see the photometry section in https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality
         # statistical uncertainties on the AB magnitud system zeropoints
@@ -516,8 +526,8 @@ def uncertainty_calculation(
         extra_err = unc_dict[filt]
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-        extra_flux_err = np.abs(flux*0.4*np.log(10)*extra_err)
-        flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
+        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * extra_err)
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     elif survey == "PS1":
         # add floor systematic error from:
@@ -530,10 +540,10 @@ def uncertainty_calculation(
             "y": 18e-3,
         }
         floor_err = unc_dict[filt]
-        mag_err = np.sqrt(mag_err ** 2 + floor_err ** 2)
+        mag_err = np.sqrt(mag_err**2 + floor_err**2)
 
         extra_flux_err = np.abs(flux * 0.4 * np.log(10) * floor_err)
-        flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     elif survey == "SDSS":
         # https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
@@ -596,7 +606,7 @@ def uncertainty_calculation(
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
         extra_flux_err = np.sqrt(dark_variance + flux / gain)
-        flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     elif survey == "GALEX":
         # https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html
@@ -610,7 +620,9 @@ def uncertainty_calculation(
                     / exptime
                 )
             )
-            flux_uv_err = np.sqrt(CPS*exptime + (0.050 * CPS * exptime)**2)/exptime
+            flux_uv_err = (
+                np.sqrt(CPS * exptime + (0.050 * CPS * exptime) ** 2) / exptime
+            )
         elif filt == "NUV":
             uv_err = -2.5 * (
                 np.log10(CPS)
@@ -620,11 +632,13 @@ def uncertainty_calculation(
                     / exptime
                 )
             )
-            flux_uv_err = np.sqrt(CPS * exptime + (0.027 * CPS * exptime) ** 2) / exptime
+            flux_uv_err = (
+                np.sqrt(CPS * exptime + (0.027 * CPS * exptime) ** 2) / exptime
+            )
 
         mag_err = np.sqrt(mag_err**2 + uv_err**2)
 
-        flux_err = np.sqrt(flux_err ** 2 + flux_uv_err ** 2)
+        flux_err = np.sqrt(flux_err**2 + flux_uv_err**2)
 
     elif survey == "2MASS":
         # see: https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/
@@ -643,8 +657,8 @@ def uncertainty_calculation(
 
         mag_err = 1.0857 / SNR
 
-        extra_flux_err = flux/SNR
-        flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
+        extra_flux_err = flux / SNR
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     elif "WISE" in survey:
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
@@ -675,21 +689,21 @@ def uncertainty_calculation(
 
         mag_err = np.sqrt(1.179 * sigma_src**2 / F_src**2)
 
-        flux_err = f_apcor ** 2
+        flux_err = f_apcor**2
 
         # add uncertainty from the ZP
-        if survey=="unWISE":
+        if survey == "unWISE":
             # These values are the same for all Atlas Images of a given band...
             # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
-            unc_dict = {'W1':0.006, 'W2':0.007, 'W3':0.012, 'W4':0.012}
+            unc_dict = {"W1": 0.006, "W2": 0.007, "W3": 0.012, "W4": 0.012}
             zp_unc = unc_dict[filt]
-        elif survey=="WISE":
+        elif survey == "WISE":
             zp_unc = header["MAGZPUNC"]
 
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
         extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
-        flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     elif survey == "LegacySurvey":
         # already added at the beginning
@@ -703,12 +717,12 @@ def uncertainty_calculation(
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
         extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
-        flux_err = np.sqrt(flux_err ** 2 + extra_flux_err ** 2)
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
     elif survey == "HST":
         flux_zp_unc, zp_unc = get_HST_err(filt, header)
 
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
-        flux_err = np.sqrt(flux_err ** 2 + flux_zp_unc ** 2)
+        flux_err = np.sqrt(flux_err**2 + flux_zp_unc**2)
     else:
         raise Exception(
             f"Survey {survey} has not been added for error propagation."
@@ -769,7 +783,7 @@ def check_filters_validity(filters, survey):
     survey: str
         Survey name: e.g. ``PS1``, ``GALEX``.
     """
-    if survey=='HST':
+    if survey == "HST":
         check_HST_filters(filters)
 
     else:
@@ -782,28 +796,31 @@ def check_filters_validity(filters, survey):
             )
             assert filt in valid_filters, message
 
+
 def check_HST_filters(filt):
     """Check whether the given filter is whithin the valid
     options for HST.
 
     Parameters
     ----------
-    filt: str 
+    filt: str
         Filter to use, e,g, ``WFC3_UVIS_F225W``.
-    """        
+    """
     if filt is None:
         raise ValueError(f"'{filt}' is not a valid HST filter.")
-    
+
     # For UVIS, only the filters of UVIS1 are used as the
     # detector 2 is scaled to match detector 1
-    if 'UVIS' in filt:
-        filt = filt.replace('UVIS', 'UVIS1')
+    if "UVIS" in filt:
+        filt = filt.replace("UVIS", "UVIS1")
 
     hostphot_path = hostphot.__path__[0]
     hst_file = glob.glob(os.path.join(hostphot_path, "filters/HST/*/*"))
-    hst_filters = [os.path.basename(file).split('.')[0] for file in hst_file]
+    hst_filters = [os.path.basename(file).split(".")[0] for file in hst_file]
 
-    assert filt in hst_filters, f"Not a valid HST filter ({filt}): {hst_filters}"
+    assert (
+        filt in hst_filters
+    ), f"Not a valid HST filter ({filt}): {hst_filters}"
 
 
 def extract_filter(filt, survey, version=None):
@@ -828,7 +845,7 @@ def extract_filter(filt, survey, version=None):
         Transmission function.
     """
     check_survey_validity(survey)
-    if survey=='HST':
+    if survey == "HST":
         check_filters_validity(filt, survey)
     else:
         check_filters_validity([filt], survey)
@@ -845,19 +862,19 @@ def extract_filter(filt, survey, version=None):
             if filt == "z":
                 filt_file = os.path.join(filters_path, f"MzLS_z.dat")
             else:
-                filt_file = os.path.join(filters_path, f"BASS_{filt}.dat")       
+                filt_file = os.path.join(filters_path, f"BASS_{filt}.dat")
         elif version == "DECam":
             filt_file = os.path.join(filters_path, f"DECAM_{filt}.dat")
 
     elif survey == "HST":
-        if 'UVIS' in filt:
+        if "UVIS" in filt:
             # Usually UVIS2 is used, but there is no large difference
-            filt = filt.replace('UVIS', 'UVIS2')
-        hst_files = glob.glob(os.path.join(filters_path, '*/*'))
+            filt = filt.replace("UVIS", "UVIS2")
+        hst_files = glob.glob(os.path.join(filters_path, "*/*"))
         filt_file = [file for file in hst_files if filt in file][0]
     else:
         filt_file = os.path.join(filters_path, f"{survey}_{filt}.dat")
-    
+
     wave, transmission = np.loadtxt(filt_file).T
 
     return wave, transmission
@@ -904,6 +921,7 @@ def integrate_filter(
 
     return flux_filter
 
+
 def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
     """Changes the aperture parameters to consider differences
     in WCS between surveys.
@@ -921,7 +939,7 @@ def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
     img_wcs2: ~wcs.WCS
         WCS used to adapt the apertures.
     flip: bool, default ``False``
-        Whether to flip the orientation of the aperture. Only 
+        Whether to flip the orientation of the aperture. Only
         used for DES images.
 
     Returns
@@ -931,23 +949,25 @@ def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
     """
     objects_ = objects.copy()  # avoid modifying the intial objects
     for obj in objects_:
-        center = (obj['x'], obj['y'])
-        apertures = EllipticalAperture(center, obj['a'],
-                                       obj['b'], obj['theta'])
+        center = (obj["x"], obj["y"])
+        apertures = EllipticalAperture(
+            center, obj["a"], obj["b"], obj["theta"]
+        )
         sky_apertures = apertures.to_sky(img_wcs)
 
         new_apertures = sky_apertures.to_pixel(img_wcs2)
         new_center = new_apertures.positions
-        obj['x'], obj['y'] = new_center
-        obj['a'] = new_apertures.a
-        obj['b'] = new_apertures.b
-        obj['theta'] = new_apertures.theta
+        obj["x"], obj["y"] = new_center
+        obj["a"] = new_apertures.a
+        obj["b"] = new_apertures.b
+        obj["theta"] = new_apertures.theta
 
         if flip is True:
             # flip aperture orientation
-            obj['theta'] *= -1
+            obj["theta"] *= -1
 
     return objects_
+
 
 def check_work_dir(wokrdir):
     """Checks if the working directory exists. If it
@@ -975,6 +995,7 @@ def clean_dir(directory):
     except:
         pass
 
+
 def plot_fits(fits_file, ext=0):
     """Plots a fits file.
 
@@ -996,31 +1017,32 @@ def plot_fits(fits_file, ext=0):
         fig = aplpy.FITSFigure(fits_file, hdu=ext, figure=figure)
 
     with suppress_stdout():
-        fig.show_grayscale(stretch='arcsinh')
+        fig.show_grayscale(stretch="arcsinh")
 
-    #ticks
-    fig.tick_labels.set_font(**{'family':font, 'size':18})
-    fig.tick_labels.set_xformat('dd.dd')
-    fig.tick_labels.set_yformat('dd.dd')
+    # ticks
+    fig.tick_labels.set_font(**{"family": font, "size": 18})
+    fig.tick_labels.set_xformat("dd.dd")
+    fig.tick_labels.set_yformat("dd.dd")
     fig.ticks.set_length(6)
 
-    fig.axis_labels.set_font(**{'family':font, 'size':18})
+    fig.axis_labels.set_font(**{"family": font, "size": 18})
 
-    fig.set_title(title, **{'family':font, 'size':24})
-    fig.set_theme('publication')
-    
+    fig.set_title(title, **{"family": font, "size": 24})
+    fig.set_theme("publication")
+
     plt.show()
+
 
 @contextmanager
 def suppress_stdout():
     """Suppresses annoying outputs.
 
-    Useful with astroquery and aplpy packages. 
+    Useful with astroquery and aplpy packages.
     """
     with open(os.devnull, "w") as devnull:
         old_stdout = sys.stdout
         sys.stdout = devnull
-        try:  
+        try:
             yield
         finally:
             sys.stdout = old_stdout
