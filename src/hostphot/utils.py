@@ -1,8 +1,14 @@
 import os
+import sys
 import glob
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
+import aplpy
+from contextlib import contextmanager
+font = 'GFS Artemisia'
+plt.rcParams['mathtext.fontset'] = "cm"
 
 from astropy import wcs
 from astropy.io import fits
@@ -969,7 +975,6 @@ def clean_dir(directory):
     except:
         pass
 
-
 def plot_fits(fits_file, ext=0):
     """Plots a fits file.
 
@@ -981,49 +986,41 @@ def plot_fits(fits_file, ext=0):
         Extension index.
     """
     if isinstance(fits_file, str):
-        hdu = fits.open(fits_file)
         title = os.path.splitext(os.path.basename(fits_file))[0]
     else:
-        hdu = fits_file
         title = None
-    header = hdu[ext].header
-    data = hdu[ext].data
 
+    figure = plt.figure(figsize=(10, 10))
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
-        img_wcs = wcs.WCS(header, naxis=2)
+        fig = aplpy.FITSFigure(fits_file, hdu=ext, figure=figure)
 
-    m, s = np.nanmean(data), np.nanstd(data)
+    with suppress_stdout():
+        fig.show_grayscale(stretch='arcsinh')
 
-    fig = plt.figure(figsize=(10, 10))
-    ax = plt.subplot(projection=img_wcs)
-    ax.set_title(title, fontsize=18)
-    update_axislabels(ax)
+    #ticks
+    fig.tick_labels.set_font(**{'family':font, 'size':18})
+    fig.tick_labels.set_xformat('dd.dd')
+    fig.tick_labels.set_yformat('dd.dd')
+    fig.ticks.set_length(6)
 
-    im = ax.imshow(
-        data,
-        interpolation="nearest",
-        cmap="gray",
-        vmin=m - s,
-        vmax=m + s,
-        origin="lower",
-    )
+    fig.axis_labels.set_font(**{'family':font, 'size':18})
+
+    fig.set_title(title, **{'family':font, 'size':24})
+    fig.set_theme('publication')
     
     plt.show()
 
+@contextmanager
+def suppress_stdout():
+    """Suppresses annoying outputs.
 
-def update_axislabels(ax):
-    """Updates the labels and ticks of a plot.
-
-    Parameters
-    ----------
-    ax: `.axes.SubplotBase`.
-        The axis of a subplot.
+    Useful with astroquery and aplpy packages. 
     """
-    for i in range(2):
-        ax.coords[i].set_ticklabel(size=16)
-        if i == 0:
-            ax.coords[i].set_axislabel("RA (J2000)", fontsize=20)
-        else:
-            ax.coords[i].set_axislabel("Dec (J2000)", fontsize=20)
-            # ax.coords[i].set_ticklabel(rotation=65)
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        sys.stdout = devnull
+        try:  
+            yield
+        finally:
+            sys.stdout = old_stdout

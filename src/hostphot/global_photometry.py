@@ -264,11 +264,11 @@ def extract_kronparams(
         filt = "".join(f for f in filt)
     fits_file = os.path.join(obj_dir, f"{suffix}{survey}_{filt}.fits")
 
-    img = fits.open(fits_file)
-    img = remove_nan(img)
+    hdu = fits.open(fits_file)
+    hdu = remove_nan(hdu)
 
-    header = img[0].header
-    data = img[0].data
+    header = hdu[0].header
+    data = hdu[0].data
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(header, naxis=2)
@@ -309,8 +309,9 @@ def extract_kronparams(
 
     if save_plots is True:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
+        title = f'{name}: {survey}-${filt}$'
         plot_detected_objects(
-            data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile
+            hdu, gal_obj, scale * kronrad, ra, dec, host_ra, host_dec, title, outfile
         )
 
     if survey == "DES":
@@ -420,11 +421,11 @@ def photometry(
         suffix = ""
     fits_file = os.path.join(obj_dir, f"{suffix}{survey}_{filt}.fits")
 
-    img = fits.open(fits_file)
-    img = remove_nan(img)
+    hdu = fits.open(fits_file)
+    hdu = remove_nan(hdu)
 
-    header = img[0].header
-    data = img[0].data
+    header = hdu[0].header
+    data = hdu[0].data
     gain = get_image_gain(header, survey)
 
     with warnings.catch_warnings():
@@ -512,8 +513,9 @@ def photometry(
 
     if save_plots is True:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
+        title = f'{name}: {survey}-${filt}$'
         plot_detected_objects(
-            data_sub, gal_obj, scale * kronrad, img_wcs, ra, dec, outfile
+            hdu, gal_obj, scale * kronrad, ra, dec, host_ra, host_dec, title, outfile
         )
 
     return mag, mag_err, flux, flux_err
@@ -539,7 +541,7 @@ def multi_band_phot(
     gal_dist_thresh=-1,
     save_plots=True,
     save_results=True,
-    raise_exception=False,
+    raise_exception=True,
 ):
     """Calculates multi-band aperture photometry of the host galaxy
     for an object.
@@ -599,7 +601,7 @@ def multi_band_phot(
         If ``True``, the mask and galaxy aperture figures are saved.
     save_results: bool, default ``True``
         If ``True``, the magnitudes are saved into a csv file.
-    raise_exception: bool, default ``False``
+    raise_exception: bool, default ``True``
         If ``True``, an exception is raised if the photometry fails for any filter.
 
     Returns

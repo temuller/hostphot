@@ -2,6 +2,10 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
+import aplpy
+
+font = 'GFS Artemisia'
+plt.rcParams['mathtext.fontset'] = "cm"
 
 import sep
 from astroquery.gaia import Gaia
@@ -9,11 +13,13 @@ from astroquery.mast import Catalogs
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 
-from hostphot.utils import update_axislabels
+from hostphot.utils import suppress_stdout
 
+import warnings
+from astropy.utils.exceptions import AstropyWarning
 
 def extract_objects(
-    data, err, host_ra, host_dec, threshold, img_wcs, dist_thresh=-1
+    data, bkg, host_ra, host_dec, threshold, img_wcs, dist_thresh=-1
 ):
     """Extracts objects and their ellipse parameters. The function :func:`sep.extract()`
     is used.
@@ -25,8 +31,8 @@ def extract_objects(
     ----------
     data: ndarray
         Image data.
-    err: 2D array
-        Background error of the image.
+    bkg: 2D array
+        Background level of the image.
     host_ra: float
         Host-galaxy Right ascension of the galaxy in degrees.
     host_dec: float
@@ -55,15 +61,12 @@ def extract_objects(
         All objects extracted except for the galaxy.
     """
     # extract objects with Source Extractor
-    objects = sep.extract(data, threshold, err=err)
+    objects = sep.extract(data, threshold, err=bkg)
 
+    host_coords = SkyCoord(ra=host_ra, dec=host_dec, unit=(u.degree, u.degree), frame="icrs")
     objs_coords = img_wcs.pixel_to_world(objects["x"], objects["y"])
-    objs_ra, objs_dec = objs_coords.ra.value, objs_coords.dec.value
-    dist = np.sqrt(
-        (objs_ra - host_ra) ** 2 * (np.cos(host_dec * np.pi / 180) ** 2)
-        + (objs_dec - host_dec) ** 2
-    )  # in degrees
-    dist_arcsec = dist * 3600
+    distances = host_coords.separation(objs_coords).to(u.arcsec)
+    dist_arcsec = distances.value
 
     if dist_thresh <= 0.0:
         dist_thresh = np.inf
@@ -106,9 +109,10 @@ def find_gaia_objects(ra, dec, rad=0.15):
     width = u.Quantity(rad, u.deg)
     height = u.Quantity(rad, u.deg)
     try:
-        gaia_cat = Gaia.query_object_async(
-            coordinate=coord, width=width, height=height
-        )
+        with suppress_stdout():
+            gaia_cat = Gaia.query_object_async(
+                coordinate=coord, width=width, height=height
+            )
     except Exception as exc:
         print(exc)
         print("No objects found with Gaia DR3, switching to DR2")
@@ -199,7 +203,7 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
 
 
 def plot_detected_objects(
-    data, objects, scale, img_wcs, ra=None, dec=None, outfile=None
+    hdu, objects, scale, ra=None, dec=None, host_ra=None, host_dec=None, title=None, outfile=None
 ):
     """Plots the objects extracted with :func:`sep.extract()``.
 
@@ -217,51 +221,51 @@ def plot_detected_objects(
        Right ascension of an object, in degrees. Used for plotting the position of the object.
     dec: float, default ``None``
        Declination of an object, in degrees. Used for plotting the position of the object.
+    host_ra: float, default ``None``
+       Right ascension of a galaxy.
+    host_dec: float, default ``None``
+       Declination of a galaxy.
+    title: str, default ``None``
+        Title of the image. 
     outfile: str, default ``None``
         If given, path where to save the output figure.
     """
-    m, s = np.nanmean(data), np.nanstd(data)
+    figure = plt.figure(figsize=(10, 10))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        fig = aplpy.FITSFigure(hdu, figure=figure)
 
-    fig = plt.figure(figsize=(10, 10))
-    ax = plt.subplot(projection=img_wcs)
-    update_axislabels(ax)
+    with suppress_stdout():
+        fig.show_grayscale(stretch='arcsinh')
 
-    im = ax.imshow(
-        data,
-        interpolation="nearest",
-        cmap="gray",
-        vmin=m - s,
-        vmax=m + s,
-        origin="lower",
-    )
-
-    e = Ellipse(
-        xy=(objects["x"][0], objects["y"][0]),
-        width=2 * scale * objects["a"][0],
-        height=2 * scale * objects["b"][0],
-        angle=objects["theta"][0] * 180.0 / np.pi,
-    )
-
-    e.set_facecolor("none")
-    e.set_edgecolor("red")
-    e.set_linewidth(1.5)
-    ax.add_artist(e)
-
-    # plot SN position
+    # plot SN marker
     if (ra is not None) and (dec is not None):
-        coord = SkyCoord(
-            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
-        )
-        px, py = img_wcs.world_to_pixel(coord)
-        ax.scatter(px, py, marker="*", s=200, c="g", edgecolor="gold")
+        fig.show_markers(ra, dec, edgecolor='k', facecolor='aqua', 
+                        marker='*', s=200, label='SN')
+    
+    # plot galaxy marker and aperture
+    if (host_ra is not None) and (host_dec is not None):
+        fig.show_markers(host_ra, host_dec, edgecolor='k', facecolor='r', alpha=0.7,
+                            marker='P', s=200, label='Galaxy position')
+    fig.show_ellipses(objects["x"][0], objects["y"][0], 
+                    2 * scale* objects["a"][0], 2 *scale* objects["b"][0], 
+                    objects["theta"][0] * 180.0 / np.pi, 
+                    coords_frame='pixel', linewidth=3, edgecolor='r')
+
+    #ticks
+    fig.tick_labels.set_font(**{'family':font, 'size':18})
+    fig.tick_labels.set_xformat('dd.dd')
+    fig.tick_labels.set_yformat('dd.dd')
+    fig.ticks.set_length(6)
+
+    fig.axis_labels.set_font(**{'family':font, 'size':18})
+
+    fig.set_title(title, **{'family':font, 'size':24})
+    fig.set_theme('publication')
+    fig.ax.legend(fancybox=True, framealpha=1, prop={'size':20, 'family':font})
 
     if outfile:
-        basename = os.path.basename(outfile)
-        title = os.path.splitext(basename)[0]
-        title = "-".join(part for part in title.split("_"))
-        fig.suptitle(title, fontsize=28)
-        plt.tight_layout()
         plt.savefig(outfile, bbox_inches="tight")
-        plt.close(fig)
+        plt.close(figure)
     else:
         plt.show()

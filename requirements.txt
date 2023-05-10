@@ -3,6 +3,7 @@ numpy
 pandas
 pickle5; python_version < '3.8'
 matplotlib
+aplpy
 python-dotenv
 astropy
 reproject

@@ -1,13 +1,18 @@
 import os
 import pickle
 import numpy as np
+from copy import deepcopy
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
+import aplpy
+
+font = 'GFS Artemisia'
+plt.rcParams['mathtext.fontset'] = "cm"
 
 import sep
 from astropy.io import fits
-from astropy import wcs, units as u
-from astropy.coordinates import SkyCoord, concatenate
+from astropy import wcs
+from astropy.coordinates import concatenate
 from astropy.convolution import (
     Gaussian2DKernel,
     convolve_fft,
@@ -24,11 +29,9 @@ from hostphot.objects_detect import (
 )
 from hostphot.utils import (
     check_survey_validity,
-    pixel2pixel,
-    update_axislabels,
-    survey_pixel_scale,
     bkg_surveys,
     adapt_aperture,
+    suppress_stdout,
 )
 
 import warnings
@@ -36,7 +39,7 @@ from astropy.utils.exceptions import AstropyWarning
 
 
 # ----------------------------------------
-def mask_image(data, objects, r=5, sigma=20):
+def mask_image(data, objects, r=6, sigma=20):
     """Masks objects in an image (2D array) by convolving it with
     a 2D Gaussian kernel.
 
@@ -46,7 +49,7 @@ def mask_image(data, objects, r=5, sigma=20):
         Image data.
     objects: array
         Objects extracted with :func:`sep.extract()`.
-    r: float, default ``5``
+    r: float, default ``6``
         Scale of the semi-mayor and semi-minor axes
         of the ellipse of the `objects`.
     sigma: float, default ``20``
@@ -90,6 +93,7 @@ def create_mask(
     bkg_sub=None,
     threshold=15,
     sigma=8,
+    r=6,
     crossmatch=False,
     gal_dist_thresh=-1,
     extract_params=False,
@@ -97,7 +101,7 @@ def create_mask(
     save_plots=True,
     save_mask_params=True,
 ):
-    """Calculates the aperture parameters for common aperture.
+    """Calculates the aperture parameters to mask detected sources.
 
     Parameters
     ----------
@@ -124,6 +128,11 @@ def create_mask(
     sigma: float, default ``8``
         Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
+    r: float, default ``6``
+        Scale of the aperture size for the sources to be masked.
+    crossmatch: bool, default ``False``
+        If ``True``, the detected objects are cross-matched with a
+        Gaia catalog.
     crossmatch: bool, default ``False``
         If ``True``, the detected objects are cross-matched with a
         Gaia catalog.
@@ -163,11 +172,11 @@ def create_mask(
 
     obj_dir = os.path.join(workdir, name)
     fits_file = os.path.join(obj_dir, f"{survey}_{filt}.fits")
-    img = fits.open(fits_file)
-    img = remove_nan(img)
+    hdu = fits.open(fits_file)
+    hdu = remove_nan(hdu)
 
-    header = img[0].header
-    data = img[0].data
+    header = hdu[0].header
+    data = hdu[0].data
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(header, naxis=2)
@@ -216,23 +225,26 @@ def create_mask(
         gal_obj = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
         nogal_objs = adapt_aperture(nogal_objs, master_img_wcs, img_wcs, flip_)
 
-    masked_data = mask_image(data_sub, nogal_objs, sigma=sigma)
-    img[0].data = masked_data
+    masked_data = mask_image(data_sub, nogal_objs, r=r, sigma=sigma)
+    masked_hdu = deepcopy(hdu)
+    masked_hdu[0].data = masked_data
     outfile = os.path.join(obj_dir, f"masked_{survey}_{filt}.fits")
-    img.writeto(outfile, overwrite=True)
+    masked_hdu.writeto(outfile, overwrite=True)
 
     if save_plots:
         outfile = os.path.join(obj_dir, f"masked_{survey}_{filt}.jpg")
+        title = f'{name}: {survey}-${filt}$'
         plot_masked_image(
-            data_sub,
-            masked_data,
+            hdu,
+            masked_hdu,
             nogal_objs,
-            img_wcs,
             gal_obj,
+            r,
             host_ra,
             host_dec,
             ra,
             dec,
+            title,
             outfile,
         )
 
@@ -254,15 +266,16 @@ def create_mask(
 
 
 def plot_masked_image(
-    data,
-    masked_data,
+    hdu,
+    masked_hdu,
     objects,
-    img_wcs,
     gal_obj=None,
+    r=6,
     host_ra=None,
     host_dec=None,
     ra=None,
     dec=None,
+    title=None,
     outfile=None,
 ):
     """Plots the masked image together with the original image and
@@ -280,6 +293,8 @@ def plot_masked_image(
         Image's WCS.
     gal_obj: array, default ``None``
         Galaxy object.
+    r: float, default ``6``
+        Scale of the aperture size for the masked sources.
     host_ra: float, default ``None``
        Right ascension of the galaxy, in degrees. Used for plotting the position of the galaxy.
     host_dec: float, default ``None``
@@ -288,122 +303,75 @@ def plot_masked_image(
        Right ascension of an object, in degrees. Used for plotting the position of the object.
     dec: float, default ``None``
        Declination of an object, in degrees. Used for plotting the position of the object.
+    title: str, default ``None``
+        Title of the image
     outfile: str, default ``None``
         If given, path where to save the output figure.
     """
-    r = 4  # scale
-    m, s = np.nanmean(data), np.nanstd(data)
+    figure = plt.figure(figsize=(30, 12))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        fig1 = aplpy.FITSFigure(hdu, figure=figure, subplot=(1, 3, 1))
+        fig2 = aplpy.FITSFigure(hdu, figure=figure, subplot=(1, 3, 2))
+        fig3 = aplpy.FITSFigure(masked_hdu, figure=figure, subplot=(1, 3, 3))
 
-    fig = plt.figure(figsize=(24, 10))
-    ax0 = plt.subplot(131, projection=img_wcs)
-    ax1 = plt.subplot(132, projection=img_wcs)
-    ax2 = plt.subplot(133, projection=img_wcs)
-    axes = [ax0, ax1, ax2]
+    fig2.tick_labels.hide_y()
+    fig2.axis_labels.hide_y()
+    fig3.tick_labels.set_yposition('right')
+    fig3.axis_labels.set_yposition('right')
 
-    for ax in axes:
-        update_axislabels(ax)
-        ax.imshow(
-            data,
-            interpolation="nearest",
-            cmap="gray",
-            vmin=m - s,
-            vmax=m + s,
-            origin="lower",
-        )
-    for ax in axes[1:]:
-        ax.coords[1].set_axislabel("")
-        ax.coords[1].set_ticklabel_visible(False)
+    figures = [fig1, fig2, fig3]
+    titles = ['Initial Image', 'Detected Sources', 'Masked Image']
+    for i, fig in enumerate(figures):
+        fig.set_theme('publication')
+        fig.set_title(titles[i], **{'family':font, 'size':24})
+        with suppress_stdout():
+            fig.show_grayscale(stretch='arcsinh')
+        
+        #ticks
+        fig.tick_labels.set_font(**{'family':font, 'size':18})
+        fig.tick_labels.set_xformat('dd.dd')
+        fig.tick_labels.set_yformat('dd.dd')
+        fig.ticks.set_length(6)
 
-    for i in range(len(objects)):
-        e = Ellipse(
-            xy=(objects["x"][i], objects["y"][i]),
-            width=2.5 * r * objects["a"][i],
-            height=2.5 * r * objects["b"][i],
-            angle=objects["theta"][i] * 180.0 / np.pi,
-        )
-        e.set_facecolor("none")
-        e.set_edgecolor("red")
-        e.set_linewidth(1.5)
-        ax1.add_artist(e)
+        fig.axis_labels.set_font(**{'family':font, 'size':18})
+        
+    # galaxy markers
+    fig2.show_markers(host_ra, host_dec, edgecolor='k', facecolor='r', alpha=0.7,
+                        marker='P', s=200, label='Given galaxy')
+    fig2.show_markers(gal_obj["x"][0], gal_obj["y"][0], edgecolor='k', facecolor='r', alpha=0.7,
+                        marker='X', s=200, label='Identified galaxy', coords_frame='pixel')
+    # galaxy pseudo-aperture
+    fig2.show_ellipses(gal_obj["x"][0], gal_obj["y"][0], 
+                    2 * r*gal_obj["a"][0], 2 * r*gal_obj["b"][0], 
+                    gal_obj["theta"][0] * 180.0 / np.pi, 
+                    coords_frame='pixel', linewidth=3, edgecolor='r')
 
-    # plot galaxy pseudo-aperture
-    if gal_obj is not None:
-        e = Ellipse(
-            xy=(gal_obj["x"][0], gal_obj["y"][0]),
-            width=2.5 * r * gal_obj["a"][0],
-            height=2.5 * r * gal_obj["b"][0],
-            angle=gal_obj["theta"][0] * 180.0 / np.pi,
-        )
-        e.set_facecolor("none")
-        e.set_edgecolor("red")
-        e.set_linestyle("dotted")
-        e.set_linewidth(3)
-        ax1.add_artist(e)
+    # other sources markers
+    fig2.show_ellipses(objects["x"], objects["y"], 
+                    2 * r*objects["a"], 2 * r*objects["b"], 
+                    gal_obj["theta"] * 180.0 / np.pi, 
+                    coords_frame='pixel', linewidth=2, edgecolor='orangered', linestyle='dotted')
 
-        ax1.scatter(
-            gal_obj["x"][0],
-            gal_obj["y"][0],
-            marker="x",
-            s=140,
-            c="r",
-            label="Identified galaxy center",
-        )
-
-    ax2.imshow(
-        masked_data,
-        interpolation="nearest",
-        cmap="gray",
-        vmin=m - s,
-        vmax=m + s,
-        origin="lower",
-    )
-
-    ax0.set_title("Initial Image", fontsize=24)
-    ax1.set_title("Detected Objects", fontsize=24)
-    ax2.set_title("Masked Image", fontsize=24)
-
-    # plot SN position
-    if (host_ra is not None) and (host_dec is not None):
-        coord = SkyCoord(
-            ra=host_ra, dec=host_dec, unit=(u.degree, u.degree), frame="icrs"
-        )
-        x, y = img_wcs.world_to_pixel(coord)
-        for ax in axes[1:]:
-            ax.scatter(
-                x,
-                y,
-                marker="P",
-                s=140,
-                c="r",
-                edgecolor="gold",
-                label="Galaxy position",
-            )
-
-    # plot SN position
+    # SN marker
     if (ra is not None) and (dec is not None):
-        coord = SkyCoord(
-            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
-        )
-        x, y = img_wcs.world_to_pixel(coord)
-        for ax in axes[1:]:
-            ax.scatter(
-                x,
-                y,
-                marker="*",
-                s=200,
-                c="g",
-                edgecolor="gold",
-                label="SN position",
-            )
+        for fig in figures[1:]:
+            fig.show_markers(ra, dec, edgecolor='k', facecolor='aqua', 
+                            marker='*', s=200, label='SN')
 
-    axes[1].legend(ncol=2, fontsize=14)
+    fig2.ax.legend(fancybox=True, framealpha=1, prop={'size':20, 'family':font})
+
+    # title
+    length = len(title)-2
+    text = fig1.ax.text(0.022*length, 0.06, title, fontsize=28, 
+                        horizontalalignment='center',
+                        verticalalignment='center',
+                        transform = fig1.ax.transAxes, font=font)
+    text.set_bbox(dict(facecolor='white', edgecolor='white', 
+                           alpha=0.9, boxstyle='round'))
+
     if outfile:
-        basename = os.path.basename(outfile)
-        title = os.path.splitext(basename)[0]
-        title = "-".join(part for part in title.split("_"))
-        fig.suptitle(title, fontsize=28)
-        plt.tight_layout()
         plt.savefig(outfile, bbox_inches="tight")
-        plt.close(fig)
+        plt.close(figure)
     else:
         plt.show()

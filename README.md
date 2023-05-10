@@ -181,6 +181,10 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 ```
 
 ## What's new!
+v2.6.2
+* Prettier plots (now using `aplpy`), but also more informative!
+* Scale of the apertures for the masks is now a parameter (`r`) 
+* Raise exception is now `True` by default when calculating photometry
 v2.6.1
 * 2MASS cutouts improved (picking largest image)
 v2.6.0:

@@ -18,6 +18,10 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import aplpy
+
+font = 'GFS Artemisia'
+plt.rcParams['mathtext.fontset'] = "cm"
 
 import sep
 from photutils.aperture import aperture_photometry, CircularAperture
@@ -35,8 +39,8 @@ from hostphot.utils import (
     get_image_exptime,
     survey_pixel_scale,
     check_work_dir,
-    update_axislabels,
     magnitude_calculation,
+    suppress_stdout,
     bkg_surveys,
 )
 from hostphot.image_cleaning import remove_nan
@@ -122,7 +126,7 @@ def extract_aperture_flux(data, error, px, py, radius):
     return raw_flux, raw_flux_err
 
 
-def plot_aperture(data, px, py, radius_pix, img_wcs, outfile=None):
+def plot_aperture(hdu, px, py, radius_pix, title, outfile=None):
     """Plots the aperture for the given parameters.
 
     Parameters
@@ -137,41 +141,45 @@ def plot_aperture(data, px, py, radius_pix, img_wcs, outfile=None):
         Aperture radius in pixels.
     img_wcs: WCS
         Image's WCS.
+    title: str
+        Title of the figure.
     outfile: str, default ``None``
         If given, path where to save the output figure.
     """
-    m, s = np.nanmean(data), np.nanstd(data)
 
-    fig = plt.figure(figsize=(10, 10))
-    ax = plt.subplot(projection=img_wcs)
-    update_axislabels(ax)
-    ax.scatter(px, py, marker="*", s=140, c="g", edgecolor="gold")
+    figure = plt.figure(figsize=(10, 10))
+    title, label = title.split('|')
 
-    im = ax.imshow(
-        data,
-        interpolation="nearest",
-        cmap="gray",
-        vmin=m - s,
-        vmax=m + s,
-        origin="lower",
-    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        fig = aplpy.FITSFigure(hdu, figure=figure)
 
-    circle = plt.Circle(
-        (px, py), radius_pix, color="r", fill=False, linewidth=1.5
-    )
-    ax.add_patch(circle)
+    with suppress_stdout():
+        fig.show_grayscale(stretch='arcsinh')
+
+    # plot SN and aperture
+    fig.show_markers(px, py, edgecolor='k', facecolor='aqua', 
+                     marker='*', s=200, label='SN', coords_frame='pixel')
+    fig.show_circles(px, py, radius_pix, coords_frame='pixel', linewidth=2, edgecolor='r')
+    fig.show_lines([], [], color='r', lw=3, label=label)  # for the legend only
+
+    #ticks
+    fig.tick_labels.set_font(**{'family':font, 'size':18})
+    fig.tick_labels.set_xformat('dd.dd')
+    fig.tick_labels.set_yformat('dd.dd')
+    fig.ticks.set_length(6)
+
+    fig.axis_labels.set_font(**{'family':font, 'size':18})
+
+    fig.set_title(title, **{'family':font, 'size':24})
+    fig.set_theme('publication')
+    fig.ax.legend(fancybox=True, framealpha=1, prop={'size':20, 'family':font})
 
     if outfile:
-        basename = os.path.basename(outfile)
-        title = os.path.splitext(basename)[0]
-        title = "-".join(part for part in title.split("_"))
-        fig.suptitle(title, fontsize=28)
-        plt.tight_layout()
         plt.savefig(outfile, bbox_inches="tight")
-        plt.close(fig)
+        plt.close(figure)
     else:
         plt.show()
-
 
 def photometry(
     name,
@@ -238,11 +246,11 @@ def photometry(
         suffix = ""
     fits_file = os.path.join(obj_dir, f"{suffix}{survey}_{filt}.fits")
 
-    img = fits.open(fits_file)
-    img = remove_nan(img)
+    hdu = fits.open(fits_file)
+    hdu = remove_nan(hdu)
 
-    header = img[0].header
-    data = img[0].data
+    header = hdu[0].header
+    data = hdu[0].data
     exptime = get_image_exptime(header, survey)
 
     with warnings.catch_warnings():
@@ -301,7 +309,8 @@ def photometry(
             outfile = os.path.join(
                 obj_dir, f"local_{survey}_{filt}_{ap_radius}kpc.jpg"
             )
-            plot_aperture(data_sub, px, py, radius_pix, img_wcs, outfile)
+            title = f'{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$'
+            plot_aperture(hdu, px, py, radius_pix, title, outfile)
 
     return mags, mags_err, fluxes, fluxes_err
 
@@ -319,7 +328,7 @@ def multi_band_phot(
     correct_extinction=True,
     save_plots=True,
     save_results=True,
-    raise_exception=False,
+    raise_exception=True,
 ):
     """Calculates the local aperture photometry for multiple filters.
 
@@ -355,7 +364,7 @@ def multi_band_phot(
         If ``True``, the figure with the aperture is saved.
     save_results: bool, default ``True``
         If ``True``, the magnitudes are saved into a csv file.
-    raise_exception: bool, default ``False``
+    raise_exception: bool, default ``True``
         If ``True``, an exception is raised if the photometry fails for any filter.
 
     Returns

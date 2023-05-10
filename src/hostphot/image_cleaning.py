@@ -43,22 +43,22 @@ def trim_images(fits_files, pos, size):
     return trimmed_fits_files
 
 
-def remove_nan(image):
+def remove_nan(hdu):
     """Remove columns and/or rows which have all NaN values.
     The WCS is updated accordingly.
 
     Parameters
     ----------
-    image: fits image
+    image: Header Data Unit
         Fits image with header and data.
 
     Returns
     -------
-    trimmed_image: fits image
+    trimmed_hdu: Header Data Unit
         Trimmed image.
     """
-    header = image[0].header
-    data = image[0].data
+    header = hdu[0].header
+    data = hdu[0].data
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(header, naxis=2)
@@ -82,8 +82,8 @@ def remove_nan(image):
     header.update(trimmed_data.wcs.to_header())
     header["COMMENT"] = "= Trimmed fits file (hostphot)"
 
-    trimmed_image = image.copy()
-    trimmed_image[0].data = trimmed_data.data
-    trimmed_image[0].header = header
+    trimmed_hdu = hdu.copy()
+    trimmed_hdu[0].data = trimmed_data.data
+    trimmed_hdu[0].header = header
 
-    return trimmed_image
+    return trimmed_hdu
