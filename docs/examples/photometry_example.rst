@@ -16,9 +16,6 @@ Local photometry can be obtained for the downloaded images. For this, a circular
 	import hostphot.local_photometry as lp
 
 	ap_radii = [3, 4]  # aperture radii in units of kpc
-	ra, dec =  308.22579, 9.92853 # coords of SN2004eo
-	z = 0.0157  # redshift
-
 	results = lp.multi_band_phot(name, ra, dec, z,
 	                     	     survey=survey, ap_radii=ap_radii, 
 	                     	     use_mask=True, correct_extinction=True,

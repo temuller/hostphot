@@ -7,10 +7,21 @@ This module allows you to download image cutouts from :code:`PS1`, :code:`DES`, 
 
 .. code:: python
 
+	import hostphot
+	print('HostPhot version:', hostphot.__version__)
+	
+.. code:: python
+
+	HostPhot version: 2.6.2
+
+.. code:: python
+
 	from hostphot.cutouts import download_images
 
 	name = 'SN2004eo'
-	host_ra, host_dec = 308.2092, 9.92755  # coords of host galaxy of SN2004eo
+	ra, dec =  308.22579, 9.92853
+	host_ra, host_dec = 308.2092, 9.92755  # coords of host galaxy 
+	z = 0.0157  # redshift
 	survey = 'PS1'
 	download_images(name, host_ra, host_dec, survey=survey)
 
@@ -20,20 +31,8 @@ Let's check the downloaded image:
 
 .. code:: python
 
-	import numpy as np
-	import matplotlib.pyplot as plt
-	from astropy.io import fits
+	from hostphot.utils import plot_fits
 
-	img = fits.open('images/SN2004eo/PS1_g.fits')
-
-	data = img[0].data
-	m, s = np.nanmean(data), np.nanstd(data)
-
-	fig, ax = plt.subplots(figsize=(8, 8))
-	im = ax.imshow(data, interpolation='nearest',
-		       cmap='gray',
-		       vmin=m-s, vmax=m+s,
-		       origin='lower')
-	plt.show()
+	plot_fits('images/SN2004eo/PS1_g.fits')
 
 .. image:: static/SN2004eo.png
