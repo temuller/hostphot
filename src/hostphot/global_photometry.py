@@ -448,7 +448,6 @@ def photometry(
 
         gal_obj, conv_factor = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
         # factor used for scaling the Kron radius between different pixel scales
-        print(conv_factor)
 
         flux, flux_err = kron_flux(
             data_sub, bkg_rms, gain, gal_obj, kronrad * conv_factor, scale
