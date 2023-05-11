@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import aplpy
 from contextlib import contextmanager
 
-font = "GFS Artemisia"
 plt.rcParams["mathtext.fontset"] = "cm"
 
 from astropy.stats import sigma_clipped_stats
@@ -19,6 +18,7 @@ import warnings
 from astropy.utils.exceptions import AstropyWarning
 
 import hostphot
+from hostphot._constants import font_family
 
 hostphot_path = hostphot.__path__[0]
 config_file = os.path.join(hostphot_path, "filters", "config.txt")
@@ -1022,14 +1022,14 @@ def plot_fits(fits_file, ext=0):
         fig.show_grayscale(stretch="arcsinh")
 
     # ticks
-    fig.tick_labels.set_font(**{"family": font, "size": 18})
+    fig.tick_labels.set_font(**{"family": font_family, "size": 18})
     fig.tick_labels.set_xformat("dd.dd")
     fig.tick_labels.set_yformat("dd.dd")
     fig.ticks.set_length(6)
 
-    fig.axis_labels.set_font(**{"family": font, "size": 18})
+    fig.axis_labels.set_font(**{"family": font_family, "size": 18})
 
-    fig.set_title(title, **{"family": font, "size": 24})
+    fig.set_title(title, **{"family": font_family, "size": 24})
     fig.set_theme("publication")
 
     plt.show()

@@ -5,7 +5,6 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import aplpy
 
-font = "GFS Artemisia"
 plt.rcParams["mathtext.fontset"] = "cm"
 
 import sep
@@ -18,7 +17,7 @@ from astropy.convolution import (
     interpolate_replace_nans,
 )
 
-from hostphot._constants import workdir
+from hostphot._constants import workdir, font_family
 from hostphot.image_cleaning import remove_nan
 from hostphot.objects_detect import (
     extract_objects,
@@ -323,17 +322,17 @@ def plot_masked_image(
     titles = ["Initial Image", "Detected Sources", "Masked Image"]
     for i, fig in enumerate(figures):
         fig.set_theme("publication")
-        fig.set_title(titles[i], **{"family": font, "size": 24})
+        fig.set_title(titles[i], **{"family": font_family, "size": 24})
         with suppress_stdout():
             fig.show_grayscale(stretch="arcsinh")
 
         # ticks
-        fig.tick_labels.set_font(**{"family": font, "size": 18})
+        fig.tick_labels.set_font(**{"family": font_family, "size": 18})
         fig.tick_labels.set_xformat("dd.dd")
         fig.tick_labels.set_yformat("dd.dd")
         fig.ticks.set_length(6)
 
-        fig.axis_labels.set_font(**{"family": font, "size": 18})
+        fig.axis_labels.set_font(**{"family": font_family, "size": 18})
 
     # galaxy markers
     fig2.show_markers(
@@ -396,7 +395,7 @@ def plot_masked_image(
             )
 
     fig2.ax.legend(
-        fancybox=True, framealpha=1, prop={"size": 20, "family": font}
+        fancybox=True, framealpha=1, prop={"size": 20, "family": font_family}
     )
 
     # title
@@ -409,7 +408,7 @@ def plot_masked_image(
         horizontalalignment="center",
         verticalalignment="center",
         transform=fig1.ax.transAxes,
-        font=font,
+        font=font_family,
     )
     text.set_bbox(
         dict(facecolor="white", edgecolor="white", alpha=0.9, boxstyle="round")

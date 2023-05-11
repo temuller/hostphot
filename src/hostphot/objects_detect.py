@@ -1,9 +1,7 @@
-import os
 import numpy as np
 import matplotlib.pyplot as plt
 import aplpy
 
-font = "GFS Artemisia"
 plt.rcParams["mathtext.fontset"] = "cm"
 
 import sep
@@ -12,6 +10,7 @@ from astroquery.mast import Catalogs
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 
+from hostphot._constants import font_family
 from hostphot.utils import suppress_stdout
 
 import warnings
@@ -284,17 +283,17 @@ def plot_detected_objects(
     )
 
     # ticks
-    fig.tick_labels.set_font(**{"family": font, "size": 18})
+    fig.tick_labels.set_font(**{"family": font_family, "size": 18})
     fig.tick_labels.set_xformat("dd.dd")
     fig.tick_labels.set_yformat("dd.dd")
     fig.ticks.set_length(6)
 
-    fig.axis_labels.set_font(**{"family": font, "size": 18})
+    fig.axis_labels.set_font(**{"family": font_family, "size": 18})
 
-    fig.set_title(title, **{"family": font, "size": 24})
+    fig.set_title(title, **{"family": font_family, "size": 24})
     fig.set_theme("publication")
     fig.ax.legend(
-        fancybox=True, framealpha=1, prop={"size": 20, "family": font}
+        fancybox=True, framealpha=1, prop={"size": 20, "family": font_family}
     )
 
     if outfile:
