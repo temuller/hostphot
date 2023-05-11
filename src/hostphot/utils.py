@@ -11,8 +11,6 @@ from contextlib import contextmanager
 font = "GFS Artemisia"
 plt.rcParams["mathtext.fontset"] = "cm"
 
-from astropy import wcs
-from astropy.io import fits
 from astropy.stats import sigma_clipped_stats
 from photutils.utils import calc_total_error
 from photutils.aperture import EllipticalAperture
@@ -968,7 +966,7 @@ def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
             # flip aperture orientation
             obj["theta"] *= -1
 
-    conv_factor = objects['a']/objects_['a']
+    conv_factor = np.copy(objects['a']/objects_['a'])
     
     return objects_, conv_factor
 

@@ -3,7 +3,6 @@ import pickle
 import numpy as np
 from copy import deepcopy
 import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse
 import aplpy
 
 font = "GFS Artemisia"
@@ -222,8 +221,8 @@ def create_mask(
         else:
             flip_ = True
 
-        gal_obj = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
-        nogal_objs = adapt_aperture(nogal_objs, master_img_wcs, img_wcs, flip_)
+        gal_obj, _ = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
+        nogal_objs, _ = adapt_aperture(nogal_objs, master_img_wcs, img_wcs, flip_)
 
     masked_data = mask_image(data_sub, nogal_objs, r=r, sigma=sigma)
     masked_hdu = deepcopy(hdu)
