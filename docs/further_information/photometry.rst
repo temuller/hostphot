@@ -135,7 +135,7 @@ unWISE
 
 * **ZP**
   
-  unWISE images are rescaled to have ZPs of :math:`22.5`, as SDSS.
+  unWISE images are rescaled to have ZPs of :math:`22.5`, as explained in `Lang (2014) <https://iopscience.iop.org/article/10.1088/0004-6256/147/5/108>`_.
   
 * **Error Propagation**
 
