@@ -70,38 +70,24 @@ def kron_flux(data, err, gain, objects, kronrad, scale):
     flux_err: array
         Kron flux error.
     """
-    r_min = 1.75  # minimum diameter = 3.5
+    # theta must be in the range [-pi/2, pi/2] for sep.sum_ellipse()
+    if objects["theta"] > np.pi / 2:
+        objects["theta"] -= np.pi
+    elif objects["theta"] < -np.pi / 2:
+        objects["theta"] += np.pi
 
-    if kronrad * np.sqrt(objects["a"] * objects["b"]) < r_min:
-        print(f"Warning: using circular photometry")
-        flux, flux_err, _ = sep.sum_circle(
-            data,
-            objects["x"],
-            objects["y"],
-            r_min,
-            err=err,
-            subpix=5,
-            gain=1.0,
-        )
-    else:
-        # theta must be in the range [-pi/2, pi/2] for sep.sum_ellipse()
-        if objects["theta"] > np.pi / 2:
-            objects["theta"] -= np.pi
-        elif objects["theta"] < -np.pi / 2:
-            objects["theta"] += np.pi
-
-        flux, flux_err, _ = sep.sum_ellipse(
-            data,
-            objects["x"],
-            objects["y"],
-            objects["a"],
-            objects["b"],
-            objects["theta"],
-            scale * kronrad,
-            err=err,
-            subpix=5,
-            gain=gain,
-        )
+    flux, flux_err, _ = sep.sum_ellipse(
+        data,
+        objects["x"],
+        objects["y"],
+        objects["a"],
+        objects["b"],
+        objects["theta"],
+        scale * kronrad,
+        err=err,
+        subpix=5,
+        gain=gain,
+    )
 
     return flux, flux_err
 
