@@ -946,6 +946,8 @@ def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
     -------
     objects_: ndarray
         Objects with adapted apertures.
+    conv_factor: ndarray
+        Convertion factor between the resolutions of the images.
     """
     objects_ = objects.copy()  # avoid modifying the intial objects
     for obj in objects_:
@@ -966,7 +968,9 @@ def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
             # flip aperture orientation
             obj["theta"] *= -1
 
-    return objects_
+    conv_factor = objects['a']/objects_['a']
+    
+    return objects_, conv_factor
 
 
 def check_work_dir(wokrdir):
