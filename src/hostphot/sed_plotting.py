@@ -43,7 +43,7 @@ def get_eff_wave(filt, survey):
     return eff_wave
 
 
-def plot_sed(name, phot_type='global', radius=None, z=None):
+def plot_sed(name, phot_type='global', z=None, radius=None):
     """Plots the SED of an object.
 
     The SED will depend on the available photometry.
@@ -54,11 +54,11 @@ def plot_sed(name, phot_type='global', radius=None, z=None):
         Name of the object.
     phot_type : str, optional
         Type of photometry: ``global`` or ``local``. By default 'global'.
-    radius : int, float or str, optional
-        Radius for the local photometry, by default ``None``.
     z : float, optional
         Redshift of the object, by default ``None``. If given, corrects
         for time dilation.
+    radius : int, float or str, optional
+        Radius for the local photometry, by default ``None``.
 
     Raises
     ------
