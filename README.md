@@ -181,6 +181,9 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 ```
 
 ## What's new!
+v2.7.1
+* Adding SED plotting
+* Fixed plotting angle of masked object 
 v2.7.0
 * MAJOR BUG: Convertion factor between different pixel scales fixed (it was previously inverted). This affects the common aperture photometry between different surveys!
 * Moving font family to `_constant.py` file
