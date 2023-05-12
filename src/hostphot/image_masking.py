@@ -368,13 +368,13 @@ def plot_masked_image(
         edgecolor="r",
     )
 
-    # other sources markers
+    # other sources apertures
     fig2.show_ellipses(
         objects["x"],
         objects["y"],
         2 * r * objects["a"],
         2 * r * objects["b"],
-        gal_obj["theta"] * 180.0 / np.pi,
+        objects["theta"] * 180.0 / np.pi,
         coords_frame="pixel",
         linewidth=2,
         edgecolor="orangered",
