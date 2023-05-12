@@ -51,6 +51,7 @@ HostPhot is being actively developed in `a public repository on GitHub
    examples/interactive_aperture.rst
    examples/test_full.ipynb
    examples/hst_example.ipynb
+   examples/sed_plotting.ipynb
    
 .. toctree::
    :maxdepth: 2
@@ -75,6 +76,7 @@ HostPhot is being actively developed in `a public repository on GitHub
    api/local_photometry.rst
    api/global_photometry.rst
    api/interactive_aperture.rst
+   api/sed_plotting.rst
    api/utils.rst
 
 
