@@ -10,6 +10,7 @@ from . import image_cleaning
 from . import objects_detect
 from . import coadd
 from . import dust
+from . import sed_plotting
 
 from . import local_photometry
 from . import global_photometry
