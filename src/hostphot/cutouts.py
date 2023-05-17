@@ -19,12 +19,13 @@ from astropy.coordinates import SkyCoord
 from astropy.nddata import Cutout2D
 
 import pyvo  # 2MASS
-from pyvo.dal import sia  # DES, DELVE
+from pyvo.dal import sia  # DES, SkyMapper, S-Plus
 from astroquery.sdss import SDSS
+from astroquery.ukidss import Ukidss
 from astroquery.skyview import SkyView  # other surveys
 from astroquery.mast import Observations  # for GALEX
 
-from astroquery.esa.hubble import ESAHubble
+from astroquery.esa.hubble import ESAHubble  # HST
 
 esahubble = ESAHubble()
 
@@ -1320,6 +1321,272 @@ def get_HST_images_OLD(ra, dec, size=3, filt=None, instrument=None):
 
     return hdu_list
 
+# SkyMapper
+def get_SkyMapper_urls(ra, dec, fov, filters="uvgriz"):
+    """Obtains the URLs of the SkyMapper images.
+    
+    The images closest to the given coordinates are retrieved 
+
+    Parameters
+    ----------
+    ra: float
+        Right ascension in degrees.
+    dec: float
+        Declination in degrees.
+    fov: float
+        Field of view in degrees.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``uvgriz``.
+
+    Returns
+    -------
+    url_list: list
+        List of URLs with SkyMapper images.
+    """
+    sm_url = "https://api.skymapper.nci.org.au/public/siap/dr2/query"
+    svc = sia.SIAService(sm_url)
+    imgs_table = svc.search(
+        (ra, dec), (fov / np.cos(dec * np.pi / 180), fov), verbosity=2
+    )
+    if len(imgs_table) == 0:
+        print(("Warning: empty table returned for " f"ra={ra}, dec={dec}"))
+        return None
+
+    imgs_df = pd.DataFrame(imgs_table)
+    imgs_df = imgs_df[imgs_df.format.str.endswith('fits')]
+    if len(imgs_df) == 0:
+        return None
+
+    url_list = []
+    for filt in filters:
+        filt_df = imgs_df[imgs_df.band==filt]
+        if len(filt_df) == 0:
+            url_list.append(None)
+        else:
+            fits_url = filt_df.get_fits.values[0]  # center-most image
+            url_list.append(fits_url)
+            
+    return url_list
+
+def get_SkyMapper_images(ra, dec, size=3, filters=None):
+    """Gets SkyMapper fits images for the given coordinates and
+    filters.
+
+    Parameters
+    ----------
+    ra: float
+        Right Ascension in degrees.
+    dec: float
+        Declination in degrees.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``uvgriz``.
+
+    Returns
+    -------
+    hdu_list: list
+        List of fits images.
+    """
+    survey = "SkyMapper"
+    if filters is None:
+        filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
+
+    if isinstance(size, (float, int)):
+        fov = (size * u.arcmin).to(u.degree).value
+    else:
+        fov = size.to(u.degree).value
+
+    url_list = get_SkyMapper_urls(ra, dec, fov, filters)
+
+    if url_list is None:
+        return None
+
+    hdu_list = []
+    for url in url_list:
+        if url is None:
+            hdu_list.append(None)
+        else:
+            hdu = fits.open(url)
+            # add zeropoint
+            hdu[0].header['MAGZP'] = hdu[0].header['ZPAPPROX']
+            hdu_list.append(hdu)
+
+    return hdu_list
+
+# S-Plus
+def get_SPlus_urls(ra, dec, fov, filters=None):
+    """Obtains the URLs of the S-Plus images.
+    
+    The available filters are: 'F378', 'F395', 'F410', 'F430', 
+    'F515', 'F660', 'F861', 'G', 'I', 'R', 'U', 'Z'.
+
+    Parameters
+    ----------
+    ra: float
+        Right ascension in degrees.
+    dec: float
+        Declination in degrees.
+    fov: float
+        Field of view in degrees.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses all available filters.
+
+    Returns
+    -------
+    url_list: list
+        List of URLs with S-Plus images.
+    """
+    splus_url = "https://datalab.noirlab.edu/sia/splus_dr1"
+    svc = sia.SIAService(splus_url)
+    imgs_table = svc.search(
+        (ra, dec), (fov / np.cos(dec * np.pi / 180), fov), verbosity=2
+    )
+    if len(imgs_table) == 0:
+        print(("Warning: empty table returned for " f"ra={ra}, dec={dec}"))
+        return None
+
+    imgs_df = pd.DataFrame(imgs_table)
+    imgs_df = imgs_df[imgs_df.access_format.str.endswith('fits')]
+    if len(imgs_df) == 0:
+        return None
+
+    url_list = []
+    for filt in filters:
+        filt_df = imgs_df[imgs_df.obs_bandpass==filt]
+        if len(filt_df) == 0:
+            url_list.append(None)
+        else:
+            fits_url = filt_df.access_url.values[0]  # first image
+            url_list.append(fits_url)
+            
+    return url_list
+
+def get_SPLUS_images(ra, dec, size=3, filters=None):
+    """Gets S-Plus fits images for the given coordinates and
+    filters.
+
+    The available filters are: 'F378', 'F395', 'F410', 'F430', 
+    'F515', 'F660', 'F861', 'G', 'I', 'R', 'U', 'Z'.
+
+    Parameters
+    ----------
+    ra: float
+        Right Ascension in degrees.
+    dec: float
+        Declination in degrees.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses all available filters.
+
+    Returns
+    -------
+    hdu_list: list
+        List of fits images.
+    """
+    hostphot_path = hostphot.__path__[0]
+
+    survey = "SPLUS"
+    if filters is None:
+        filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
+
+    if isinstance(size, (float, int)):
+        fov = (size * u.arcmin).to(u.degree).value
+    else:
+        fov = size.to(u.degree).value
+
+    url_list = get_SPlus_urls(ra, dec, fov, filters)
+
+    if url_list is None:
+        return None
+
+    hdu_list = []
+    for url in url_list:
+        if url is None:
+            hdu_list.append(None)
+        else:
+            hdu = fits.open(url)
+
+            # add zeropoint
+            # file from https://splus.cloud/documentation/dr2_3
+            zps_file = os.path.join(path, 'filters', 'SPLUS', 'iDR3_zps.cat')
+            zps_df = pd.read_csv(zps_file, delim_whitespace=True)
+
+            field = hdu[0].header['OBJECT'].replace('_', '-')
+            field_df = zps_df[zps_df['#field']==field]
+            img_filt = hdu[0].header['FILTER']
+            zp = field_df[img_filt].values[0]
+            hdu[0].header['MAGZP'] = zp
+
+            # initial EXPTIME is normalised, so it doesn't help
+            hdu[0].header['EXPTIME'] = hdu[0].header['TEXPOSED']
+
+            hdu_list.append(hdu)
+
+    return hdu_list
+
+# UKIDSS
+def get_UKIDSS_images(ra, dec, size=3, filters='ZYJHK'):
+    """Gets UKIDSS fits images for the given coordinates and
+    filters.
+
+    Parameters
+    ----------
+    ra: float
+        Right Ascension in degrees.
+    dec: float
+        Declination in degrees.
+    size: float or ~astropy.units.Quantity, default ``3``
+        Image size. If a float is given, the units are assumed to be arcmin.
+    filters: str, default ``None``
+        Filters to use. If ``None``, uses ``ZYJHK``.
+
+    Returns
+    -------
+    fits_files: list
+        List of fits images.
+    """
+    survey = "UKIDSS"
+    if filters is None:
+        filters = get_survey_filters(survey)
+    check_filters_validity(filters, survey)
+    
+    database = 'UKIDSSDR11PLUS'
+    # programme = 'LAS'  # ['UDS', 'GCS', 'GPS', 'DXS', 'LAS']
+    
+    pixel_scale = 0.1342  # survey_pixel_scale(survey)
+    if isinstance(size, (float, int)):
+        size = (size * u.arcmin)
+
+    u_obj = Ukidss(database=database)
+    pos = SkyCoord(ra, dec, unit="deg")
+    urls = u_obj.get_image_list(pos, waveband='all', frame_type="stack", image_width=size)
+
+    hdu_dict = {filt:None for filt in filters}
+    for filt in filters:
+        for url in urls[::-1]:
+            # pick the first FITS image only (is this correct?)
+            if f'band={filt}' in url:
+                hdu = fits.open(url)
+
+                # update first extension with data and WCS
+                hdu[0].data = hdu[1].data
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", AstropyWarning)
+                    img_wcs = wcs.WCS(hdu[1].header)
+                    hdu[0].header.update(img_wcs.to_header())
+                # add the nightly average ZP
+                hdu[0].header['MAGZP'] = hdu[0].header['NIGHTZPT']
+
+                hdu_dict[filt] = hdu
+                break                
+
+    hdu_list = list(hdu_dict.values())
+    
+    return hdu_list
 
 # Check orientation
 # ------------------
@@ -1351,6 +1618,36 @@ def match_wcs(fits_files):
 
     return matched_fits_files
 
+def check_existing_images(name, filters, survey):
+    """Checks if images exist for the given filters+survey
+    combination, for the given object.
+
+    Parameters
+    ----------
+    name : str
+        Name of the object.
+    filters : str or list
+        Filters to use.
+    survey : str
+        Survey name.
+
+    Returns
+    -------
+    filters_without_image: list
+        Filters without images.
+    """
+    check_survey_validity(survey)
+
+    check_work_dir(workdir)
+    obj_dir = os.path.join(workdir, name) 
+    
+    filters_without_image = []
+    for filt in filters:
+        filt_image = os.path.join(obj_dir, f'{survey}_{filt}.fits')
+        if os.path.isfile(filt_image) is False:
+            filters_without_image.append(filt)
+
+    return filters_without_image
 
 # Master Function
 # ----------------------------------------
@@ -1407,6 +1704,12 @@ def download_images(
     if not os.path.isdir(obj_dir):
         os.mkdir(obj_dir)
 
+    if filters is None:
+        filters = get_survey_filters(survey)
+
+    if overwrite is False:
+        filters = check_existing_images(name, filters, survey)
+    
     # download fits files
     if survey == "PS1":
         hdu_list = get_PS1_images(ra, dec, size, filters)
@@ -1422,21 +1725,24 @@ def download_images(
         hdu_list = get_unWISE_images(ra, dec, size, filters, version)
     elif survey == "2MASS":
         hdu_list = get_2MASS_images(ra, dec, size, filters)
-    elif survey == "HST":
-        hdu_list = get_HST_images(ra, dec, size, filters)
     elif survey == "LegacySurvey":
         hdu_list = get_LegacySurvey_images(ra, dec, size, filters, version)
     elif survey == "Spitzer":
         hdu_list = get_Spitzer_images(ra, dec, size, filters)
     elif survey == "VISTA":
         hdu_list = get_VISTA_images(ra, dec, size, filters, version)
+    elif survey == "HST":
+        hdu_list = get_HST_images(ra, dec, size, filters)
+    elif survey == "SkyMapper":
+        hdu_list = get_SkyMapper_images(ra, dec, size, filters)
+    elif survey == "SPLUS":
+        hdu_list = get_SPlus_images(ra, dec, size, filters)
+    elif survey == "UKIDSS":
+        hdu_list = get_UKIDSS_images(ra, dec, size, filters)
     else:
         raise ValueError(
             "The given survey is not properly added to HostPhot..."
         )
-
-    if filters is None:
-        filters = get_survey_filters(survey)
 
     if hdu_list:
         for hdu, filt in zip(hdu_list, filters):

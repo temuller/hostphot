@@ -4,6 +4,7 @@ import glob
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.image as img
 
 import aplpy
 from contextlib import contextmanager
@@ -190,6 +191,12 @@ def get_image_gain(header, survey):
         gain = 4.19
     elif survey == "HST":
         gain = header["CCDGAIN"]
+    elif survey=='SkyMapper':
+        gain = header["GAIN"]
+    elif survey=='S-Plus':
+        gain = header["GAIN"]
+    elif survey=='UKIDSS':
+        gain = header["GAIN"]
     else:
         gain = 1.0
 
@@ -246,6 +253,13 @@ def get_image_readnoise(header, survey):
     elif survey == "HST":
         # tipically 0.0
         readnoise = header["PCTERNOI"]
+    elif survey=='SkyMapper':
+        # https://rsaa.anu.edu.au/observatories/instruments/skymapper-instrument
+        readnoise = 5  # electrons
+    elif survey=='S-Plus':
+        readnoise = header["HIERARCH OAJ QC NCNOISE"]
+    elif survey=='UKIDSS':
+        readnoise = header["READNOIS"]
     else:
         readnoise = 0.0
 
@@ -268,7 +282,7 @@ def get_image_exptime(header, survey):
         Exposure time in seconds.
     """
     check_survey_validity(survey)
-    if survey in ["PS1", "DES", "GALEX", "VISTA", "Spitzer", "HST"]:
+    if survey in ["PS1", "DES", "GALEX", "VISTA", "Spitzer", "HST", "SkyMapper"]:
         exptime = float(header["EXPTIME"])
     elif survey == "WISE":
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/
@@ -282,6 +296,10 @@ def get_image_exptime(header, survey):
         exptime = 7.8
     elif survey == "LegacySurvey":
         exptime = 900.0  # assumed similar to DES
+    elif survey=="S-Plus":
+        exptime = header['TEXPOSED']
+    elif survey=="UKIDSS":
+        exptime = 100  # random value as I didn't find it
     else:
         exptime = 1.0
 
@@ -1031,6 +1049,24 @@ def plot_fits(fits_file, ext=0):
 
     fig.set_title(title, **{"family": font_family, "size": 24})
     fig.set_theme("publication")
+
+    plt.show()
+
+def plot_image(image_file):
+    """Plots an image file.
+
+    E.g. '.png' and '.jpg' files.
+
+    Parameters
+    ----------
+    image_file: str
+        Path to an image file.
+    """
+    fig, ax = plt.subplots(figsize=(16, 8))
+
+    im = img.imread(image_file)
+    ax.imshow(im)
+    plt.axis('off')
 
     plt.show()
 
