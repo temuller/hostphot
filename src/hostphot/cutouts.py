@@ -41,6 +41,8 @@ from hostphot.utils import (
     check_HST_filters,
     survey_pixel_scale,
 )
+import hostphot
+hostphot_path = hostphot.__path__[0]
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -1486,8 +1488,7 @@ def get_SPLUS_images(ra, dec, size=3, filters=None):
     hdu_list: list
         List of fits images.
     """
-    hostphot_path = hostphot.__path__[0]
-
+    global hostphot_path
     survey = "SPLUS"
     if filters is None:
         filters = get_survey_filters(survey)
@@ -1736,7 +1737,7 @@ def download_images(
     elif survey == "SkyMapper":
         hdu_list = get_SkyMapper_images(ra, dec, size, filters)
     elif survey == "SPLUS":
-        hdu_list = get_SPlus_images(ra, dec, size, filters)
+        hdu_list = get_SPLUS_images(ra, dec, size, filters)
     elif survey == "UKIDSS":
         hdu_list = get_UKIDSS_images(ra, dec, size, filters)
     else:
