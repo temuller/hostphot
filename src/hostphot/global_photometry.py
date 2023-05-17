@@ -685,6 +685,8 @@ def multi_band_phot(
             else:
                 results_dict[filt] = np.nan
                 results_dict[f"{filt}_err"] = np.nan
+                results_dict[f"{filt}_flux"] = np.nan
+                results_dict[f"{filt}_flux_err"] = np.nan
 
     if save_results is True:
         outfile = os.path.join(workdir, name, f"{survey}_global.csv")
