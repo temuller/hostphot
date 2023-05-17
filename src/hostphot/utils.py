@@ -506,7 +506,8 @@ def uncertainty_calculation(
 
     mag_err = 2.5 / np.log(10) * flux_err / flux
 
-    if survey in ["PS1", "DES", "LegacySurvey", "Spitzer", "VISTA"]:
+    if survey in ["PS1", "DES", "LegacySurvey", "Spitzer", "VISTA",
+                  "SkyMapper", "SPLUS", "UKIDSS"]:
         if survey == "Spitzer":
             flux /= header["EFCONV"]  # conv. factor (MJy/sr)/(DN/s)
         # 1.0857 = 2.5/ln(10)
@@ -739,6 +740,34 @@ def uncertainty_calculation(
 
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
         flux_err = np.sqrt(flux_err**2 + flux_zp_unc**2)
+    elif survey == "SkyMapper":
+        zp_unc = header["ZPTERR"]
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
+
+        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
+    elif survey == "SPLUS":
+        # following Section 4.4 of Almeida-Fernandes et al. (2022)
+        zp_uncs = {'U':25e-3,
+           'F395':25e-3,
+           'F378':15e-3,
+          }
+        if filt in zp_uncs.keys():
+            zp_unc = zp_uncs[filt]
+        else:
+            zp_unc = 1e-3
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
+
+        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
+    elif survey == "UKIDSS":
+        # nightly ZPs rms
+        zp_unc = header["NIGHTZRR"]
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
+
+        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
+
     else:
         raise Exception(
             f"Survey {survey} has not been added for error propagation."
