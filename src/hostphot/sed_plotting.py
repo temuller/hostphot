@@ -13,7 +13,9 @@ config_file = os.path.join(path, 'filters', 'config.txt')
 config_df = pd.read_csv(config_file, delim_whitespace=True)
 
 colours = {'GALEX':'purple', 'PS1':'green', 'SDSS':'blue', 'DES':'lightblue', 
-          '2MASS':'red', 'unWISE':'brown', 'WISE':'black'}
+           'SkyMapper':'slateblue', 'SPLUS':'lime',
+           '2MASS':'red', 'unWISE':'brown', 'WISE':'black',
+           'VISTA':'coral', 'UKIDSS':'darkgoldenrod'}
 
 
 def get_eff_wave(filt, survey):
@@ -43,7 +45,7 @@ def get_eff_wave(filt, survey):
     return eff_wave
 
 
-def plot_sed(name, phot_type='global', z=None, radius=None):
+def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclude=None):
     """Plots the SED of an object.
 
     The SED will depend on the available photometry.
@@ -59,6 +61,12 @@ def plot_sed(name, phot_type='global', z=None, radius=None):
         for time dilation.
     radius : int, float or str, optional
         Radius for the local photometry, by default ``None``.
+    include: list, default ``None``
+        List of surveys to include in the plot. Cannot be given together 
+        with '``exclude``.
+    exclude: list, default ``None``
+        List of surveys to exclude from the plot. Cannot be given together 
+        with '``include``.
 
     Raises
     ------
@@ -72,6 +80,29 @@ def plot_sed(name, phot_type='global', z=None, radius=None):
     obj_path = os.path.join(workdir, name, '*')
     phot_files = [file for file in glob.glob(obj_path) 
                   if file.endswith(f'_{phot_type}.csv')]
+    
+    if include is not None and exclude is not None:
+        raise ValueError("'inlcude' cannot be given together with 'exclude'!")
+    
+    if include is not None:
+        include_files = []
+        for file in phot_files:
+            for pattern in include:
+                if pattern in file:
+                    include_files.append(file)
+                    break
+        phot_files = include_files
+
+    if exclude is not None:
+        include_files = []
+        for file in phot_files:
+            skip = False
+            for pattern in exclude:
+                if pattern in file:
+                    skip = True
+            if skip is False:
+                include_files.append(file)
+        phot_files = include_files
     
     if len(phot_files)==0:
         print(f'There is no photometry for {name}!')
