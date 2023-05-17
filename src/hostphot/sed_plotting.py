@@ -78,6 +78,7 @@ def plot_sed(name, phot_type='global', z=None, radius=None):
         return None
     
     fig, ax = plt.subplots(figsize=(12, 8))
+    ax.invert_yaxis()  # for magnitude plot
 
     for file in phot_files:
         survey = os.path.basename(file).split('_')[0]
@@ -128,9 +129,15 @@ def plot_sed(name, phot_type='global', z=None, radius=None):
             else:
                 title = title + f' ($z={z}$)'
         else:
+            waves = np.array(waves)
+            phot = np.array(phot)
             xlabel = r'Observed Wavelength ($\AA$)'
-        ax.errorbar(waves, phot, yerr=phot_err, marker='o', 
-                    c=colours[survey], label=survey)
+        phot_err = np.array(phot_err)
+
+        lims = phot/phot_err < 3  # upper limits;inverted for magnitude plots
+        phot_err[lims] = 1  # for visualization
+        ax.errorbar(waves, phot, yerr=phot_err, marker='o', ms=10, ls='dashed', lw=3,
+                    c=colours[survey], label=survey, lolims=lims)
 
     if len(phot_files)>3:
         ncol = 2
@@ -149,6 +156,5 @@ def plot_sed(name, phot_type='global', z=None, radius=None):
     
     ax.legend(ncol=ncol, fancybox=True, framealpha=1, prop={"size": 18, "family": font_family})
     ax.set_xscale('log')
-    ax.invert_yaxis()
 
     plt.show()
