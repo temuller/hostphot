@@ -30,6 +30,7 @@ from hostphot.utils import (
     bkg_surveys,
     adapt_aperture,
     suppress_stdout,
+    load_pickle
 )
 
 import warnings
@@ -262,6 +263,31 @@ def create_mask(
     if extract_params:
         return gal_obj, nogal_objs, img_wcs, flip
 
+def load_mask_params(name, filt, survey):
+    """Loads previously saved mask parameters.
+    
+    Parameters
+    ----------
+    name: str
+        Name of the object to find the path of the mask-parameters file.
+    filt: str
+        Name of the filter used to create the mask parameters. Coadds are
+        also valid.
+    survey: str
+        Survey name to be used.
+        
+    Returns
+    -------
+    mask_params: tuple
+        Mask paremeters with the same format as the output of the
+        ``create_mask`` function.
+    """
+    inputfile = os.path.join(workdir, name, 
+                             f'{survey}_{filt}_mask_parameters.pickle')
+    
+    mask_params = load_pickle(inputfile)
+    
+    return mask_params
 
 def plot_masked_image(
     hdu,

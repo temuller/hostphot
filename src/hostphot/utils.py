@@ -1,6 +1,7 @@
 import os
 import sys
 import glob
+import pickle
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -1099,6 +1100,27 @@ def plot_image(image_file):
 
     plt.show()
 
+
+def load_pickle(inputfile):
+    """Loads a pickle file.
+    
+    Parameters
+    ----------
+    inputfile: str
+        Pickle file to load.
+        
+    Returns
+    -------
+    content: any
+        The content of the pickle file
+    """
+    if os.path.isfile(inputfile) is True:
+        with open(inputfile, 'rb') as fp:
+            content = pickle.load(fp)
+    else:
+        raise FileNotFoundError(f"The input file does not exist: {inputfile}")
+        
+    return content
 
 @contextmanager
 def suppress_stdout():

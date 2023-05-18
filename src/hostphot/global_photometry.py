@@ -33,6 +33,7 @@ from hostphot.utils import (
     magnitude_calculation,
     adapt_aperture,
     bkg_surveys,
+    load_pickle
 )
 from hostphot.objects_detect import extract_objects, plot_detected_objects
 from hostphot.image_cleaning import remove_nan
@@ -323,6 +324,31 @@ def extract_kronparams(
 
     return gal_obj, img_wcs, kronrad, scale, flip
 
+def load_aperture_params(name, filt, survey):
+    """Loads previously saved aperture parameters.
+    
+    Parameters
+    ----------
+    name: str
+        Name of the object to find the path of the aperture-parameters file.
+    filt: str
+        Name of the filter used for the aperture parameters. Coadds are
+        also valid.
+    survey: str
+        Survey name to be used.
+        
+    Returns
+    -------
+    aperture_params: tuple
+        Aperture paremeters with the same format as the output of the
+        ``extract_kronparams`` function.
+    """
+    inputfile = os.path.join(workdir, name, 
+                             f'{survey}_{filt}_aperture_parameters.pickle')
+    
+    aperture_params = load_pickle(inputfile)
+    
+    return aperture_params
 
 def photometry(
     name,
