@@ -2,6 +2,7 @@ import os
 import glob
 import numpy as np
 import pandas as pd
+from matplotlib import ticker
 import matplotlib.pyplot as plt
 
 import hostphot
@@ -187,5 +188,11 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
     
     ax.legend(ncol=ncol, fancybox=True, framealpha=1, prop={"size": 18, "family": font_family})
     ax.set_xscale('log')
+    # format ticks
+    ticks = np.array([2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5, 1e6])
+    start, end = ax.get_xlim()
+    mask = (ticks >= start) & (ticks <= end)
+    ax.set_xticks(ticks[mask])
+    ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
 
     plt.show()
