@@ -1021,9 +1021,17 @@ def get_VISTA_images(ra, dec, size=3, filters=None, version="VHS"):
     for filt, url in urls_dict.items():
         if url is not None:
             hdu = fits.open(url)
-            # to be consistent with the naming of other surveys
-            hdu[1].header["MAGZP"] = hdu[1].header["MAGZPT"]
-            hdu_list.append(hdu[1])  # extension 1
+
+            hdu[0].data = hdu[1].data
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", AstropyWarning)
+                img_wcs = wcs.WCS(hdu[1].header)
+                hdu[0].header.update(img_wcs.to_header())
+                hdu[0].header['EXPTIME'] = hdu[1].header['EXPTIME']
+                # rename ZP for hostphot convention
+                hdu[0].header['MAGZP'] = hdu[1].header['MAGZPT']  
+                hdu[0].header['MAGZRR'] = hdu[1].header['MAGZRR']
+            hdu_list.append(hdu)
         else:
             hdu_list.append(None)
 
