@@ -27,7 +27,7 @@ config_file = os.path.join(hostphot_path, "filters", "config.txt")
 config_df = pd.read_csv(config_file, delim_whitespace=True)
 
 # surveys that need background subtraction
-bkg_surveys = ["2MASS", "WISE", "VISTA"]
+bkg_surveys = ["2MASS", "WISE", "VISTA", "SkyMapper", "UKIDSS"]
 
 
 def calc_sky_unc(image, exptime):
@@ -300,7 +300,7 @@ def get_image_exptime(header, survey):
     elif survey=="S-Plus":
         exptime = header['TEXPOSED']
     elif survey=="UKIDSS":
-        exptime = 100  # random value as I didn't find it
+        exptime = header['EXP_TIME']*header['NEXP']
     else:
         exptime = 1.0
 
@@ -406,7 +406,7 @@ def magnitude_calculation(
         zp = header["MAGZP"]
     else:
         zp = zp_dict[filt]
-    if survey == "PS1":
+    if survey in ["PS1", "VISTA", "UKIDSS"]:
         exptime = get_image_exptime(header, survey)
         zp += 2.5 * np.log10(exptime)
 
@@ -763,7 +763,7 @@ def uncertainty_calculation(
         flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
     elif survey == "UKIDSS":
         # nightly ZPs rms
-        zp_unc = header["NIGHTZRR"]
+        zp_unc = header["MAGZRR"]
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
         extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
