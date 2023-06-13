@@ -238,7 +238,7 @@ def extract_kronparams(
         Scale for the Kron radius.
     flip: bool
         Whether to flip the orientation of the
-        aperture. Only used for DES images.
+        aperture.
     """
     check_survey_validity(survey)
     check_work_dir(workdir)
@@ -309,7 +309,7 @@ def extract_kronparams(
             outfile,
         )
 
-    if survey == "DES":
+    if survey in ["DES", "VISTA", "UKIDSS"]:
         flip = True
     else:
         flip = False
@@ -463,7 +463,7 @@ def photometry(
     if aperture_params is not None:
         gal_obj, master_img_wcs, kronrad, scale, flip2 = aperture_params
 
-        if survey == "DES":
+        if survey in ["DES", "VISTA", "UKIDSS"]:
             flip = True
         else:
             flip = False
