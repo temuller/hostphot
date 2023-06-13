@@ -101,3 +101,41 @@ VISTA images are downloaded from the `VISTA science archive <http://horus.roe.ac
 .. figure:: static/vista2_footprint.png
 
   VISTA surveys footprints. Images from `https://www.eso.org/public/images/allsky-vista/ <https://www.eso.org/public/images/allsky-vista/>`_ and `https://www.eso.org/rm/api/v1/public/releaseDescriptions/144 <https://www.eso.org/rm/api/v1/public/releaseDescriptions/144>`_.
+
+
+HST
+~~~~~~~
+
+These images are downloaded with `astroquery.esa.hubble <https://astroquery.readthedocs.io/en/latest/esa/hubble/hubble.html>`_, although it is recommened to download the images manually (e.g. through the MAST archive) as this is much faster and the user can choose among the different available images. These images can then be added into the workflow (see the Hubble example). The pixel scaling of the images is 0.04 and 0.13 arcsec/pixel for the UVIS and NIR channels, respectively, as described in the `ESA Hubble WFC3 website <https://esahubble.org/about/general/instruments/wfc3/>`_. All the filters are available for the given channels.
+
+No survey footprint is provided as Hubble covers small patches of the sky.
+  
+
+SkyMapper
+~~~~~~~~~
+
+These images are downloaded from the NOAO DataLab using the SIA service (for more information, see the DES survey above). The pixel scaling of the images is 0.5 arcsec/pixel, as described in the `SkyMapper DR2 website <https://skymapper.anu.edu.au/data-release/>`_. The available filters are: :math:`uvgriz`.
+
+.. figure:: static/skymapper_footprint.png
+
+  SkyMapper survey footprint. Image from the SkyMapper DR2 website as well.
+
+
+SPLUS
+~~~~~
+
+These images are downloaded from the NOAO DataLab using the SIA service (for more information, see the DES survey above). The pixel scaling of the images is 0.55 arcsec/pixel, as described in the `S-PLUS website <https://www.splus.iag.usp.br/survey/>`_. The available filters are: :math:`F378, F395, F410, F430, F515, F660, F861, G, I, R, U, Z`.
+
+.. figure:: static/splus_footprint.png
+
+  S-PLUS survey footprint. Image from the S-PLUS website as well.
+
+
+UKIDSS
+~~~~~~
+
+These images are downloaded from the VISTA science archive (for more information, see the VISTA link above). The pixel scaling of the images is 0.4 arcsec/pixel, as described in the `CASU WFCAM website <http://casu.ast.cam.ac.uk/surveys-projects/wfcam>`_. The available filters are: :math:`ZYJHK`. Multiple surveys are included in UKIDSS, which mainly cover different parts of the sky: Large Area Survey (LAS), Galactic Plane Survey (GPS), Galactic Clusters Survey (GCS),	Deep Extragalactic Survey (DXS) and  	Ultra Deep Survey (UDS). 
+
+.. figure:: static/ukidss_footprint.png
+
+  UKIDSS survey footprint. Image from the `CASU WFCAM Survey Progress and QC website <http://casu.ast.cam.ac.uk/wfcamsp/overview>`_.

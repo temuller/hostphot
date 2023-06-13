@@ -175,7 +175,16 @@ VISTA
 
 * **ZP**
   
-  VISTA images include their own ZP in their headers: ``MAGZPT`` keyword, although this is renamed to ``MAGZP`` to follow HostPhot convention.
+  VISTA images include their own ZP in their headers: ``MAGZPT`` keyword (see the `CASU VISTA website <http://casu.ast.cam.ac.uk/surveys-projects/vista/technical/photometric-properties>`_). Atmospheric extinction correction needs to be applied to the VISTA images in order to obtain an "effective" zeropoint (private communication with Nicholas Cross and VSA support).
+  The atmospheric extinction is calculated as:
+  
+  :math:`extinction = c_{\text{ext}} \times (airmass - 1)`, 
+  
+  where the extinction coefficient :math:`c_{\text{ext}}` is 0.05 (``EXTINCT`` keyword in the header) and the airmass is the average between the values at the start and end of the observations (taken from the header as well). Thus, the effective zeropoint is:
+  
+  :math:`ZP_{\text{eff}} = MAGZPT - extinction` 
+  
+  and is stored in the ``MAGZP`` to follow HostPhot convention. In addition, the flux needs to be rescaled by the exposure time, in the same way as for the PS1 images.
   
 * **Error Propagation**
 
@@ -191,7 +200,7 @@ HST/WFC3
   
   HST zeropoints can be calculated using the `PHOTFLAM` and `PHOTPLAM` keywords from the image' header, as explained in `https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration>`_ and `https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration>`_: 
   
-  :math:`\ZP_{\text{AB}} = -2.5\log(PHOTFLAM) - 5\log(PHOTPLAM) - 2.408`.
+  :math:`ZP_{\text{AB}} = -2.5\log(PHOTFLAM) - 5\log(PHOTPLAM) - 2.408`.
   
   This is saved in the header under the ``MAGZP`` keyword. 
   
@@ -202,3 +211,45 @@ HST/WFC3
   The errors are propagated in the same way as for PS1, with an additional component coming from the ZP calibration (`ERR_PHOTFLAM`; :math:`\sigma_{\text{ZP}}`), taken from the tables found in the photometric calibration websites of the instruments (see `UVIS photometric calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/uvis-photometric-calibration>`_ `IR photometric calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/ir-photometric-calibration>`_), which is of the order of a few percent at most.
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}})`.
+
+
+SkyMapper
+~~~~~~~~~
+
+* **ZP**
+  
+  SkyMapper images include their own ZP in their headers: ``ZPAPPROX`` keyword (see the `survey website forum <https://skymapper.anu.edu.au/forum/forum/using-the-tools-2/topic/photometric-calibration-magnitudes-etc-4/>`_), although this is renamed to ``MAGZP`` to follow HostPhot convention.
+  
+* **Error Propagation**
+
+  The errors are propagated in the same way as for PS1 (gain and exposure time from header, and readnoise of 5 electrons - explained in the `SkyMapper instrument website <https://rsaa.anu.edu.au/observatories/instruments/skymapper-instrument>`_), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``ZPTERR`` keyword).
+  
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{ZP}})`.
+
+
+SPLUS
+~~~~~
+
+* **ZP**
+  
+  S-PLUS images have their ZP tabulated for the different filters in the `DR3_zero-points.cat <https://splus.cloud/files/documentation/DR3/iDR3_zps.cat>`_ file (field dependent values) found in the `SPLUS DR2/3 website <https://splus.cloud/documentation/dr2_3>`_: these are added to the image header under the ``MAGZP`` keyword to follow HostPhot convention.
+  
+* **Error Propagation**
+
+  The errors are propagated in the same way as for PS1 (gain, exposure time and readnoise from header), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), following Section 4.4 of `Almeida-Fernandes et al. (2022) <https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.4590A/abstract>`_: :math:`25` mmag for :math:`U` and :math:`F395` filters, :math:`15` mmag for :math:`F378` filter and :math:`10` mmag for the rest.
+  
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{ZP}})`.
+
+
+UKIDSS
+~~~~~~
+
+* **ZP**
+  
+  UKIDSS images include their own ZP in their headers and an "effective" zeropoint has to be calculated (stored in the ``MAGZP`` keyword in the header), correcting for atmospheric extinction, in the same way as for the VISTA images. In addition, the flux needs to be rescaled by the exposure time, in the same way as for the PS1 images.
+  
+* **Error Propagation**
+
+  The errors are propagated in the same way as for PS1 (gain, exposure time and readnoise from header), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword).
+  
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{ZP}})`.
