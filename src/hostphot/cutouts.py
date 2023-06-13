@@ -785,13 +785,22 @@ def get_2MASS_images(ra, dec, size=3, filters=None):
                 url = os.path.join(
                     base_url, tile_url, fits_url + "?" + params_url
                 )
-                hdu = fits.open(url)
-                ny, nx = hdu[0].data.shape
-                sizes.append(nx * ny)
-                tmp_hdu_list.append(hdu)
+                try:
+                    hdu = fits.open(url)
+                    ny, nx = hdu[0].data.shape
+                    sizes.append(nx * ny)
+                    tmp_hdu_list.append(hdu)
+                except:
+                    # some images might give 500 Internal Server Error
+                    # because the cutout does not overlap the image
+                    pass
 
-            i = np.argmax(sizes)
-            hdu_list.append(tmp_hdu_list[i])
+            if len(tmp_hdu_list)==0:
+                hdu_list.append(None)
+            else:
+                # pick largest image, which usually is the best
+                i = np.argmax(sizes)
+                hdu_list.append(tmp_hdu_list[i])
 
     return hdu_list
 
@@ -1027,10 +1036,20 @@ def get_VISTA_images(ra, dec, size=3, filters=None, version="VHS"):
                 warnings.simplefilter("ignore", AstropyWarning)
                 img_wcs = wcs.WCS(hdu[1].header)
                 hdu[0].header.update(img_wcs.to_header())
+                
+                # add some keywords to the PHU
                 hdu[0].header['EXPTIME'] = hdu[1].header['EXPTIME']
-                # rename ZP for hostphot convention
-                hdu[0].header['MAGZP'] = hdu[1].header['MAGZPT']  
                 hdu[0].header['MAGZRR'] = hdu[1].header['MAGZRR']
+
+                # calculate effective ZP (considering atmospheric extinction)
+                # calculate extinction first
+                airmass = (hdu[1].header['HIERARCH ESO TEL AIRM START'] + hdu[1].header['HIERARCH ESO TEL AIRM END'])/2
+                ext_coeff = hdu[1].header['EXTINCT']
+                extinction = ext_coeff*(airmass - 1)
+                # calculate effective ZP
+                zp = hdu[1].header['MAGZPT']
+                hdu[0].header['MAGZP'] = zp - extinction
+
             hdu_list.append(hdu)
         else:
             hdu_list.append(None)
@@ -1521,7 +1540,7 @@ def get_SPLUS_images(ra, dec, size=3, filters=None):
 
             # add zeropoint
             # file from https://splus.cloud/documentation/dr2_3
-            zps_file = os.path.join(path, 'filters', 'SPLUS', 'iDR3_zps.cat')
+            zps_file = os.path.join(hostphot_path, 'filters', 'SPLUS', 'iDR3_zps.cat')
             zps_df = pd.read_csv(zps_file, delim_whitespace=True)
 
             field = hdu[0].header['OBJECT'].replace('_', '-')
@@ -1566,7 +1585,7 @@ def get_UKIDSS_images(ra, dec, size=3, filters='ZYJHK'):
     database = 'UKIDSSDR11PLUS'
     # programme = 'LAS'  # ['UDS', 'GCS', 'GPS', 'DXS', 'LAS']
     
-    pixel_scale = 0.1342  # survey_pixel_scale(survey)
+    survey_pixel_scale(survey)
     if isinstance(size, (float, int)):
         size = (size * u.arcmin)
 
@@ -1576,7 +1595,7 @@ def get_UKIDSS_images(ra, dec, size=3, filters='ZYJHK'):
 
     hdu_dict = {filt:None for filt in filters}
     for filt in filters:
-        for url in urls[::-1]:
+        for url in urls:
             # pick the first FITS image only (is this correct?)
             if f'band={filt}' in url:
                 hdu = fits.open(url)
@@ -1587,8 +1606,19 @@ def get_UKIDSS_images(ra, dec, size=3, filters='ZYJHK'):
                     warnings.simplefilter("ignore", AstropyWarning)
                     img_wcs = wcs.WCS(hdu[1].header)
                     hdu[0].header.update(img_wcs.to_header())
-                # add the nightly average ZP
-                hdu[0].header['MAGZP'] = hdu[0].header['NIGHTZPT']
+                # add some of the keywords to the PHU
+                hdu[0].header['MAGZRR'] = hdu[1].header['MAGZRR']
+                hdu[0].header['GAIN'] = hdu[1].header['GAIN']
+                hdu[0].header['READNOIS'] = hdu[1].header['READNOIS']
+
+                # calculate effective ZP (considering atmospheric extinction)
+                # calculate extinction first
+                airmass = (hdu[0].header['AMSTART'] + hdu[0].header['AMEND'])/2
+                ext_coeff = hdu[1].header['EXTINCT']
+                extinction = ext_coeff*(airmass - 1)
+                # calculate effective ZP
+                zp = hdu[1].header['MAGZPT']
+                hdu[0].header['MAGZP'] = zp - extinction
 
                 hdu_dict[filt] = hdu
                 break                
