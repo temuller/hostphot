@@ -265,7 +265,7 @@ def plot_detected_objects(
             host_ra,
             host_dec,
             edgecolor="k",
-            facecolor="r",
+            facecolor="m",
             alpha=0.7,
             marker="P",
             s=200,
