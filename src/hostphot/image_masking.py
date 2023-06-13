@@ -163,7 +163,7 @@ def create_mask(
         Image's WCS.
     flip: bool
         Whether to flip the orientation of the
-        aperture. Only used for DES images.
+        aperture. 
     """
     check_survey_validity(survey)
     if isinstance(filt, list):
@@ -212,7 +212,7 @@ def create_mask(
         # the aperture/ellipse parameters are updated accordingly
         gal_obj, nogal_objs, master_img_wcs, flip2 = common_params
 
-        if survey == "DES":
+        if survey in ["DES", "VISTA", "UKIDSS"]:
             flip = True
         else:
             flip = False
@@ -230,6 +230,19 @@ def create_mask(
     outfile = os.path.join(obj_dir, f"masked_{survey}_{filt}.fits")
     masked_hdu.writeto(outfile, overwrite=True)
 
+    if survey in ["DES", "VISTA", "UKIDSS"]:
+        flip = True
+    else:
+        flip = False
+
+    if save_mask_params is True:
+        outfile = os.path.join(
+            obj_dir, f"{survey}_{filt}_mask_parameters.pickle"
+        )
+        with open(outfile, "wb") as fp:
+            mask_parameters = gal_obj, nogal_objs, img_wcs, flip
+            pickle.dump(mask_parameters, fp, protocol=4)
+
     if save_plots:
         outfile = os.path.join(obj_dir, f"masked_{survey}_{filt}.jpg")
         title = f"{name}: {survey}-${filt}$"
@@ -246,19 +259,6 @@ def create_mask(
             title,
             outfile,
         )
-
-    if survey == "DES":
-        flip = True
-    else:
-        flip = False
-
-    if save_mask_params is True:
-        outfile = os.path.join(
-            obj_dir, f"{survey}_{filt}_mask_parameters.pickle"
-        )
-        with open(outfile, "wb") as fp:
-            mask_parameters = gal_obj, nogal_objs, img_wcs, flip
-            pickle.dump(mask_parameters, fp, protocol=4)
 
     if extract_params:
         return gal_obj, nogal_objs, img_wcs, flip
@@ -365,7 +365,7 @@ def plot_masked_image(
         host_ra,
         host_dec,
         edgecolor="k",
-        facecolor="r",
+        facecolor="m",
         alpha=0.7,
         marker="P",
         s=200,
