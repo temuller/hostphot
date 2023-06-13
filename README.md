@@ -181,6 +181,12 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 ```
 
 ## What's new!
+v2.8.0
+* Fix SED plotting with negative or too large values/errors, and improve plotting aesthetic
+* Fix problem downloading some 2MASS images giving internal server error (no image overlap)
+* Adding UKIDSS, SPLUS and SkyMapper servers
+* Check colour of given galaxy position on images
+* Adding functions to easily load saved parameteres from pickle files
 v2.7.1
 * Adding SED plotting
 * Fixed plotting angle of masked object 
