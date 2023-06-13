@@ -14,7 +14,7 @@ config_file = os.path.join(path, 'filters', 'config.txt')
 config_df = pd.read_csv(config_file, delim_whitespace=True)
 
 colours = {'GALEX':'purple', 'PS1':'green', 'SDSS':'blue', 'DES':'lightblue', 
-           'SkyMapper':'slateblue', 'SPLUS':'lime',
+           'SkyMapper':'slateblue', 'SPLUS':'lime', 'LegacySurvey':'gold',
            '2MASS':'red', 'unWISE':'brown', 'WISE':'black',
            'VISTA':'coral', 'UKIDSS':'darkgoldenrod'}
 
@@ -37,16 +37,17 @@ def get_eff_wave(filt, survey):
     path = hostphot.__path__[0]
     if survey=='unWISE':
         survey = 'WISE'
+
     survey_files = glob.glob(os.path.join(path, 'filters', survey, '*'))
+    filt_file = [file for file in survey_files if file.endswith(f'_{filt}.dat')][0]
     
-    filt_file = [file for file in survey_files if filt in os.path.basename(file)][0]
     wave, trans = np.loadtxt(filt_file).T
     eff_wave = np.sum(wave*trans)/np.sum(trans)
     
     return eff_wave
 
 
-def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclude=None):
+def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclude=None, save_plot=True, outfile=None):
     """Plots the SED of an object.
 
     The SED will depend on the available photometry.
@@ -68,6 +69,10 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
     exclude: list, default ``None``
         List of surveys to exclude from the plot. Cannot be given together 
         with '``include``.
+    save_plot: bool, default ``True``
+        Whether to save the SED plot.
+    outfile: str, default ``None``
+        If give, the plot is saved with this name instead of the default ones.
 
     Raises
     ------
@@ -85,6 +90,7 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
     if include is not None and exclude is not None:
         raise ValueError("'inlcude' cannot be given together with 'exclude'!")
     
+    # include or exclude some surveys
     if include is not None:
         include_files = []
         for file in phot_files:
@@ -109,6 +115,7 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
         print(f'There is no photometry for {name}!')
         return None
     
+    # start plotting
     fig, ax = plt.subplots(figsize=(12, 8))
     ax.invert_yaxis()  # for magnitude plot
 
@@ -139,9 +146,13 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
 
         phot_df = pd.read_csv(file)
         waves, phot, phot_err = [], [], []
+        valid_filters = []
         for filt in filters:
             filt_str = filt + ext
             filt_err_str = filt + ext + '_err'
+
+            if filt_str not in phot_df.columns:
+                continue
 
             # get photometry
             wave = get_eff_wave(filt, survey)
@@ -150,6 +161,7 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
             waves.append(wave)
             phot.append(mag)
             phot_err.append(mag_err)
+            valid_filters.append(filt)
 
         if z is not None:
             # correct for time dilation
@@ -166,12 +178,20 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
             xlabel = r'Observed Wavelength ($\AA$)'
         phot_err = np.array(phot_err)
 
+        # NaN mask
+        mask = ~np.isnan(phot)
+        waves = waves[mask]
+        phot = phot[mask]
+        phot_err = phot_err[mask]
+        valid_filters = np.array(valid_filters)[mask]
+
         lims = phot/phot_err < 3  # upper limits;inverted for magnitude plots
         phot_err[lims] = 1  # for visualization
+        label = f'{survey} ({",".join(filt for filt in valid_filters)})' 
         ax.errorbar(waves, phot, yerr=phot_err, marker='o', ms=10, ls='dashed', lw=3,
-                    c=colours[survey], label=survey, lolims=lims)
+                    c=colours[survey], mec='k', capsize=6, label=label, lolims=lims)
 
-    if len(phot_files)>3:
+    if len(phot_files)>4:
         ncol = 2
     else:
         ncol=1
@@ -186,13 +206,21 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
         label.set_fontproperties(font_family)
     ax.tick_params(labelsize=20)
     
-    ax.legend(ncol=ncol, fancybox=True, framealpha=1, prop={"size": 18, "family": font_family})
+    ax.legend(ncol=ncol, fancybox=True, framealpha=1, prop={"size": 16, "family": font_family})
     ax.set_xscale('log')
     # format ticks
     ticks = np.array([2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5, 1e6])
     start, end = ax.get_xlim()
     mask = (ticks >= start) & (ticks <= end)
     ax.set_xticks(ticks[mask])
-    ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
+    formatter = ticker.ScalarFormatter(useMathText=True)
+    ax.get_xaxis().set_major_formatter(formatter)
+
+    if save_plot is True:
+        if outfile is None:
+            obj_dir = os.path.join(workdir, name)
+            basename = f'sed_{phot_type}.jpg'
+            outfile = os.path.join(obj_dir, basename)
+        plt.savefig(outfile)
 
     plt.show()
