@@ -236,6 +236,10 @@ def photometry(
     fluxes_err: list
         Aperture flux errors for the given aperture radii.
     """
+    if survey == 'SkyMapper':
+        warnings.warn(("SkyMapper photometry is not completely trustworthy due to imprecision in "
+                       "the zeropoint for extended sources, which might be solved in a future data release."))
+        
     check_survey_validity(survey)
     check_work_dir(workdir)
     obj_dir = os.path.join(workdir, name)
@@ -272,6 +276,12 @@ def photometry(
     fluxes, fluxes_err = [], []
     px, py = img_wcs.wcs_world2pix(ra, dec, 1)
     pixel_scale = survey_pixel_scale(survey, filt)
+    if survey == 'UKIDSS' and filt == 'J':
+        if 'LAS' in header['PROJECT'].split('/')[-1]:
+        # if the J comes from the LAS then the observations were micro-stepped
+        # in the J-band so the pixel size is smaller.
+            nustep = header['NUSTEP']
+            pixel_scale /= nustep/2  # divided by 2 for the two dimensions (x and y)
     error = calc_sky_unc(data_sub, exptime)
 
     for ap_radius in ap_radii:

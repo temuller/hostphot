@@ -432,6 +432,10 @@ def photometry(
     total_flux_err: float
         Total flux error on the aperture flux.
     """
+    if survey == 'SkyMapper':
+        warnings.warn(("SkyMapper photometry is not completely trustworthy due to imprecision in"
+                       "the zeropoint for extended sources, which might be solved in a future data release."))
+
     check_survey_validity(survey)
     check_work_dir(workdir)
     obj_dir = os.path.join(workdir, name)
@@ -528,6 +532,7 @@ def photometry(
     if correct_extinction is True:
         A_ext = calc_extinction(filt, survey, host_ra, host_dec)
         mag -= A_ext
+        flux *= 10**(0.4*A_ext)
 
     if save_plots is True:
         outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
