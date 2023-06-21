@@ -89,7 +89,7 @@ The configureration file (``config.txt``) contains most of the necessary informa
      - AB
      - 0.0
    * - SPLUS
-     - U,F378,F395,F410,F430,G,F515,R,F660,I,F861,Z
+     - u,F378,F395,F410,F430,g,F515,r,F660,i,F861,z
      - header
      - 0.55
      - AB

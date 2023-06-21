@@ -11,5 +11,5 @@ Spitzer         IRAC.1,IRAC.2,IRAC.3,IRAC.4,MIPS.1      	header    	0.6,0.6,0.6,
 VISTA           Z,Y,J,H,Ks      				header  	0.339       		Vega        	0.502,0.600,0.916,1.366,1.827
 HST		WFC3/UVIS,WFC3/IR				header		0.04,0.13		AB		0.0
 SkyMapper       uvgriz		      				header  	0.5       		AB        	0.0
-SPLUS           U,F378,F395,F410,F430,G,F515,R,F660,I,F861,Z    header  	0.55       		AB        	0.0
+SPLUS           u,F378,F395,F410,F430,g,F515,r,F660,i,F861,z    header  	0.55       		AB        	0.0
 UKIDSS          ZYJHK      					header  	0.4       		Vega        	0.528,0.634,0.938,1.379,1.900
