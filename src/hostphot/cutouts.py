@@ -844,17 +844,27 @@ def get_LegacySurvey_images(ra, dec, size=3, filters=None, version="dr10"):
         version = "dr10"  # latest data release
 
     base_url = "https://www.legacysurvey.org/viewer/fits-cutout?"
-    params = f"ra={ra}&dec={dec}&layer=ls-{version}&pixscale={pixel_scale}&bands={filters}&size={size_pixels}"
+    params = f"ra={ra}&dec={dec}&layer=ls-{version}&pixscale={pixel_scale}&bands={filters}&size={size_pixels}&invvar"
     url = base_url + params
+
     master_hdu = fits.open(url)
-    header = master_hdu[0].header
+    master_header = master_hdu[0].header
+    master_header_invvar = master_hdu[1].header
 
     hdu_list = []
-    # assuming order grz of the filters
     for i, filt in enumerate(filters):
         data = master_hdu[0].data[i]
+        header = master_header.copy()
+        header.append(('BAND', filt, ' Band - added by HostPhot'), end=True)
         hdu = fits.PrimaryHDU(data=data, header=header)
-        hdu_list.append(hdu)
+        
+        header_invvar = master_header_invvar.copy()
+        header_invvar.append(('BAND', filt, ' Band - added by HostPhot'), end=True)
+        data_invvar = master_hdu[1].data[i]
+        hdu_invvar = fits.ImageHDU(data=data_invvar, 
+                                header=header_invvar)
+
+        hdu_list.append(fits.HDUList([hdu, hdu_invvar]))
 
     return hdu_list
 
@@ -1244,7 +1254,7 @@ def get_HST_images(ra, dec, size=3, filt=None):
     return hdu_list
 
 
-def get_HST_images_OLD(ra, dec, size=3, filt=None, instrument=None):
+def _get_HST_images_OLD(ra, dec, size=3, filt=None, instrument=None):
     """Downloads a set of HST fits images for a given set
     of coordinates and filters using the MAST archive.
 
@@ -1389,10 +1399,15 @@ def get_SkyMapper_urls(ra, dec, fov, filters="uvgriz"):
     url_list = []
     for filt in filters:
         filt_df = imgs_df[imgs_df.band==filt]
+        # obtain the images with largest exposure times and file size
+        # and lowest mean FWHM, as suggested by Christopher Onken, from the SkyMapper Team
+        filt_df = filt_df[filt_df.exptime==filt_df.exptime.max()]
+        filt_df = filt_df[filt_df.filesize==filt_df.filesize.max()]
+        filt_df = filt_df[filt_df.mean_fwhm==filt_df.mean_fwhm.min()]
         if len(filt_df) == 0:
             url_list.append(None)
         else:
-            fits_url = filt_df.get_fits.values[0]  # center-most image
+            fits_url = filt_df.get_fits.values[0]
             url_list.append(fits_url)
             
     return url_list
@@ -1782,7 +1797,7 @@ def download_images(
         raise ValueError(
             "The given survey is not properly added to HostPhot..."
         )
-
+    
     if hdu_list:
         for hdu, filt in zip(hdu_list, filters):
             if hdu is None:
