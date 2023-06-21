@@ -312,8 +312,11 @@ def photometry(
             sum_var, _ = extract_aperture_flux(
                         var_map, error, px, py, radius_pix
                     )
-            flux_err = np.sqrt(sum_var) 
-            mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
+            extra_flux_err = np.sqrt(sum_var[0]) 
+            flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
+
+            extra_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
+            mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
         # extinction correction is optional
         if correct_extinction:

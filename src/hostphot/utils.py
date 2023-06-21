@@ -548,6 +548,9 @@ def uncertainty_calculation(
         extra_err = unc_dict[filt]
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
+        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * extra_err)
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
+
         # median coadd zeropoint statistical uncertainty
         unc_dict = {
             "g": 5e-3,
@@ -739,9 +742,20 @@ def uncertainty_calculation(
         flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     elif survey == "LegacySurvey":
-        # this survey uses invariance maps only
-        # as a source of errors, as mentioned by Dustin Lang
-        pass
+        # photometry uncertainties for DR10 from https://arxiv.org/pdf/2305.16630.pdf
+        # LS also includes uncertainties from inverse-variance maps
+        # (calculated outside this function), as mentioned by Dustin Lang
+        unc_dict = {
+            "g": 5.0e-3,
+            "r": 3.9e-3,
+            "i": 4.3e-3,
+            "z": 5.5e-3,
+        }
+        extra_err = unc_dict[filt]
+        mag_err = np.sqrt(mag_err**2 + extra_err**2)
+
+        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * extra_err)
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
     elif survey == "Spitzer":
         # already added at the beginning
         pass

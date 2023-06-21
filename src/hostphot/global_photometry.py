@@ -94,8 +94,10 @@ def kron_flux(data, err, gain, objects, kronrad, scale):
 
 
 def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
-    """Optimizes the Kron flux by iteration over different values.
-    The stop condition is met when the change in flux is less that ``eps``.
+    """Optimizes the Kron flux by iteration over different scales.
+
+    The stop condition is met when the change in flux between iterations 
+    is less that ``eps``.
 
     Parameters
     ----------
@@ -116,37 +118,28 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
         Optimized Kron flux.
     opt_flux_err: float
         Optimized Kron flux error.
-    opt_kronrad: float
-        Optimized Kron radius.
+    kronrad: float
+        Kron radius.
     opt_scale: float
-        Optimized scale of the Kron radius.
+        Optimized scale for the Kron radius.
     """
-    # iterate over kron radii
-    for r in np.arange(1, 6.05, 0.05)[::-1]:
-        kronrad, _ = sep.kron_radius(
+    kronrad, _ = sep.kron_radius(
             data,
             objects["x"],
             objects["y"],
             objects["a"],
             objects["b"],
             objects["theta"],
-            r,
+            r=6.0,  # following sep docs
         )
-        opt_kronrad = kronrad
-        if ~np.isnan(opt_kronrad):
-            break
-
-    if np.isnan(opt_kronrad):
-        raise ValueError(
-            "The Kron radius cannot be calculated. The image might have NaNs or the aperture is too close to the edge."
-        )
-
+    kronrad = kronrad[0]
+    
     opt_flux = 0.0
     # iterate over scale
     scales = np.arange(1, 10, 0.01)
     for scale in scales:
         flux, flux_err = kron_flux(
-            data, err, gain, objects, opt_kronrad, scale
+            data, err, gain, objects, kronrad, scale
         )
         flux, flux_err = flux[0], flux_err[0]
 
@@ -161,7 +154,7 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
             warnings.warn("Warning: the aperture might not fit in the image!")
             break
 
-    return opt_flux, opt_flux_err, opt_kronrad[0], opt_scale
+    return opt_flux, opt_flux_err, kronrad, opt_scale
 
 
 def extract_kronparams(
@@ -209,8 +202,8 @@ def extract_kronparams(
         If `True`, the masked fits files are used. These must have
         been created beforehand.
     optimize_kronrad: bool, default `True`
-        If `True`, the Kron radius is optimized, increasing the
-        aperture size until the flux does not increase.
+        If `True`, the Kron-radius scale is optimized, increasing the
+        aperture size until the change in flux is less than ``eps``.
     eps: float, default ``0.0001``
         The Kron radius is increased until the change in flux is lower than ``eps``.
         A value of 0.0001 means 0.01% change in flux.
@@ -406,8 +399,8 @@ def photometry(
         common aperture. If given, the Kron parameters are not
         re-calculated
     optimize_kronrad: bool, default `True`
-        If `True`, the Kron radius is optimized, increasing the
-        aperture size until the flux does not increase.
+        If `True`, the Kron-radius scale is optimized, increasing the
+        aperture size until the change in flux is less than ``eps``.
     eps: float, default ``0.0001``
         The Kron radius is increased until the change in flux is lower than ``eps``.
         A value of 0.0001 means 0.01% change in flux.
@@ -537,8 +530,11 @@ def photometry(
         sum_var, _ = kron_flux(
                 var_map, bkg_rms, gain, gal_obj, kronrad, scale
             )
-        flux_err = np.sqrt(sum_var[0]) 
-        mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
+        extra_flux_err = np.sqrt(sum_var[0]) 
+        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
+
+        extra_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
+        mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
     if correct_extinction is True:
         A_ext = calc_extinction(filt, survey, host_ra, host_dec)
@@ -626,8 +622,8 @@ def multi_band_phot(
     coadd_filters: str, default ``riz``
         Filters of the coadd image. Used for common aperture photometry.
     optimize_kronrad: bool, default ``True``
-        If ``True``, the Kron radius is optimized, increasing the
-        aperture size until the flux does not increase.
+        If `True`, the Kron-radius scale is optimized, increasing the
+        aperture size until the change in flux is less than ``eps``.
     eps: float, default ``0.0001``
         The Kron radius is increased until the change in flux is lower than ``eps``.
         A value of 0.0001 means 0.01% change in flux.
