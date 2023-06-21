@@ -179,7 +179,7 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
         phot_err = np.array(phot_err)
 
         # NaN mask
-        mask = ~np.isnan(phot)
+        mask = ~np.isnan(phot) * phot_err>0
         waves = waves[mask]
         phot = phot[mask]
         phot_err = phot_err[mask]
