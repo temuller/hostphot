@@ -537,7 +537,7 @@ def photometry(
         sum_var, _ = kron_flux(
                 var_map, bkg_rms, gain, gal_obj, kronrad, scale
             )
-        flux_err = np.sqrt(sum_var) 
+        flux_err = np.sqrt(sum_var[0]) 
         mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
 
     if correct_extinction is True:
