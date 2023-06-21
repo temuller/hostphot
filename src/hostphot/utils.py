@@ -134,12 +134,6 @@ def survey_zp(survey):
     if "," in zps:
         zps = zps.split(",")
         zp_dict = {filt: float(zp) for filt, zp in zip(filters, zps)}
-    elif survey == "SDSS":
-        # SDSS zero-points are not exactly in AB:
-        # https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB
-        zp_dict = {filt: float(zps) for filt in filters}
-        zp_dict["u"] -= 0.04
-        zp_dict["z"] += 0.02
     else:
         zp_dict = {filt: float(zps) for filt in filters}
 
@@ -177,7 +171,7 @@ def get_image_gain(header, survey):
         # https://iopscience.iop.org/article/10.1086/498708/pdf (8 e ADU^-1)
         gain = 10.0
     elif survey == "LegacySurvey":
-        gain = 30  # assumed similar to DES
+        gain = 1  # not used
     elif survey == "Spitzer":
         # also in the "EXPGAIN" keyword
         if header["INSTRUME"] == "IRAC":
@@ -194,7 +188,7 @@ def get_image_gain(header, survey):
         gain = header["CCDGAIN"]
     elif survey=='SkyMapper':
         gain = header["GAIN"]
-    elif survey=='S-Plus':
+    elif survey=='SPLUS':
         gain = header["GAIN"]
     elif survey=='UKIDSS':
         gain = header["GAIN"]
@@ -236,7 +230,7 @@ def get_image_readnoise(header, survey):
         # 6 combined images
         readnoise = 4.5 * np.sqrt(6)  # not used
     elif survey == "LegacySurvey":
-        readnoise = 7.0  # assumed similar to DES
+        readnoise = 1.0  # not used
     elif survey == "Spitzer":
         if header["INSTRUME"] == "IRAC":
             # Table 2.3 of IRAC Instrument Handbook
@@ -257,7 +251,7 @@ def get_image_readnoise(header, survey):
     elif survey=='SkyMapper':
         # https://rsaa.anu.edu.au/observatories/instruments/skymapper-instrument
         readnoise = 5  # electrons
-    elif survey=='S-Plus':
+    elif survey=='SPLUS':
         readnoise = header["HIERARCH OAJ QC NCNOISE"]
     elif survey=='UKIDSS':
         readnoise = header["READNOIS"]
@@ -296,8 +290,8 @@ def get_image_exptime(header, survey):
         # https://iopscience.iop.org/article/10.1086/498708/pdf
         exptime = 7.8
     elif survey == "LegacySurvey":
-        exptime = 900.0  # assumed similar to DES
-    elif survey=="S-Plus":
+        exptime = 1.0  # Not used
+    elif survey=="SPLUS":
         exptime = header['TEXPOSED']
     elif survey=="UKIDSS":
         exptime = header['EXP_TIME']*header['NEXP']
@@ -374,6 +368,9 @@ def magnitude_calculation(
 ):
     """Calculates the calibrated magnitudes and errors.
 
+    Error propagation is included here, both for magnitudes
+    and fluxes.
+
     Parameters
     ----------
     flux: float
@@ -388,6 +385,7 @@ def magnitude_calculation(
         Header of an image.
     bkg_rms: float, default ``0.0``
         Background noise.
+    invvar_map: ndarray
 
     Returns
     -------
@@ -397,8 +395,10 @@ def magnitude_calculation(
         Apparent magnitude uncertainty.
     flux: float
         Total flux.
-    flux_error: float
+    flux_err: float
         Total uncertainty in flux.
+    zp: float
+        Zeropoint.
     """
     # get zeropoint
     zp_dict = survey_zp(survey)
@@ -406,9 +406,30 @@ def magnitude_calculation(
         zp = header["MAGZP"]
     else:
         zp = zp_dict[filt]
+
     if survey in ["PS1", "VISTA", "UKIDSS"]:
+        # flux needs to be in units of counts per second
         exptime = get_image_exptime(header, survey)
-        zp += 2.5 * np.log10(exptime)
+        flux /= exptime
+        flux_err /= exptime
+
+    if survey == "SDSS":
+        # SDSS zero-points are not exactly in AB:
+        # https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB
+        if filt=='u':
+            offset = -0.04
+        elif filt=='z':
+            offset = 0.02
+        else:
+            offset = 0
+        flux *= 10**(-0.4*offset)
+        flux_err *= 10**(-0.4*offset)
+
+    if survey == "HST":
+        # HST needs and aperture correction for the flux
+        # see, e.g. https://www.stsci.edu/hst/instrumentation/acs/data-analysis/aperture-corrections
+        ap_corr = correct_HST_aperture(filt, ap_area, header)
+        flux = flux * ap_corr
 
     # error propagation
     mag_err, flux_err = uncertainty_calculation(
@@ -421,15 +442,9 @@ def magnitude_calculation(
         bkg_rms,
     )
 
-    if survey == "HST":
-        # HST needs and aperture correction for the flux
-        # see, e.g. https://www.stsci.edu/hst/instrumentation/acs/data-analysis/aperture-corrections
-        ap_corr = correct_HST_aperture(filt, ap_area, header)
-        flux = flux * ap_corr
-
     mag = -2.5 * np.log10(flux) + zp
 
-    return mag, mag_err, flux, flux_err
+    return mag, mag_err, flux, flux_err, zp
 
 
 def get_HST_err(filt, header):
@@ -724,7 +739,8 @@ def uncertainty_calculation(
         flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     elif survey == "LegacySurvey":
-        # already added at the beginning
+        # this survey uses invariance maps only
+        # as a source of errors, as mentioned by Dustin Lang
         pass
     elif survey == "Spitzer":
         # already added at the beginning
