@@ -235,6 +235,8 @@ def photometry(
         Aperture flux for the given aperture radii.
     fluxes_err: list
         Aperture flux errors for the given aperture radii.
+    zp: float
+        Zeropoint.
     """
     if survey == 'SkyMapper':
         warnings.warn(("SkyMapper photometry is not completely trustworthy due to imprecision in "
@@ -278,8 +280,8 @@ def photometry(
     pixel_scale = survey_pixel_scale(survey, filt)
     if survey == 'UKIDSS' and filt == 'J':
         if 'LAS' in header['PROJECT'].split('/')[-1]:
-        # if the J comes from the LAS then the observations were micro-stepped
-        # in the J-band so the pixel size is smaller.
+            # if the J comes from the LAS then the observations were micro-stepped
+            # in the J-band so the pixel size is smaller.
             nustep = header['NUSTEP']
             pixel_scale /= nustep/2  # divided by 2 for the two dimensions (x and y)
     error = calc_sky_unc(data_sub, exptime)
@@ -293,8 +295,8 @@ def photometry(
             data_sub, error, px, py, radius_pix
         )
 
-        ap_area = 2 * np.pi * (radius_pix**2)
-        mag, mag_err, flux, flux_err = magnitude_calculation(
+        ap_area = np.pi * (radius_pix**2)
+        mag, mag_err, flux, flux_err, zp = magnitude_calculation(
             flux,
             flux_err,
             survey,
@@ -304,10 +306,20 @@ def photometry(
             bkg_rms,
         )
 
+        if survey in ["LegacySurvey"]:
+            invvar_map = hdu[1].data
+            var_map = 1/invvar_map
+            sum_var, _ = extract_aperture_flux(
+                        var_map, error, px, py, radius_pix
+                    )
+            flux_err = np.sqrt(sum_var) 
+            mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
+
         # extinction correction is optional
         if correct_extinction:
             A_ext = calc_extinction(filt, survey, ra, dec)
             mag -= A_ext
+            flux *= 10**(0.4*A_ext)
 
         mags.append(mag)
         mags_err.append(mag_err)
@@ -321,7 +333,7 @@ def photometry(
             title = f'{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$'
             plot_aperture(hdu, px, py, radius_pix, title, outfile)
 
-    return mags, mags_err, fluxes, fluxes_err
+    return mags, mags_err, fluxes, fluxes_err, zp
 
 
 def multi_band_phot(
@@ -416,7 +428,7 @@ def multi_band_phot(
     
     for filt in filters:
         try:
-            mags, mags_err, fluxes, fluxes_err = photometry(
+            mags, mags_err, fluxes, fluxes_err, zp = photometry(
                 name,
                 ra,
                 dec,
@@ -436,6 +448,7 @@ def multi_band_phot(
                 results_dict[f"{filt}_{radius}_err"] = mag_err
                 results_dict[f"{filt}_{radius}_flux"] = flux
                 results_dict[f"{filt}_{radius}_flux_err"] = flux_err
+            results_dict[f"{filt}_zeropoint"] = zp
         except Exception as exc:
             if raise_exception is True:
                 raise Exception(exc)
@@ -445,6 +458,7 @@ def multi_band_phot(
                     results_dict[f"{filt}_{radius}_err"] = np.nan
                     results_dict[f"{filt}_{radius}_flux"] = np.nan
                     results_dict[f"{filt}_{radius}_flux_err"] = np.nan
+                results_dict[f"{filt}_zeropoint"] = np.nan
 
     if save_results is True:
         outfile = os.path.join(workdir, name, f"{survey}_local.csv")

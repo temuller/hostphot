@@ -431,6 +431,8 @@ def photometry(
         Aperture flux.
     total_flux_err: float
         Total flux error on the aperture flux.
+    zp: float
+        Zeropoint.
     """
     if survey == 'SkyMapper':
         warnings.warn(("SkyMapper photometry is not completely trustworthy due to imprecision in"
@@ -519,7 +521,7 @@ def photometry(
 
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
 
-    mag, mag_err, flux, flux_err = magnitude_calculation(
+    mag, mag_err, flux, flux_err, zp = magnitude_calculation(
         flux,
         flux_err,
         survey,
@@ -528,6 +530,15 @@ def photometry(
         header,
         bkg_rms,
     )
+
+    if survey in ["LegacySurvey"]:
+        invvar_map = hdu[1].data
+        var_map = 1/invvar_map
+        sum_var, _ = kron_flux(
+                var_map, bkg_rms, gain, gal_obj, kronrad, scale
+            )
+        flux_err = np.sqrt(sum_var) 
+        mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
 
     if correct_extinction is True:
         A_ext = calc_extinction(filt, survey, host_ra, host_dec)
@@ -549,7 +560,7 @@ def photometry(
             outfile,
         )
 
-    return mag, mag_err, flux, flux_err
+    return mag, mag_err, flux, flux_err, zp
 
 
 def multi_band_phot(
@@ -688,7 +699,7 @@ def multi_band_phot(
 
     for filt in filters:
         try:
-            mag, mag_err, flux, flux_err = photometry(
+            mag, mag_err, flux, flux_err, zp = photometry(
                 name,
                 host_ra,
                 host_dec,
@@ -710,6 +721,7 @@ def multi_band_phot(
             results_dict[f"{filt}_err"] = mag_err
             results_dict[f"{filt}_flux"] = flux
             results_dict[f"{filt}_flux_err"] = flux_err
+            results_dict[f"{filt}_zeropoint"] = zp
         except Exception as exc:
             if raise_exception is True:
                 raise Exception(f"{filt}-band: {exc}")
@@ -718,6 +730,7 @@ def multi_band_phot(
                 results_dict[f"{filt}_err"] = np.nan
                 results_dict[f"{filt}_flux"] = np.nan
                 results_dict[f"{filt}_flux_err"] = np.nan
+                results_dict[f"{filt}_zeropoint"] = np.nan
 
     if save_results is True:
         outfile = os.path.join(workdir, name, f"{survey}_global.csv")
