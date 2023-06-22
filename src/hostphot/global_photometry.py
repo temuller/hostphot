@@ -428,7 +428,7 @@ def photometry(
         Zeropoint.
     """
     if survey == 'SkyMapper':
-        warnings.warn(("SkyMapper photometry is not completely trustworthy due to imprecision in"
+        warnings.warn(("SkyMapper photometry is not completely trustworthy due to imprecision in "
                        "the zeropoint for extended sources, which might be solved in a future data release."))
 
     check_survey_validity(survey)
