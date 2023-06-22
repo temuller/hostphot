@@ -182,11 +182,18 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 ## What's new!
 v2.8.0
-* Fix SED plotting with negative or too large values/errors, and improve plotting aesthetic
+* Fix SED plotting with negative or too large values/errors, and improve plotting aesthetics
 * Fix problem downloading some 2MASS images giving internal server error (no image overlap)
-* Adding UKIDSS, SPLUS and SkyMapper servers
-* Check colour of given galaxy position on images
-* Adding functions to easily load saved parameteres from pickle files
+* Adding UKIDSS, SPLUS and SkyMapper surveys. WARNINGS: SkyMapper photometry (DR2) is not very accurate with extended sources!
+* The marker showing the galaxy position on images has changed colour for better visualization
+* Adding functions to easily load previously saved parameteres from pickle files
+* Adding missing extinction correction for flux (not magnitudes)
+* Including exposure time into flux for PS1, VISTA and UKIDSS surveys
+* Adding SDSS ZP offsets into flux
+* Output zeropoint together with the photometry
+* Updating LegacySurvey errors, taken from inverse-variance maps and ZP uncertainty
+* Adding missing offsets to unWISE W1 and W2 bands into fluxes
+* Kron radius is no longer "optimized", just the scale, which doesn't have any effect in practice for the user
 v2.7.1
 * Adding SED plotting
 * Fixed plotting angle of masked object 
