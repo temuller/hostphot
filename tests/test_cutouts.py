@@ -93,6 +93,25 @@ class TestHostPhot(unittest.TestCase):
             print("Skipping this test...")
             print(exc)
 
+    def test_cutouts_SkyMapper(self):
+        download_images(
+            self.sn_name,
+            self.ra,
+            self.dec,
+            overwrite=True,
+            survey="SkyMapper",
+        )
+
+    def test_cutouts_SPLUS(self):
+        name = "SPLUS_test"
+        ra, dec = 0.6564206, -0.3740297
+        download_images(name, ra, dec, overwrite=True, survey="SPLUS")
+
+    def test_cutouts_UKIDSS(self):
+        name = "UNIDSS_test"
+        ra, dec = 359.5918320, +0.1964120
+        download_images(name, ra, dec, overwrite=True, survey="UKIDSS")
+
 
 if __name__ == "__main__":
     unittest.main()
