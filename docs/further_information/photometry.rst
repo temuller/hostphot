@@ -9,13 +9,15 @@ To obtain calibrated photometry in magnitudes, the zero-point (ZP) is essential 
 
 However, the error propagation can be a lot more problematic for some surveys.
 
-**Note:** out of the implemented surveys, only WISE and 2MASS images need background subtraction. The images from the other surveys are already background subtracted.
+**Note:** out of the included surveys, WISE, 2MASS, VISTA, SkyMapper and UKIDSS images need background subtraction (background subtraction of these surveys is performed by default by HostPhot). The images from the other surveys are already background subtracted.
 
 For the global photometry, HostPhot uses :func:`sep.sum_ellipse()` to meaused the counts of the host galaxy, where the value of the parameter ``gain`` depends on each survey+image and the parameter ``err`` is taken to be the global RMS of the background of the image, calculated with :func:`sep.Background()`.
 
 For the local photometry, HostPhot uses :func:`photutils.aperture_photometry()` to meaused the counts of the host galaxy, where the value of the parameter ``error`` is calculated with :func:`astropy.stats.sigma_clipped_stats` (using ``sigma=3``) and :func:`photutils.utils.calc_total_error` (using the exposure time of each image). From the output of :func:`photutils.aperture_photometry()` the counts/flux is given by ``aperture_sum`` while the error is given by ``aperture_sum_err`` (:math:`\sigma_{\text{ap}}`). Other uncertainties are added in quadrature (see below for the respective surveys).
 
-Note that the global and local photometry are calculates in a similar way as in `Wiseman et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020MNRAS.495.4040W/abstract>`_ and `Kelsey et al. (2021)  <https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.4861K/abstract>`_, respectively. Also note that the only surveys that need background subtraction are 2MASS, WISE and VISTA, which is performed by default by HostPhot.
+Note that the global and local photometry are calculates in a similar way as in `Wiseman et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020MNRAS.495.4040W/abstract>`_ and `Kelsey et al. (2021)  <https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.4861K/abstract>`_, respectively.
+
+Any offsets added to the zeropoints are instead propagated into the fluxes, such that the zeropoints remain unchaged.
 
 
 PS1
@@ -23,7 +25,7 @@ PS1
 
 * **ZP**
   
-  The PS1 images are rescaled to a ZP of :math:`25 + 2.5*log_{10}(\text{exposure time})`, where the exposure time is given by the ``EXPTIME`` keyword in the images (see the `PS1 Photometric Calibration <https://outerspace.stsci.edu/display/PANSTARRS/PS1+Stack+images#PS1Stackimages-Photometriccalibration>`_).
+  The PS1 images have a fixed ZP of :math:`25`. The flux for PS1 does not come in units of :math:`1/\text{sec}`, so it is divided by the exposure time, given by the ``EXPTIME`` keyword in the images (see the `PS1 Photometric Calibration <https://outerspace.stsci.edu/display/PANSTARRS/PS1+Stack+images#PS1Stackimages-Photometriccalibration>`_).
   
 * **Error Propagation**
 
@@ -56,7 +58,7 @@ SDSS
 
 * **ZP**
   
-  Given that the units of the SDSS images are in nanomaggies, the ZP is equal to :math:`22.5` (see `https://www.sdss.org/dr13/help/glossary/#nanomaggie <https://www.sdss.org/dr13/help/glossary/#nanomaggie>`_). However, SDSS magnitudes are not exactly in AB system, as described in `https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB <https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB>`_. Therefore, offsets need to be applied to :math:`u` and :math:`z` bands: :math:`u_{\rm AB} = u_{\rm SDSS} - 0.04` and :math:`z_{\rm AB} = z_{\rm SDSS} + 0.02`.
+  Given that the units of the SDSS images are in nanomaggies, the ZP is equal to :math:`22.5` (see `https://www.sdss.org/dr13/help/glossary/#nanomaggie <https://www.sdss.org/dr13/help/glossary/#nanomaggie>`_). However, SDSS magnitudes are not exactly in AB system, as described in `https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB <https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB>`_. Therefore, offsets need to be applied to :math:`u` and :math:`z` bands: :math:`u_{\rm AB} = u_{\rm SDSS} - 0.04` and :math:`z_{\rm AB} = z_{\rm SDSS} + 0.02`, which are instead propagated into the fluxes to keep a constant zeropoint for all bands.
   
 * **Error Propagation**
 
@@ -135,11 +137,11 @@ unWISE
 
 * **ZP**
   
-  unWISE images are rescaled to have ZPs of :math:`22.5`, as explained in `Lang (2014) <https://iopscience.iop.org/article/10.1088/0004-6256/147/5/108>`_.
+  unWISE images are rescaled to have ZPs of :math:`22.5`, as explained in `Lang (2014) <https://iopscience.iop.org/article/10.1088/0004-6256/147/5/108>`_. Note that to improve the agreement between unWISE and AllWISE fluxes, it is recommend subtracting :math:`4` mmag from unWISE *W1* and :math:`32` mmag from unWISE *W2* fluxes, as descrived in the `unWISE catalogs website <https://catalog.unwise.me/catalogs.html#absolute>`_ (performed internally by HostPhot).
   
 * **Error Propagation**
 
-  This is assumed to be the same as for WISE.
+  This is calculated in the same way as for WISE.
   
 
 Legacy Survey
@@ -151,9 +153,9 @@ Legacy Survey
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1. The gain, exposure time and readnoise are assumed to be similar to those of DES: :math:`30` :math:`e`/ADU, :math:`900` s and :math:`7` :math:`e`/pixel, respectively.
+  This surveys has two main sources of unertainties: one coming from the photometric calibration of DR10 (see `Zhou et al. (2023) <https://ui.adsabs.harvard.edu/abs/2023RNAAS...7..105Z/abstract>`_), which are 5.0, 3.9, 4.3 and 5.5 mmag for the :math:`g`, :math:`r`, :math:`i` and :math:`z` bands, respectively, and the other coming from the inverse-variance maps included with the images.
   
-  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2)`.
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2 + \sigma_{\text{invvar}}^2)`.
   
   
 Spitzer
@@ -184,7 +186,7 @@ VISTA
   
   :math:`ZP_{\text{eff}} = MAGZPT - extinction` 
   
-  and is stored in the ``MAGZP`` to follow HostPhot convention. In addition, the flux needs to be rescaled by the exposure time, in the same way as for the PS1 images.
+  and is stored in the ``MAGZP`` to follow HostPhot convention. In addition, the flux is rescaled by the exposure time, in the same way as for the PS1 images.
   
 * **Error Propagation**
 
@@ -246,7 +248,7 @@ UKIDSS
 
 * **ZP**
   
-  UKIDSS images include their own ZP in their headers and an "effective" zeropoint has to be calculated (stored in the ``MAGZP`` keyword in the header), correcting for atmospheric extinction, in the same way as for the VISTA images. In addition, the flux needs to be rescaled by the exposure time, in the same way as for the PS1 images.
+  UKIDSS images include their own ZP in their headers and an "effective" zeropoint has to be calculated (stored in the ``MAGZP`` keyword in the header), correcting for atmospheric extinction, in the same way as for the VISTA images. In addition, the flux is rescaled by the exposure time, in the same way as for the PS1 images.
   
 * **Error Propagation**
 
