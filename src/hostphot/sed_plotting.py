@@ -209,7 +209,7 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
     ax.legend(ncol=ncol, fancybox=True, framealpha=1, prop={"size": 16, "family": font_family})
     ax.set_xscale('log')
     # format ticks
-    ticks = np.array([2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5, 1e6])
+    ticks = np.array([2e3, 4e3, 9e3, 2e4, 4e4, 9e4, 2e5, 4e5, 9e5])
     start, end = ax.get_xlim()
     mask = (ticks >= start) & (ticks <= end)
     ax.set_xticks(ticks[mask])
