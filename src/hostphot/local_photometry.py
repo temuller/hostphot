@@ -312,7 +312,7 @@ def photometry(
             sum_var, _ = extract_aperture_flux(
                         var_map, error, px, py, radius_pix
                     )
-            extra_flux_err = np.sqrt(sum_var[0]) 
+            extra_flux_err = np.sqrt(sum_var) 
             flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
             extra_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
