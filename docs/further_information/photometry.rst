@@ -25,7 +25,7 @@ PS1
 
 * **ZP**
   
-  The PS1 images have a fixed ZP of :math:`25`. The flux for PS1 does not come in units of :math:`1/\text{sec}`, so it is divided by the exposure time, given by the ``EXPTIME`` keyword in the images (see the `PS1 Photometric Calibration <https://outerspace.stsci.edu/display/PANSTARRS/PS1+Stack+images#PS1Stackimages-Photometriccalibration>`_).
+  The PS1 images have a fixed ZP of :math:`25`. The flux for PS1 needs to be rescaled by the exposure time, given by the ``EXPTIME`` keyword in the images (see the `PS1 Photometric Calibration <https://outerspace.stsci.edu/display/PANSTARRS/PS1+Stack+images#PS1Stackimages-Photometriccalibration>`_).
   
 * **Error Propagation**
 

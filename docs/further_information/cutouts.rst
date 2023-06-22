@@ -25,7 +25,7 @@ DES images are downloaded from the `NOAO DataLab <https://datalab.noirlab.edu/si
 
   DES survey footprint. Image from `https://www.darkenergysurvey.org/es/el-cartografiado/ <https://www.darkenergysurvey.org/es/el-cartografiado/>`_.
 
-Note that DES images are flipped with respecto to most other surveys.
+Note that DES images are flipped with respect to most other surveys.
 
 SDSS
 ~~~~
@@ -36,7 +36,7 @@ These images are downloaded using `astroquery.skyview <https://astroquery.readth
 
   SDSS survey footprint (data release 12). Image from `<https://ui.adsabs.harvard.edu/abs/2015arXiv151008075P/abstract>`_. Note that the SDSS imaging footprint has had virutally no changes in the last several data releases.
   
-Note that SDSS images are rotated with respecto to most other surveys.
+Note that SDSS images are rotated with respect to most other surveys.
   
 GALEX
 ~~~~~
@@ -104,7 +104,7 @@ VISTA images are downloaded from the `VISTA science archive <http://horus.roe.ac
 
   VISTA surveys footprints. Images from `https://www.eso.org/public/images/allsky-vista/ <https://www.eso.org/public/images/allsky-vista/>`_ and `https://www.eso.org/rm/api/v1/public/releaseDescriptions/144 <https://www.eso.org/rm/api/v1/public/releaseDescriptions/144>`_.
 
-Note that VISTA images are flipped with respecto to most other surveys.
+Note that VISTA images are flipped with respect to most other surveys.
 
 HST
 ~~~~~~~
@@ -143,4 +143,4 @@ These images are downloaded from the VISTA science archive (for more information
 
   UKIDSS survey footprint. Image from the `CASU WFCAM Survey Progress and QC website <http://casu.ast.cam.ac.uk/wfcamsp/overview>`_.
 
-Note that UKIDSS images are flipped with respecto to most other surveys.
+Note that UKIDSS images are flipped with respect to most other surveys.
