@@ -407,19 +407,25 @@ def magnitude_calculation(
     else:
         zp = zp_dict[filt]
 
-    if survey in ["PS1", "VISTA", "UKIDSS"]:
-        # flux needs to be in units of counts per second
-        exptime = get_image_exptime(header, survey)
-        flux /= exptime
-        flux_err /= exptime
-
     if survey == "SDSS":
         # SDSS zero-points are not exactly in AB:
         # https://www.sdss4.org/dr12/algorithms/fluxcal/#SDSStoAB
         if filt=='u':
-            offset = -0.04
+            offset = -0.04  # mag
         elif filt=='z':
-            offset = 0.02
+            offset = 0.02  # mag
+        else:
+            offset = 0
+        flux *= 10**(-0.4*offset)
+        flux_err *= 10**(-0.4*offset)
+
+    if survey == "unWISE":
+        # To improve the agreement between unWISE and AllWISE fluxes,
+        # these offsets need to be applied: https://catalog.unwise.me/catalogs.html#absolute
+        if filt=='W1':
+            offset = -4e-3  # 4 mmag
+        elif filt=='W2':
+            offset = -32e-3  # 32 mmag
         else:
             offset = 0
         flux *= 10**(-0.4*offset)
@@ -432,7 +438,7 @@ def magnitude_calculation(
         flux = flux * ap_corr
 
     # error propagation
-    mag_err, flux_err = uncertainty_calculation(
+    flux_err = uncertainty_calculation(
         flux,
         flux_err,
         survey,
@@ -442,7 +448,15 @@ def magnitude_calculation(
         bkg_rms,
     )
 
+    if survey in ["PS1", "VISTA", "UKIDSS"]:
+        # flux needs to be in units of counts per second
+        # but only after the error propagation
+        exptime = get_image_exptime(header, survey)
+        flux /= exptime
+        flux_err /= exptime
+
     mag = -2.5 * np.log10(flux) + zp
+    mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
 
     return mag, mag_err, flux, flux_err, zp
 
@@ -459,8 +473,6 @@ def get_HST_err(filt, header):
 
     Returns
     -------
-    flux_err: float
-        Error on PHOTFLAM.
     mag_err: float
         Magnitude error on PHOTFLAM.
     """
@@ -470,7 +482,7 @@ def get_HST_err(filt, header):
     instrument = filt_split[-2]
 
     if instrument == "UVIS":
-        # APERTURE usually point to UVIS2
+        # APERTURE usually points to UVIS2
         instrument = header["APERTURE"]
 
     # get uncertainty file
@@ -484,7 +496,7 @@ def get_HST_err(filt, header):
     flux_err = filt_err_df.ERR_PHOTFLAM.values[0]
     mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
 
-    return flux_err, mag_err
+    return mag_err
 
 
 def uncertainty_calculation(
@@ -511,8 +523,6 @@ def uncertainty_calculation(
 
     Returns
     -------
-    mag_err: float
-        Extra uncertainty in magnitudes.
     flux_err: float
         Total uncertainty in flux units.
     """
@@ -520,20 +530,18 @@ def uncertainty_calculation(
     gain = get_image_gain(header, survey)
     readnoise = get_image_readnoise(header, survey)
 
-    mag_err = 2.5 / np.log(10) * flux_err / flux
+    # 1.0857 = 2.5/ln(10)
+    mag_err = 1.0857 * flux_err / flux
 
     if survey in ["PS1", "DES", "LegacySurvey", "Spitzer", "VISTA",
                   "SkyMapper", "SPLUS", "UKIDSS"]:
         if survey == "Spitzer":
             flux /= header["EFCONV"]  # conv. factor (MJy/sr)/(DN/s)
-        # 1.0857 = 2.5/ln(10)
+        
         extra_err = (
             1.0857 * np.sqrt(ap_area * (readnoise**2) + flux / gain) / flux
         )
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
-
-        extra_flux_err = np.sqrt(ap_area * (readnoise**2) + flux / gain)
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     if survey == "DES":
         # see the photometry section in https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality
@@ -548,9 +556,6 @@ def uncertainty_calculation(
         extra_err = unc_dict[filt]
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * extra_err)
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
-
         # median coadd zeropoint statistical uncertainty
         unc_dict = {
             "g": 5e-3,
@@ -561,9 +566,6 @@ def uncertainty_calculation(
         }
         extra_err = unc_dict[filt]
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
-
-        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * extra_err)
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     elif survey == "PS1":
         # add floor systematic error from:
@@ -577,9 +579,6 @@ def uncertainty_calculation(
         }
         floor_err = unc_dict[filt]
         mag_err = np.sqrt(mag_err**2 + floor_err**2)
-
-        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * floor_err)
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     elif survey == "SDSS":
         # https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
@@ -641,9 +640,6 @@ def uncertainty_calculation(
         extra_err = 1.0857 * np.sqrt(dark_variance + flux / gain) / flux
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-        extra_flux_err = np.sqrt(dark_variance + flux / gain)
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
-
     elif survey == "GALEX":
         # https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html
         CPS = flux
@@ -674,8 +670,6 @@ def uncertainty_calculation(
 
         mag_err = np.sqrt(mag_err**2 + uv_err**2)
 
-        flux_err = np.sqrt(flux_err**2 + flux_uv_err**2)
-
     elif survey == "2MASS":
         # see: https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/
         S = flux
@@ -692,9 +686,6 @@ def uncertainty_calculation(
         )
 
         mag_err = 1.0857 / SNR
-
-        extra_flux_err = flux / SNR
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     elif "WISE" in survey:
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
@@ -725,8 +716,6 @@ def uncertainty_calculation(
 
         mag_err = np.sqrt(1.179 * sigma_src**2 / F_src**2)
 
-        flux_err = f_apcor**2
-
         # add uncertainty from the ZP
         if survey == "unWISE":
             # These values are the same for all Atlas Images of a given band...
@@ -738,11 +727,8 @@ def uncertainty_calculation(
 
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
-        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
-
     elif survey == "LegacySurvey":
-        # photometry uncertainties for DR10 from https://arxiv.org/pdf/2305.16630.pdf
+        # photometry uncertainties for DR10 from https://ui.adsabs.harvard.edu/abs/2023RNAAS...7..105Z/abstract
         # LS also includes uncertainties from inverse-variance maps
         # (calculated outside this function), as mentioned by Dustin Lang
         unc_dict = {
@@ -754,8 +740,6 @@ def uncertainty_calculation(
         extra_err = unc_dict[filt]
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * extra_err)
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
     elif survey == "Spitzer":
         # already added at the beginning
         pass
@@ -764,19 +748,14 @@ def uncertainty_calculation(
         zp_unc = header["MAGZRR"]
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
-        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
     elif survey == "HST":
-        flux_zp_unc, zp_unc = get_HST_err(filt, header)
-
+        zp_unc = get_HST_err(filt, header)
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
-        flux_err = np.sqrt(flux_err**2 + flux_zp_unc**2)
+
     elif survey == "SkyMapper":
         zp_unc = header["ZPTERR"]
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
-        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
     elif survey == "SPLUS":
         # following Section 4.4 of Almeida-Fernandes et al. (2022)
         zp_uncs = {'U':25e-3,
@@ -789,22 +768,19 @@ def uncertainty_calculation(
             zp_unc = 1e-3
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
-        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
     elif survey == "UKIDSS":
         # nightly ZPs rms
         zp_unc = header["MAGZRR"]
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
-
-        extra_flux_err = np.abs(flux * 0.4 * np.log(10) * zp_unc)
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
     else:
         raise Exception(
             f"Survey {survey} has not been added for error propagation."
         )
 
-    return mag_err, flux_err
+    flux_err = np.abs(flux * 0.4 * np.log(10) * mag_err)
+
+    return flux_err
 
 
 def survey_pixel_scale(survey, filt=None):
