@@ -351,7 +351,10 @@ def get_SDSS_images(ra, dec, size=3, filters=None, version=None):
             coords, radius=radius * u.arcsec, data_release=dr
         )
         if ids is not None:
-            break
+            if 'ra' in ids.colnames and 'dec' in ids.colnames:
+                break
+            else:
+                ids = None
 
     if ids is None:
         return None
