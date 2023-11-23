@@ -729,8 +729,8 @@ def uncertainty_calculation(
 
     elif survey == "LegacySurvey":
         # photometry uncertainties for DR10 from https://ui.adsabs.harvard.edu/abs/2023RNAAS...7..105Z/abstract
-        # LS also includes uncertainties from inverse-variance maps
-        # (calculated outside this function), as mentioned by Dustin Lang
+        # LS also includes uncertainties from inverse-variance maps, calculated together with the flux 
+        # (outside this function), as mentioned by Dustin Lang
         unc_dict = {
             "g": 5.0e-3,
             "r": 3.9e-3,
@@ -998,7 +998,7 @@ def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
     -------
     objects_: ndarray
         Objects with adapted apertures.
-    conv_factor: ndarray
+    conv_factor: float
         Convertion factor between the resolutions of the images.
     """
     objects_ = objects.copy()  # avoid modifying the intial objects
@@ -1020,7 +1020,8 @@ def adapt_aperture(objects, img_wcs, img_wcs2, flip=False):
             # flip aperture orientation
             obj["theta"] *= -1
 
-    conv_factor = np.copy(objects['a']/objects_['a'])
+    # ratio between ellipse axis of two images
+    conv_factor = np.mean(np.copy(objects['a']/objects_['a']))
     
     return objects_, conv_factor
 
