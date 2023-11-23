@@ -171,6 +171,7 @@ def extract_kronparams(
     optimize_kronrad=True,
     eps=0.0001,
     gal_dist_thresh=-1,
+    deblend_cont=0.005,
     save_plots=True,
     save_aperture_params=True,
 ):
@@ -214,6 +215,9 @@ def extract_kronparams(
         the galaxy is considered as not found and a warning is printed. If a non-positive value
         is given, the threshold is considered as infinite, i.e. the closest detected object is
         considered as the galaxy (default option).
+    deblend_cont : float, default ``0.005``
+        Minimum contrast ratio used for object deblending. Default is 0.005.
+        To entirely disable deblending, set to 1.0.
     save_plots: bool, default `True`
         If `True`, the mask and galaxy aperture figures are saved.
     save_aperture_params: bool, default `True`
@@ -261,6 +265,13 @@ def extract_kronparams(
     else:
         data_sub = np.copy(data)
 
+    # background error
+    if survey in ["LegacySurvey"]:
+        invvar_map = hdu[1].data
+        error = np.sqrt(1/invvar_map)
+    else:
+        error = bkg_rms
+
     # extract galaxy
     gal_obj, _ = extract_objects(
         data_sub,
@@ -270,10 +281,11 @@ def extract_kronparams(
         threshold,
         img_wcs,
         gal_dist_thresh,
+        deblend_cont
     )
     if optimize_kronrad:
         gain = 1  # doesn't matter here
-        opt_res = optimize_kron_flux(data_sub, bkg_rms, gain, gal_obj, eps)
+        opt_res = optimize_kron_flux(data_sub, error, gain, gal_obj, eps)
         _, _, kronrad, scale = opt_res
     else:
         scale = 2.5
@@ -359,6 +371,7 @@ def photometry(
     optimize_kronrad=True,
     eps=0.0001,
     gal_dist_thresh=-1,
+    deblend_cont=0.005,
     save_plots=True,
 ):
     """Calculates the global aperture photometry of a galaxy using
@@ -411,6 +424,9 @@ def photometry(
         the galaxy is considered as not found and a warning is printed. If a non-positive value
         is given, the threshold is considered as infinite, i.e. the closest detected object is
         considered as the galaxy (default option).
+    deblend_cont : float, default ``0.005``
+        Minimum contrast ratio used for object deblending. Default is 0.005.
+        To entirely disable deblending, set to 1.0.
     save_plots: bool, default `True`
         If `True`, the mask and galaxy aperture figures are saved.
 
@@ -459,6 +475,13 @@ def photometry(
     else:
         data_sub = np.copy(data)
 
+    # background error
+    if survey in ["LegacySurvey"]:
+        invvar_map = hdu[1].data
+        error = np.sqrt(1/invvar_map)
+    else:
+        error = bkg_rms
+
     if aperture_params is not None:
         gal_obj, master_img_wcs, kronrad, scale, flip2 = aperture_params
 
@@ -475,7 +498,7 @@ def photometry(
         # factor used for scaling the Kron radius between different pixel scales
 
         flux, flux_err = kron_flux(
-            data_sub, bkg_rms, gain, gal_obj, kronrad * conv_factor, scale
+            data_sub, error, gain, gal_obj, kronrad * conv_factor, scale
         )
         flux, flux_err = flux[0], flux_err[0]
     else:
@@ -488,13 +511,14 @@ def photometry(
             threshold,
             img_wcs,
             gal_dist_thresh,
+            deblend_cont
         )
 
         # aperture photometry
         # This uses what would be the default SExtractor parameters.
         # See https://sep.readthedocs.io/en/v1.1.x/apertures.html
         if optimize_kronrad:
-            opt_res = optimize_kron_flux(data_sub, bkg_rms, gain, gal_obj, eps)
+            opt_res = optimize_kron_flux(data_sub, error, gain, gal_obj, eps)
             flux, flux_err, kronrad, scale = opt_res
         else:
             kronrad, _ = sep.kron_radius(
@@ -508,7 +532,7 @@ def photometry(
             )
             scale = 2.5
             flux, flux_err = kron_flux(
-                data_sub, bkg_rms, gain, gal_obj, kronrad, scale
+                data_sub, error, gain, gal_obj, kronrad, scale
             )
             flux, flux_err = flux[0], flux_err[0]
 
@@ -523,7 +547,7 @@ def photometry(
         header,
         bkg_rms,
     )
-
+    """"
     if survey in ["LegacySurvey"]:
         invvar_map = hdu[1].data
         var_map = 1/invvar_map
@@ -535,7 +559,7 @@ def photometry(
 
         extra_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
-
+    """
     if correct_extinction is True:
         A_ext = calc_extinction(filt, survey, host_ra, host_dec)
         mag -= A_ext
