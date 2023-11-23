@@ -997,15 +997,15 @@ def get_VISTA_images(ra, dec, size=3, filters=None, version="VHS"):
 
     if version is None:
         version = "VHS"
-    # These are final data releases except for VHS(?):
-    # VHSDR5: https://www.eso.org/sci/publications/announcements/sciann17290.html
+    # These are final data releases - VIDEO has a DR6 and VIKING a DR5, but not 
+    # if there is any difference:
     # VHSDR6: https://b2find.eudat.eu/dataset/0b10d3a0-1cfe-5e67-8a5c-0949db9d19cb
     # VIDEODR5: https://www.eso.org/sci/publications/announcements/sciann17491.html
     # VIKINGDR4: https://www.eso.org/sci/publications/announcements/sciann17289.html
     database_dict = {
         "VHS": "VHSDR6",
-        "VIDEO": "VIDEODR5",
-        "VIKING": "VIKINGDR4",
+        "VIDEO": "VIDEODR6",
+        "VIKING": "VIKINGDR5",
     }
     valid_surveys = list(database_dict.keys())
     assert (
