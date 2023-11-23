@@ -18,7 +18,7 @@ from astropy.utils.exceptions import AstropyWarning
 
 
 def extract_objects(
-    data, bkg, host_ra, host_dec, threshold, img_wcs, dist_thresh=-1
+    data, bkg, host_ra, host_dec, threshold, img_wcs, dist_thresh=-1, deblend_cont=0.005
 ):
     """Extracts objects and their ellipse parameters. The function :func:`sep.extract()`
     is used.
@@ -51,6 +51,9 @@ def extract_objects(
         the galaxy is considered as not found and a warning is printed. If a non-positive value
         is given, the threshold is considered as infinite, i.e. the closest detected object is
         considered as the galaxy (default option).
+    deblend_cont : float, default ``0.005``
+        Minimum contrast ratio used for object deblending. Default is 0.005.
+        To entirely disable deblending, set to 1.0.
 
     Returns
     -------
@@ -60,7 +63,7 @@ def extract_objects(
         All objects extracted except for the galaxy.
     """
     # extract objects with Source Extractor
-    objects = sep.extract(data, threshold, err=bkg)
+    objects = sep.extract(data, threshold, err=bkg, deblend_cont=deblend_cont)
 
     host_coords = SkyCoord(
         ra=host_ra, dec=host_dec, unit=(u.degree, u.degree), frame="icrs"
@@ -218,8 +221,8 @@ def plot_detected_objects(
 
     Parameters
     ----------
-    data: ndarray
-        Data of an image.
+    hdu: ~astropy.io.fits
+        Header Data Unit.
     objects: array
         Objects detected with :func:`sep.extract()`.
     scale: float
@@ -272,10 +275,10 @@ def plot_detected_objects(
             label="Galaxy position",
         )
     fig.show_ellipses(
-        objects["x"][0],
-        objects["y"][0],
-        2 * scale * objects["a"][0],
-        2 * scale * objects["b"][0],
+        objects["x"],
+        objects["y"],
+        2 * scale * objects["a"],
+        2 * scale * objects["b"],
         objects["theta"][0] * 180.0 / np.pi,
         coords_frame="pixel",
         linewidth=3,
