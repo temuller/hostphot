@@ -95,6 +95,7 @@ def create_mask(
     r=6,
     crossmatch=False,
     gal_dist_thresh=-1,
+    deblend_cont=0.005,
     extract_params=False,
     common_params=None,
     save_plots=True,
@@ -142,6 +143,9 @@ def create_mask(
         the galaxy is considered as not found and a warning is printed. If a non-positive value
         is given, the threshold is considered as infinite, i.e. the closest detected object is
         considered as the galaxy (default option).
+    deblend_cont : float, default ``0.005``
+        Minimum contrast ratio used for object deblending. Default is 0.005.
+        To entirely disable deblending, set to 1.0.
     extract_params: bool, default ``False``
         If ``True``, returns the parameters listed below.
     common_params: tuple, default ``None``
@@ -161,6 +165,11 @@ def create_mask(
         Non-galaxy objects.
     img_wcs: WCS
         Image's WCS.
+    sigma: float, default ``8``
+        Standard deviation in pixel units of the 2D Gaussian kernel
+        used to convolve the image.
+    r: float
+        Scale of the aperture size for the sources to be masked.
     flip: bool
         Whether to flip the orientation of the
         aperture. 
@@ -198,6 +207,7 @@ def create_mask(
             threshold,
             img_wcs,
             gal_dist_thresh,
+            deblend_cont
         )
         # preprocessing: cross-match extracted objects with a catalog
         # using two Gaia catalogs as they do not always include the
@@ -210,7 +220,7 @@ def create_mask(
     else:
         # use objects previously extracted
         # the aperture/ellipse parameters are updated accordingly
-        gal_obj, nogal_objs, master_img_wcs, flip2 = common_params
+        gal_obj, nogal_objs, master_img_wcs, sigma, r, flip2 = common_params
 
         if survey in ["DES", "VISTA", "UKIDSS"]:
             flip = True
@@ -222,7 +232,8 @@ def create_mask(
             flip_ = True
 
         gal_obj, _ = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
-        nogal_objs, _ = adapt_aperture(nogal_objs, master_img_wcs, img_wcs, flip_)
+        nogal_objs, conv_factor = adapt_aperture(nogal_objs, master_img_wcs, img_wcs, flip_)
+        sigma /= conv_factor
 
     masked_data = mask_image(data_sub, nogal_objs, r=r, sigma=sigma)
     masked_hdu = deepcopy(hdu)
@@ -240,7 +251,7 @@ def create_mask(
             obj_dir, f"{survey}_{filt}_mask_parameters.pickle"
         )
         with open(outfile, "wb") as fp:
-            mask_parameters = gal_obj, nogal_objs, img_wcs, flip
+            mask_parameters = gal_obj, nogal_objs, img_wcs, sigma, r, flip
             pickle.dump(mask_parameters, fp, protocol=4)
 
     if save_plots:
@@ -261,7 +272,7 @@ def create_mask(
         )
 
     if extract_params:
-        return gal_obj, nogal_objs, img_wcs, flip
+        return gal_obj, nogal_objs, img_wcs, sigma, r, flip
 
 def load_mask_params(name, filt, survey):
     """Loads previously saved mask parameters.
