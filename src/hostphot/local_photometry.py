@@ -274,9 +274,6 @@ def photometry(
     if isinstance(ap_radii, (float, int)):
         ap_radii = [ap_radii]
 
-    mags, mags_err = [], []
-    fluxes, fluxes_err = [], []
-    px, py = img_wcs.wcs_world2pix(ra, dec, 1)
     pixel_scale = survey_pixel_scale(survey, filt)
     if survey == 'UKIDSS' and filt == 'J':
         if 'LAS' in header['PROJECT'].split('/')[-1]:
@@ -284,7 +281,17 @@ def photometry(
             # in the J-band so the pixel size is smaller.
             nustep = header['NUSTEP']
             pixel_scale /= nustep/2  # divided by 2 for the two dimensions (x and y)
-    error = calc_sky_unc(data_sub, exptime)
+
+    # background error
+    if survey in ["LegacySurvey"]:
+        invvar_map = hdu[1].data
+        error = np.sqrt(1/invvar_map)
+    else:
+        error = calc_sky_unc(data_sub, exptime)
+
+    mags, mags_err = [], []
+    fluxes, fluxes_err = [], []
+    px, py = img_wcs.wcs_world2pix(ra, dec, 1)
 
     for ap_radius in ap_radii:
         # aperture photometry
@@ -305,7 +312,7 @@ def photometry(
             header,
             bkg_rms,
         )
-
+        """
         if survey in ["LegacySurvey"]:
             invvar_map = hdu[1].data
             var_map = 1/invvar_map
@@ -317,7 +324,7 @@ def photometry(
 
             extra_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
             mag_err = np.sqrt(mag_err**2 + extra_err**2)
-
+        """
         # extinction correction is optional
         if correct_extinction:
             A_ext = calc_extinction(filt, survey, ra, dec)
