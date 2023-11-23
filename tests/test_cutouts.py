@@ -75,9 +75,10 @@ class TestHostPhot(unittest.TestCase):
             "VIKING": [220.5, 0.0],
         }
 
-        try:
-            for version, coords in surveys.items():
-                ra, dec = coords
+        
+        for version, coords in surveys.items():
+            ra, dec = coords
+            try:
                 download_images(
                     name,
                     ra,
@@ -86,12 +87,12 @@ class TestHostPhot(unittest.TestCase):
                     survey="VISTA",
                     version=version,
                 )
-        except Exception as exc:
-            warnings.warn(
-                "The VISTA SCIENCE ARCHIVE might be having issues..."
-            )
-            print("Skipping this test...")
-            print(exc)
+            except Exception as exc:
+                warnings.warn(
+                    "The VISTA SCIENCE ARCHIVE might be having issues..."
+                )
+                print(f"Skipping the test for {version}...")
+                print(exc)
 
     def test_cutouts_SkyMapper(self):
         download_images(
@@ -108,7 +109,7 @@ class TestHostPhot(unittest.TestCase):
         download_images(name, ra, dec, overwrite=True, survey="SPLUS")
 
     def test_cutouts_UKIDSS(self):
-        name = "UNIDSS_test"
+        name = "UKIDSS_test"
         ra, dec = 359.5918320, +0.1964120
         download_images(name, ra, dec, overwrite=True, survey="UKIDSS")
 
