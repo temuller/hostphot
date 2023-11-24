@@ -189,6 +189,7 @@ v2.9.0
 * Fixing issue when applying/propagating common-mask parameters (e.g. from a coadd) to other images
 * Updated error propagation for Legacy Survey with inverse-variance maps (using it as a weight mask now)
 * Bumping up the DR version of VIKING and VIDEO for VISTA
+
 v2.8.0
 * Fix SED plotting with negative or too large values/errors, and improve plotting aesthetics
 * Fix problem downloading some 2MASS images giving internal server error (no image overlap)
@@ -202,23 +203,30 @@ v2.8.0
 * Updating LegacySurvey errors, taken from inverse-variance maps and ZP uncertainty
 * Adding missing offsets to unWISE W1 and W2 bands into fluxes
 * Kron radius is no longer "optimized", just the scale, which doesn't have any effect in practice for the user
+
 v2.7.1
 * Adding SED plotting
 * Fixed plotting angle of masked object 
+
 v2.7.0
 * MAJOR BUG: Convertion factor between different pixel scales fixed (it was previously inverted). This affects the common aperture photometry between different surveys!
 * Moving font family to `_constant.py` file
+
 v2.6.2
 * Prettier plots (now using `aplpy`), but also more informative!
 * Scale of the apertures for the masks is now a parameter (`r`) 
 * Raise exception is now `True` by default when calculating photometry
+
 v2.6.1
 * 2MASS cutouts improved (picking largest image)
+
 v2.6.0:
 * HST (WFC3 only - pseudo-trial) included
 * 2MASS cutouts fixed (it now downloads the image closest to the given coordinates)
+
 v2.5.1:
 * Using sfdmap2 instead of sfdmap to avoid issues with numpy version (requires Python>=3.9)
+
 v2.5.0:
 * Systematic error floor added to PS1 photometry
 * Added missing uncertainties in the error budget of DES (~5 mmag) 
