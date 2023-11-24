@@ -2,6 +2,8 @@ import sphinx_rtd_theme
 import sys
 import os
 
+print(sys.executable)
+
 # to be able to import hostphot
 sys.path.insert(0, os.path.abspath("../src"))
 
