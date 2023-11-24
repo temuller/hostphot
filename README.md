@@ -151,6 +151,10 @@ This is the list of surveys in HostPhot:
   * Legacy Survey
   * Spitzer (SEIP)
   * VISTA (VHS, VIDEO, VIKING)
+  * HST (WFC3 only)
+  * SkyMapper (not well calibrated for extended sources)
+  * SPLUS
+  * UKIDSS
 
 ## Contributing
 
@@ -181,6 +185,10 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 ```
 
 ## What's new!
+v2.9.0
+* Fixing issue when applying/propagating common-mask parameters (e.g. from a coadd) to other images
+* Updated error propagation for Legacy Survey with inverse-variance maps (using it as a weight mask now)
+* Bumping up the DR version of VIKING and VIDEO for VISTA
 v2.8.0
 * Fix SED plotting with negative or too large values/errors, and improve plotting aesthetics
 * Fix problem downloading some 2MASS images giving internal server error (no image overlap)
