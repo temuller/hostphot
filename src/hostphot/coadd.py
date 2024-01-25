@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 from astropy.io import fits
 from reproject import reproject_interp
@@ -34,9 +34,9 @@ def coadd_images(name, filters="riz", survey="PS1"):
     >>> coadd_filters = 'riz'
     >>> coadd_images(name, filters=coadd_filters, survey=survey)  # creates a new fits file
     """
-    obj_dir = os.path.join(workdir, name)
+    obj_dir = Path(workdir, name)
     fits_files = [
-        os.path.join(obj_dir, f"{survey}_{filt}.fits") for filt in filters
+         obj_dir / rf"{survey}_{filt}.fits" for filt in filters
     ]
 
     hdu_list = []
@@ -54,5 +54,5 @@ def coadd_images(name, filters="riz", survey="PS1"):
     fits_image[0].data = coadd[0]
     if isinstance(filters, list):
         filters = "".join(filt for filt in filters)
-    outfile = os.path.join(obj_dir, f"{survey}_{filters}.fits")
+    outfile = obj_dir / rf"{survey}_{filters}.fits"
     fits_image.writeto(outfile, overwrite=True)
