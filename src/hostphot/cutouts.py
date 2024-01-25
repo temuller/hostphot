@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+
 import glob
 import copy
 import shutil
@@ -42,7 +44,7 @@ from hostphot.utils import (
     survey_pixel_scale,
 )
 import hostphot
-hostphot_path = hostphot.__path__[0]
+hostphot_path = Path(hostphot.__path__[0])
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -578,7 +580,6 @@ def get_WISE_images(ra, dec, size=3, filters=None):
         size_arcsec = size.to(u.arcsec)
 
     pixel_scale = survey_pixel_scale(survey)
-    # size_pixels = int(size_arcsec.value / pixel_scale)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
@@ -682,7 +683,7 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
     master_url = base_url + params_url
 
     response = requests.get(master_url, stream=True)
-    target_file = f"unWISE_images_{ra}_{dec}.tar.gz"  # current directory
+    target_file = Path(f"unWISE_images_{ra}_{dec}.tar.gz")  # current directory
     if response.status_code == 200:
         with open(target_file, "wb") as f:
             f.write(response.raw.read())
@@ -1558,7 +1559,7 @@ def get_SPLUS_images(ra, dec, size=3, filters=None):
 
             # add zeropoint
             # file from https://splus.cloud/documentation/dr2_3
-            zps_file = os.path.join(hostphot_path, 'filters', 'SPLUS', 'iDR3_zps.cat')
+            zps_file = hostphot_path.joinpath('filters', 'SPLUS', 'iDR3_zps.cat')
             zps_df = pd.read_csv(zps_file, delim_whitespace=True)
 
             field = hdu[0].header['OBJECT'].replace('_', '-')

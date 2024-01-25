@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+
 import glob
 import numpy as np
 import pandas as pd
@@ -9,8 +11,8 @@ import hostphot
 from hostphot._constants import workdir, font_family
 from hostphot.utils import get_survey_filters
 
-path = hostphot.__path__[0]
-config_file = os.path.join(path, 'filters', 'config.txt')
+path = Path(hostphot.__path__[0])
+config_file = path.joinpath('filters', 'config.txt')
 config_df = pd.read_csv(config_file, delim_whitespace=True)
 
 colours = {'GALEX':'purple', 'PS1':'green', 'SDSS':'blue', 'DES':'lightblue', 
@@ -34,11 +36,11 @@ def get_eff_wave(filt, survey):
     eff_wave: float
         Effective wavelength in angstroms.
     """
-    path = hostphot.__path__[0]
+    path = Path(hostphot.__path__[0])
     if survey=='unWISE':
         survey = 'WISE'
 
-    survey_files = glob.glob(os.path.join(path, 'filters', survey, '*'))
+    survey_files = glob.glob(path.joinpath('filters', survey, '*'))
     filt_file = [file for file in survey_files if file.endswith(f'_{filt}.dat')][0]
     
     wave, trans = np.loadtxt(filt_file).T
@@ -83,7 +85,7 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
         assert radius is not None, "radius must be given with local photometry"
         
     global colours
-    obj_path = os.path.join(workdir, name, '*')
+    obj_path = Path(workdir, name, '*')
     phot_files = [file for file in glob.glob(obj_path) 
                   if file.endswith(f'_{phot_type}.csv')]
     
@@ -218,9 +220,9 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
 
     if save_plot is True:
         if outfile is None:
-            obj_dir = os.path.join(workdir, name)
+            obj_dir = Path(workdir, name)
             basename = f'sed_{phot_type}.jpg'
-            outfile = os.path.join(obj_dir, basename)
+            outfile = obj_dir / basename
         plt.savefig(outfile)
 
     plt.show()

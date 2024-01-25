@@ -14,7 +14,8 @@
 #
 # Some parts of this notebook are based on https://github.com/djones1040/PS1_surface_brightness/blob/master/Surface%20Brightness%20Tutorial.ipynb and codes from Lluís Galbany
 
-import os
+from pathlib import Path
+
 import pickle
 import numpy as np
 import pandas as pd
@@ -239,14 +240,14 @@ def extract_kronparams(
     """
     check_survey_validity(survey)
     check_work_dir(workdir)
-    obj_dir = os.path.join(workdir, name)
+    obj_dir = Path(workdir, name)
     if use_mask:
         suffix = "masked_"
     else:
         suffix = ""
     if isinstance(filt, list):
         filt = "".join(f for f in filt)
-    fits_file = os.path.join(obj_dir, f"{suffix}{survey}_{filt}.fits")
+    fits_file = obj_dir / rf"{suffix}{survey}_{filt}.fits"
 
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
@@ -300,7 +301,7 @@ def extract_kronparams(
         )
 
     if save_plots is True:
-        outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
+        outfile = obj_dir / f"global_{survey}_{filt}.jpg"
         title = f"{name}: {survey}-${filt}$"
         plot_detected_objects(
             hdu,
@@ -320,9 +321,7 @@ def extract_kronparams(
         flip = False
 
     if save_aperture_params is True:
-        outfile = os.path.join(
-            obj_dir, f"{survey}_{filt}_aperture_parameters.pickle"
-        )
+        outfile = obj_dir / rf"{survey}_{filt}_aperture_parameters.pickle"
         with open(outfile, "wb") as fp:
             aperture_parameters = gal_obj, img_wcs, kronrad, scale, flip
             pickle.dump(aperture_parameters, fp, protocol=4)
@@ -348,8 +347,7 @@ def load_aperture_params(name, filt, survey):
         Aperture paremeters with the same format as the output of the
         ``extract_kronparams`` function.
     """
-    inputfile = os.path.join(workdir, name, 
-                             f'{survey}_{filt}_aperture_parameters.pickle')
+    inputfile = Path(workdir, name, rf'{survey}_{filt}_aperture_parameters.pickle')
     
     aperture_params = load_pickle(inputfile)
     
@@ -449,12 +447,12 @@ def photometry(
 
     check_survey_validity(survey)
     check_work_dir(workdir)
-    obj_dir = os.path.join(workdir, name)
+    obj_dir = Path(workdir, name)
     if use_mask:
         suffix = "masked_"
     else:
         suffix = ""
-    fits_file = os.path.join(obj_dir, f"{suffix}{survey}_{filt}.fits")
+    fits_file = obj_dir / f"{suffix}{survey}_{filt}.fits"
 
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
@@ -566,7 +564,7 @@ def photometry(
         flux *= 10**(0.4*A_ext)
 
     if save_plots is True:
-        outfile = os.path.join(obj_dir, f"global_{survey}_{filt}.jpg")
+        outfile = obj_dir / f"global_{survey}_{filt}.jpg"
         title = f"{name}: {survey}-${filt}$"
         plot_detected_objects(
             hdu,
@@ -753,7 +751,7 @@ def multi_band_phot(
                 results_dict[f"{filt}_zeropoint"] = np.nan
 
     if save_results is True:
-        outfile = os.path.join(workdir, name, f"{survey}_global.csv")
+        outfile = Path(workdir, name, rf"{survey}_global.csv")
         phot_df = pd.DataFrame(
             {key: [val] for key, val in results_dict.items()}
         )
