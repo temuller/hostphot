@@ -931,7 +931,7 @@ def extract_filter(filt, survey, version=None):
         hst_files = glob.glob(filters_path / "*/*")
         filt_file = [file for file in hst_files if filt in file][0]
     else:
-        filt_file = filters_path / f"{survey}_{filt}.dat"
+        filt_file = filters_path / rf"{survey}_{filt}.dat"
 
     wave, transmission = np.loadtxt(filt_file).T
 
