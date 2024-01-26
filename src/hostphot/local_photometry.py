@@ -342,6 +342,8 @@ def photometry(
             title = f'{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$'
             plot_aperture(hdu, px, py, radius_pix, title, outfile)
 
+    hdu.close()
+
     return mags, mags_err, fluxes, fluxes_err, zp
 
 

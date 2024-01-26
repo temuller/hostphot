@@ -326,6 +326,8 @@ def extract_kronparams(
             aperture_parameters = gal_obj, img_wcs, kronrad, scale, flip
             pickle.dump(aperture_parameters, fp, protocol=4)
 
+    hdu.close()
+
     return gal_obj, img_wcs, kronrad, scale, flip
 
 def load_aperture_params(name, filt, survey):
@@ -452,7 +454,7 @@ def photometry(
         suffix = "masked_"
     else:
         suffix = ""
-    fits_file = obj_dir / f"{suffix}{survey}_{filt}.fits"
+    fits_file = obj_dir / rf"{suffix}{survey}_{filt}.fits"
 
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
@@ -577,6 +579,8 @@ def photometry(
             title,
             outfile,
         )
+
+    hdu.close()
 
     return mag, mag_err, flux, flux_err, zp
 

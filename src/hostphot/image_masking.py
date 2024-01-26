@@ -270,6 +270,8 @@ def create_mask(
             outfile,
         )
 
+    hdu.close()
+
     if extract_params:
         return gal_obj, nogal_objs, img_wcs, sigma, r, flip
 
