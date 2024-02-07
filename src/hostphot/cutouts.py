@@ -289,12 +289,15 @@ def get_DES_images(ra, dec, size=3, filters=None):
     for url, url_w in zip(url_list, url_w_list):
         # combine image+weights on a single fits file
         image_hdu = fits.open(url)
-        weight_hdu = fits.open(url_w)
         hdu = fits.PrimaryHDU(image_hdu[0].data, header=image_hdu[0].header)
-        hdu_err = fits.ImageHDU(
-            weight_hdu[0].data, header=weight_hdu[0].header
-        )
-        hdu_sublist = fits.HDUList([hdu, hdu_err])
+        if url_w is None:
+            hdu_sublist = fits.HDUList([hdu])
+        else:
+            weight_hdu = fits.open(url_w)
+            hdu_err = fits.ImageHDU(
+                weight_hdu[0].data, header=weight_hdu[0].header
+            )
+            hdu_sublist = fits.HDUList([hdu, hdu_err])
         hdu_list.append(hdu_sublist)
 
     return hdu_list
@@ -1386,7 +1389,7 @@ def get_SkyMapper_urls(ra, dec, fov, filters="uvgriz"):
     url_list: list
         List of URLs with SkyMapper images.
     """
-    sm_url = "https://api.skymapper.nci.org.au/public/siap/dr2/query"
+    sm_url = "https://api.skymapper.nci.org.au/public/siap/dr4/query"
     svc = sia.SIAService(sm_url)
     imgs_table = svc.search(
         (ra, dec), (fov / np.cos(dec * np.pi / 180), fov), verbosity=2
