@@ -48,7 +48,6 @@ HostPhot is being actively developed in `a public repository on GitHub
    examples/cutouts_example.rst
    examples/preprocessing.rst
    examples/photometry_example.rst
-   examples/interactive_aperture.rst
    examples/test_full.ipynb
    examples/hst_example.ipynb
    examples/sed_plotting.ipynb
