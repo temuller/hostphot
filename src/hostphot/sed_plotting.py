@@ -40,8 +40,8 @@ def get_eff_wave(filt, survey):
     if survey=='unWISE':
         survey = 'WISE'
 
-    survey_files = glob.glob(path.joinpath('filters', survey, '*'))
-    filt_file = [file for file in survey_files if file.endswith(f'_{filt}.dat')][0]
+    survey_files = path.joinpath('filters', survey).glob('*')
+    filt_file = [file for file in survey_files if str(file).endswith(f'_{filt}.dat')][0]
     
     wave, trans = np.loadtxt(filt_file).T
     eff_wave = np.sum(wave*trans)/np.sum(trans)
@@ -85,9 +85,9 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
         assert radius is not None, "radius must be given with local photometry"
         
     global colours
-    obj_path = Path(workdir, name, '*')
-    phot_files = [file for file in glob.glob(obj_path) 
-                  if file.endswith(f'_{phot_type}.csv')]
+    obj_path = Path(workdir, name)
+    phot_files = [file for file in obj_path.glob('*') 
+                  if str(file).endswith(f'_{phot_type}.csv')]
     
     if include is not None and exclude is not None:
         raise ValueError("'inlcude' cannot be given together with 'exclude'!")
