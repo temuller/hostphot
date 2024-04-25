@@ -13,8 +13,4 @@ extinction
 sfdmap2
 pyvo
 sep
-ipywidgets
-ipykernel
-ipympl
-ipython
 pytest

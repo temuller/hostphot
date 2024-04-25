@@ -29,26 +29,7 @@ pip install hostphot
 
 ### Requirements
 
-HostPhot has the following requirements:
-
-```code
-numpy
-pandas
-matplotlib
-python-dotenv
-astropy
-reproject
-photutils
-astroquery
-extinction
-sfdmap
-pyvo
-sep
-ipywidgets (optional: for interactive aperture)
-ipympl (optional: for interactive aperture)
-ipython (optional: for interactive aperture)
-pytest (optional: for testing the code)
-```
+HostPhot requirements can be found in the `requirements.txt` file.
 
 ### Tests
 
