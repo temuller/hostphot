@@ -809,14 +809,25 @@ def survey_pixel_scale(survey, filt=None):
     survey_df = config_df[config_df.survey == survey]
     pixel_scale = survey_df.pixel_scale.values[0]
 
+    # some surveys have multiple scales (separated by ',') depending on the instrument
     if len(pixel_scale.split(",")) > 1:
-        filters = get_survey_filters(survey)
+        if survey in ["HST"]:
+            filters = filt  # needs to be explicitly specified
+        else:
+            filters = get_survey_filters(survey)
         pixel_scale_dict = {
             f: float(ps) for f, ps in zip(filters, pixel_scale.split(","))
         }
 
         if filt in pixel_scale_dict.keys():
             pixel_scale = pixel_scale_dict[filt]
+        elif survey == "HST":
+            if "UVIS" in filt:
+                pixel_scale = list(pixel_scale_dict.values())[0]
+            elif "IR" in filt:
+                pixel_scale = list(pixel_scale_dict.values())[1]
+            else:
+                raise ValueError(f"Not a valid HST filter: {filt}")
         else:
             print(f"No pixel scale found for filter {filt}.")
             filt_used = list(pixel_scale_dict.keys())[0]
