@@ -1455,7 +1455,7 @@ def get_SPLUS_images(ra, dec, size=3, filters=None):
             # add zeropoint
             # file from https://splus.cloud/documentation/dr2_3
             zps_file = hostphot_path.joinpath('filters', 'SPLUS', 'iDR3_zps.cat')
-            zps_df = pd.read_csv(zps_file, delim_whitespace=True)
+            zps_df = pd.read_csv(zps_file, sep='\\s+')
 
             field = hdu[0].header['OBJECT'].replace('_', '-')
             field_df = zps_df[zps_df['#field']==field]

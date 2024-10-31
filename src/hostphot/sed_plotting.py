@@ -12,7 +12,7 @@ from hostphot.utils import get_survey_filters
 
 path = Path(hostphot.__path__[0])
 config_file = path.joinpath('filters', 'config.txt')
-config_df = pd.read_csv(config_file, sep='\s+')
+config_df = pd.read_csv(config_file, sep='\\s+')
 
 colours = {'GALEX':'purple', 'PS1':'green', 'SDSS':'blue', 'DES':'lightblue', 
            'SkyMapper':'slateblue', 'SPLUS':'lime', 'LegacySurvey':'gold',

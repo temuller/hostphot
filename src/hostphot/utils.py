@@ -26,7 +26,7 @@ from hostphot._constants import font_family
 
 hostphot_path = Path(hostphot.__path__[0])
 config_file = hostphot_path.joinpath("filters", "config.txt")
-config_df = pd.read_csv(config_file, sep='\s+')
+config_df = pd.read_csv(config_file, sep='\\s+')
 
 # surveys that need background subtraction
 bkg_surveys = ["2MASS", "WISE", "VISTA", "SkyMapper", "UKIDSS"]
