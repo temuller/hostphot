@@ -14,7 +14,8 @@
 #
 # Some parts of this notebook are based on https://github.com/djones1040/PS1_surface_brightness/blob/master/Surface%20Brightness%20Tutorial.ipynb and codes from Lluís Galbany
 
-import os
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -244,12 +245,12 @@ def photometry(
         
     check_survey_validity(survey)
     check_work_dir(workdir)
-    obj_dir = os.path.join(workdir, name)
+    obj_dir = Path(workdir, name)
     if use_mask:
         suffix = "masked_"
     else:
         suffix = ""
-    fits_file = os.path.join(obj_dir, f"{suffix}{survey}_{filt}.fits")
+    fits_file = obj_dir / f"{suffix}{survey}_{filt}.fits"
 
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
@@ -337,11 +338,11 @@ def photometry(
         fluxes_err.append(flux_err)
 
         if save_plots:
-            outfile = os.path.join(
-                obj_dir, f"local_{survey}_{filt}_{ap_radius}kpc.jpg"
-            )
+            outfile = obj_dir / rf"local_{survey}_{filt}_{ap_radius}kpc.jpg"
             title = f'{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$'
             plot_aperture(hdu, px, py, radius_pix, title, outfile)
+
+    hdu.close()
 
     return mags, mags_err, fluxes, fluxes_err, zp
 
@@ -471,7 +472,7 @@ def multi_band_phot(
                 results_dict[f"{filt}_zeropoint"] = np.nan
 
     if save_results is True:
-        outfile = os.path.join(workdir, name, f"{survey}_local.csv")
+        outfile = Path(workdir, name, rf"{survey}_local.csv")
         phot_df = pd.DataFrame(
             {key: [val] for key, val in results_dict.items()}
         )

@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+
 import tarfile
 import requests
 import numpy as np
@@ -18,15 +20,15 @@ def _download_dustmaps():
     """Downloads the dust maps for extinction calculation if they are not found
     locally.
     """
-    mapsdir = hostphot.__path__[0]
+    mapsdir = Path(hostphot.__path__[0])
 
     # check if files already exist locally
     dust_files = [
-        os.path.join(mapsdir, "sfddata-master", f"SFD_dust_4096_{sky}gp.fits")
+        mapsdir.joinpath("sfddata-master", rf"SFD_dust_4096_{sky}gp.fits")
         for sky in ["n", "s"]
     ]
     mask_files = [
-        os.path.join(mapsdir, "sfddata-master", f"SFD_mask_4096_{sky}gp.fits")
+        mapsdir.joinpath("sfddata-master", rf"SFD_mask_4096_{sky}gp.fits")
         for sky in ["n", "s"]
     ]
     maps_files = dust_files + mask_files
@@ -39,7 +41,7 @@ def _download_dustmaps():
         )
         response = requests.get(sfdmaps_url)
 
-        master_tar = "master.tar.gz"
+        master_tar = Path("master.tar.gz")
         with open(master_tar, "wb") as file:
             file.write(response.content)
 
@@ -93,8 +95,8 @@ def deredden(
     """
     _download_dustmaps()
 
-    hostphot_path = hostphot.__path__[0]
-    dustmaps_dir = os.path.join(hostphot_path, "sfddata-master")
+    hostphot_path = Path(hostphot.__path__[0])
+    dustmaps_dir = hostphot_path / "sfddata-master"
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)

@@ -117,11 +117,11 @@ No survey footprint is provided as Hubble covers small patches of the sky.
 SkyMapper
 ~~~~~~~~~
 
-These images are downloaded from the NOAO DataLab using the SIA service (for more information, see the DES survey above). The pixel scaling of the images is 0.5 arcsec/pixel, as described in the `SkyMapper DR2 website <https://skymapper.anu.edu.au/data-release/>`_. The available filters are: :math:`uvgriz`.
+These images are downloaded from the NOAO DataLab using the SIA service (for more information, see the DES survey above). The pixel scaling of the images is 0.5 arcsec/pixel, as described in the `SkyMapper website <https://skymapper.anu.edu.au/data-release/>`_ (latest data release is DR4, 2024). The available filters are: :math:`uvgriz`.
 
 .. figure:: static/skymapper_footprint.png
 
-  SkyMapper survey footprint. Image from the SkyMapper DR2 website as well.
+  SkyMapper survey footprint (DR4). Image from the SkyMapper website as well.
 
 
 SPLUS

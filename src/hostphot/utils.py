@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+
 import sys
 import glob
 import pickle
@@ -22,9 +24,9 @@ from astropy.utils.exceptions import AstropyWarning
 import hostphot
 from hostphot._constants import font_family
 
-hostphot_path = hostphot.__path__[0]
-config_file = os.path.join(hostphot_path, "filters", "config.txt")
-config_df = pd.read_csv(config_file, delim_whitespace=True)
+hostphot_path = Path(hostphot.__path__[0])
+config_file = hostphot_path.joinpath("filters", "config.txt")
+config_df = pd.read_csv(config_file, sep='\\s+')
 
 # surveys that need background subtraction
 bkg_surveys = ["2MASS", "WISE", "VISTA", "SkyMapper", "UKIDSS"]
@@ -318,6 +320,8 @@ def correct_HST_aperture(filt, ap_area, header):
     correction: float
         Aperture correction (encircled energy fraction).
     """
+    global hostphot_path
+    
     # split instrument and filter
     filt_split = filt.split("_")
     filt = filt_split[-1]
@@ -331,7 +335,7 @@ def correct_HST_aperture(filt, ap_area, header):
     ap_radius = np.sqrt(ap_area / np.pi)
 
     # get correction curve
-    ac_files = glob.glob(os.path.join(hostphot_path, "filters/HST/*"))
+    ac_files = glob.glob(hostphot_path.joinpath("filters", "HST", "*"))
     ac_file = [
         file for file in ac_files if f"{instrument.lower()}_aper" in file
     ][0]
@@ -476,6 +480,8 @@ def get_HST_err(filt, header):
     mag_err: float
         Magnitude error on PHOTFLAM.
     """
+    global hostphot_path
+
     # split instrument and filter
     filt_split = filt.split("_")
     filt = filt_split[-1]
@@ -486,9 +492,7 @@ def get_HST_err(filt, header):
         instrument = header["APERTURE"]
 
     # get uncertainty file
-    err_file = os.path.join(
-        hostphot_path, "filters/HST/", f"{instrument}_err.txt"
-    )
+    err_file = hostphot_path.joinpath("filters", "HST", rf"{instrument}_err.txt")
     err_df = pd.read_csv(err_file, delim_whitespace=True)
     filt_err_df = err_df[err_df.Filter == filt]
 
@@ -805,14 +809,25 @@ def survey_pixel_scale(survey, filt=None):
     survey_df = config_df[config_df.survey == survey]
     pixel_scale = survey_df.pixel_scale.values[0]
 
+    # some surveys have multiple scales (separated by ',') depending on the instrument
     if len(pixel_scale.split(",")) > 1:
-        filters = get_survey_filters(survey)
+        if survey in ["HST"]:
+            filters = filt  # needs to be explicitly specified
+        else:
+            filters = get_survey_filters(survey)
         pixel_scale_dict = {
             f: float(ps) for f, ps in zip(filters, pixel_scale.split(","))
         }
 
         if filt in pixel_scale_dict.keys():
             pixel_scale = pixel_scale_dict[filt]
+        elif survey == "HST":
+            if "UVIS" in filt:
+                pixel_scale = list(pixel_scale_dict.values())[0]
+            elif "IR" in filt:
+                pixel_scale = list(pixel_scale_dict.values())[1]
+            else:
+                raise ValueError(f"Not a valid HST filter: {filt}")
         else:
             print(f"No pixel scale found for filter {filt}.")
             filt_used = list(pixel_scale_dict.keys())[0]
@@ -866,8 +881,8 @@ def check_HST_filters(filt):
     if "UVIS" in filt:
         filt = filt.replace("UVIS", "UVIS1")
 
-    hostphot_path = hostphot.__path__[0]
-    hst_file = glob.glob(os.path.join(hostphot_path, "filters/HST/*/*"))
+    global hostphot_path
+    hst_file = glob.glob(hostphot_path.joinpath("filters", "HST", "*", "*"))
     hst_filters = [os.path.basename(file).split(".")[0] for file in hst_file]
 
     assert (
@@ -896,6 +911,8 @@ def extract_filter(filt, survey, version=None):
     transmission: array
         Transmission function.
     """
+    global hostphot_path
+
     check_survey_validity(survey)
     if survey == "HST":
         check_filters_validity(filt, survey)
@@ -905,27 +922,27 @@ def extract_filter(filt, survey, version=None):
     if "WISE" in survey:
         survey = "WISE"  # for unWISE to use the same filters as WISE
 
-    filters_path = os.path.join(hostphot.__path__[0], "filters", survey)
+    filters_path = hostphot_path.joinpath("filters", survey)
 
     # Assume DECaLS filters below 32 degrees and BASS+MzLS above
     # https://www.legacysurvey.org/status/
     if survey == "LegacySurvey":
         if version == "BASS+MzLS":
             if filt == "z":
-                filt_file = os.path.join(filters_path, f"MzLS_z.dat")
+                filt_file = filters_path / rf"MzLS_z.dat"
             else:
-                filt_file = os.path.join(filters_path, f"BASS_{filt}.dat")
+                filt_file = filters_path / rf"BASS_{filt}.dat"
         elif version == "DECam":
-            filt_file = os.path.join(filters_path, f"DECAM_{filt}.dat")
+            filt_file = filters_path / rf"DECAM_{filt}.dat"
 
     elif survey == "HST":
         if "UVIS" in filt:
             # Usually UVIS2 is used, but there is no large difference
             filt = filt.replace("UVIS", "UVIS2")
-        hst_files = glob.glob(os.path.join(filters_path, "*/*"))
+        hst_files = glob.glob(filters_path / "*/*")
         filt_file = [file for file in hst_files if filt in file][0]
     else:
-        filt_file = os.path.join(filters_path, f"{survey}_{filt}.dat")
+        filt_file = filters_path / rf"{survey}_{filt}.dat"
 
     wave, transmission = np.loadtxt(filt_file).T
 

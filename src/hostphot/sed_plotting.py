@@ -1,5 +1,6 @@
 import os
-import glob
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from matplotlib import ticker
@@ -9,9 +10,9 @@ import hostphot
 from hostphot._constants import workdir, font_family
 from hostphot.utils import get_survey_filters
 
-path = hostphot.__path__[0]
-config_file = os.path.join(path, 'filters', 'config.txt')
-config_df = pd.read_csv(config_file, delim_whitespace=True)
+path = Path(hostphot.__path__[0])
+config_file = path.joinpath('filters', 'config.txt')
+config_df = pd.read_csv(config_file, sep='\\s+')
 
 colours = {'GALEX':'purple', 'PS1':'green', 'SDSS':'blue', 'DES':'lightblue', 
            'SkyMapper':'slateblue', 'SPLUS':'lime', 'LegacySurvey':'gold',
@@ -34,12 +35,12 @@ def get_eff_wave(filt, survey):
     eff_wave: float
         Effective wavelength in angstroms.
     """
-    path = hostphot.__path__[0]
+    path = Path(hostphot.__path__[0])
     if survey=='unWISE':
         survey = 'WISE'
 
-    survey_files = glob.glob(os.path.join(path, 'filters', survey, '*'))
-    filt_file = [file for file in survey_files if file.endswith(f'_{filt}.dat')][0]
+    survey_files = path.joinpath('filters', survey).glob('*')
+    filt_file = [file for file in survey_files if str(file).endswith(f'_{filt}.dat')][0]
     
     wave, trans = np.loadtxt(filt_file).T
     eff_wave = np.sum(wave*trans)/np.sum(trans)
@@ -83,9 +84,9 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
         assert radius is not None, "radius must be given with local photometry"
         
     global colours
-    obj_path = os.path.join(workdir, name, '*')
-    phot_files = [file for file in glob.glob(obj_path) 
-                  if file.endswith(f'_{phot_type}.csv')]
+    obj_path = Path(workdir, name)
+    phot_files = [file for file in obj_path.glob('*') 
+                  if str(file).endswith(f'_{phot_type}.csv')]
     
     if include is not None and exclude is not None:
         raise ValueError("'inlcude' cannot be given together with 'exclude'!")
@@ -218,9 +219,9 @@ def plot_sed(name, phot_type='global', z=None, radius=None, include=None, exclud
 
     if save_plot is True:
         if outfile is None:
-            obj_dir = os.path.join(workdir, name)
+            obj_dir = Path(workdir, name)
             basename = f'sed_{phot_type}.jpg'
-            outfile = os.path.join(obj_dir, basename)
+            outfile = obj_dir / basename
         plt.savefig(outfile)
 
     plt.show()

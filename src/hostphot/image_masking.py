@@ -1,4 +1,5 @@
-import os
+from pathlib import Path
+
 import pickle
 import numpy as np
 from copy import deepcopy
@@ -178,8 +179,8 @@ def create_mask(
     if isinstance(filt, list):
         filt = "".join(f for f in filt)
 
-    obj_dir = os.path.join(workdir, name)
-    fits_file = os.path.join(obj_dir, f"{survey}_{filt}.fits")
+    obj_dir = Path(workdir, name)
+    fits_file = obj_dir / f"{survey}_{filt}.fits"
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
 
@@ -238,7 +239,7 @@ def create_mask(
     masked_data = mask_image(data_sub, nogal_objs, r=r, sigma=sigma)
     masked_hdu = deepcopy(hdu)
     masked_hdu[0].data = masked_data
-    outfile = os.path.join(obj_dir, f"masked_{survey}_{filt}.fits")
+    outfile = obj_dir / f"masked_{survey}_{filt}.fits"
     masked_hdu.writeto(outfile, overwrite=True)
 
     if survey in ["DES", "VISTA", "UKIDSS"]:
@@ -247,15 +248,13 @@ def create_mask(
         flip = False
 
     if save_mask_params is True:
-        outfile = os.path.join(
-            obj_dir, f"{survey}_{filt}_mask_parameters.pickle"
-        )
+        outfile = obj_dir / f"{survey}_{filt}_mask_parameters.pickle"
         with open(outfile, "wb") as fp:
             mask_parameters = gal_obj, nogal_objs, img_wcs, sigma, r, flip
             pickle.dump(mask_parameters, fp, protocol=4)
 
     if save_plots:
-        outfile = os.path.join(obj_dir, f"masked_{survey}_{filt}.jpg")
+        outfile = obj_dir / f"masked_{survey}_{filt}.jpg"
         title = f"{name}: {survey}-${filt}$"
         plot_masked_image(
             hdu,
@@ -270,6 +269,8 @@ def create_mask(
             title,
             outfile,
         )
+
+    hdu.close()
 
     if extract_params:
         return gal_obj, nogal_objs, img_wcs, sigma, r, flip
@@ -293,8 +294,7 @@ def load_mask_params(name, filt, survey):
         Mask paremeters with the same format as the output of the
         ``create_mask`` function.
     """
-    inputfile = os.path.join(workdir, name, 
-                             f'{survey}_{filt}_mask_parameters.pickle')
+    inputfile = Path(workdir, name, rf'{survey}_{filt}_mask_parameters.pickle')
     
     mask_params = load_pickle(inputfile)
     

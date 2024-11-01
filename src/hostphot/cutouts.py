@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+
 import glob
 import copy
 import shutil
@@ -42,7 +44,7 @@ from hostphot.utils import (
     survey_pixel_scale,
 )
 import hostphot
-hostphot_path = hostphot.__path__[0]
+hostphot_path = Path(hostphot.__path__[0])
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -287,12 +289,15 @@ def get_DES_images(ra, dec, size=3, filters=None):
     for url, url_w in zip(url_list, url_w_list):
         # combine image+weights on a single fits file
         image_hdu = fits.open(url)
-        weight_hdu = fits.open(url_w)
         hdu = fits.PrimaryHDU(image_hdu[0].data, header=image_hdu[0].header)
-        hdu_err = fits.ImageHDU(
-            weight_hdu[0].data, header=weight_hdu[0].header
-        )
-        hdu_sublist = fits.HDUList([hdu, hdu_err])
+        if url_w is None:
+            hdu_sublist = fits.HDUList([hdu])
+        else:
+            weight_hdu = fits.open(url_w)
+            hdu_err = fits.ImageHDU(
+                weight_hdu[0].data, header=weight_hdu[0].header
+            )
+            hdu_sublist = fits.HDUList([hdu, hdu_err])
         hdu_list.append(hdu_sublist)
 
     return hdu_list
@@ -578,7 +583,6 @@ def get_WISE_images(ra, dec, size=3, filters=None):
         size_arcsec = size.to(u.arcsec)
 
     pixel_scale = survey_pixel_scale(survey)
-    # size_pixels = int(size_arcsec.value / pixel_scale)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
@@ -682,7 +686,7 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
     master_url = base_url + params_url
 
     response = requests.get(master_url, stream=True)
-    target_file = f"unWISE_images_{ra}_{dec}.tar.gz"  # current directory
+    target_file = Path(f"unWISE_images_{ra}_{dec}.tar.gz")  # current directory
     if response.status_code == 200:
         with open(target_file, "wb") as f:
             f.write(response.raw.read())
@@ -1080,18 +1084,17 @@ def update_HST_header(hdu):
     hdu : Header Data Unit.
         HST FITS image.
     """
-    # get WCS
+    # Drizzlepac images have the info on hdu[0]
+    # MAST-archive images have the info on hdu[1]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
-        for i in range(1, len(hdu) - 1):
-            try:
-                img_wcs = wcs.WCS(hdu[i].header)
-            except:
-                continue
-    hdu[0].header.update(img_wcs.to_header())
-    hdu[0].header["PHOTFLAM"] = hdu[1].header["PHOTFLAM"]
-    hdu[0].header["PHOTPLAM"] = hdu[1].header["PHOTPLAM"]
-    hdu[0].data = hdu[1].data
+        if "PHOTFLAM" not in hdu[0].header:
+            # MAST image: move things to hdu[0] to homogenise
+            img_wcs = wcs.WCS(hdu[1].header)
+            hdu[0].header.update(img_wcs.to_header())
+            hdu[0].header["PHOTFLAM"] = hdu[1].header["PHOTFLAM"]
+            hdu[0].header["PHOTPLAM"] = hdu[1].header["PHOTPLAM"]
+            hdu[0].data = hdu[1].data
 
     # add zeropoints
     # https://www.stsci.edu/hst/instrumentation/acs/data-analysis/zeropoints
@@ -1256,113 +1259,6 @@ def get_HST_images(ra, dec, size=3, filt=None):
 
     return hdu_list
 
-
-def _get_HST_images_OLD(ra, dec, size=3, filt=None, instrument=None):
-    """Downloads a set of HST fits images for a given set
-    of coordinates and filters using the MAST archive.
-
-    Parameters
-    ----------
-    ra: str or float
-        Right ascension in degrees.
-    dec: str or float
-        Declination in degrees.
-    size: float or ~astropy.units.Quantity, default ``3``
-        Image size. If a float is given, the units are assumed to be arcmin.
-    filt: str, default ``None``
-        Filter to use.
-    instrument: str, default ``None``
-        Instrument to use.
-
-    Return
-    ------
-    hdu_list: list
-        List with fits image for the given filter.
-        `None` is returned if no image is found.
-    """
-    check_HST_filters(filt, instrument)
-
-    if isinstance(size, (float, int)):
-        size_arcsec = (size * u.arcmin).to(u.arcsec)
-    else:
-        size_arcsec = size.to(u.arcsec)
-    size_arcsec = size_arcsec.value
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", AstropyWarning)
-        coords = SkyCoord(
-            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
-        )
-
-    obs_table = Observations.query_region(coords, radius=size)
-    obs_table = obs_table.filled()  # remove masked rows
-    obs_df = obs_table.to_pandas()
-
-    obs_df = obs_df[
-        (obs_df.obs_collection == "HST") | (obs_df.obs_collection == "HLA")
-    ]
-    obs_df = obs_df[obs_df.dataproduct_type == "image"]
-    obs_df = obs_df[obs_df.t_exptime > 15]  # remove short exposures
-
-    # filter by instrument+filter
-    inst = instrument.split("/")[0]
-    # inst_df = obs_df[obs_df.instrument_name==instrument]
-    inst_df = obs_df[obs_df.instrument_name.str.contains(inst)]
-    filt_df = inst_df[inst_df.filters == filt]
-    # just use one image
-    filt_df = filt_df[filt_df.t_exptime == filt_df.t_exptime.max()]
-
-    # get data products
-    data_products = Observations.get_product_list(Table.from_pandas(filt_df))
-    dp_df = data_products.to_pandas()
-    dp_df = dp_df[dp_df.type == "S"]
-    dp_df = dp_df[dp_df.productSubGroupDescription == "FLT"]  # only images
-    # choose first image
-    single_dp_df = dp_df[dp_df.obs_id == dp_df.obs_id.values[0]]
-
-    Observations.download_products(
-        Table.from_pandas(single_dp_df),
-        download_dir=None,
-        cache=False,
-        productType="SCIENCE",
-        extension=["fits"],
-    )
-
-    for path, subdirs, files in os.walk("mastDownload"):
-        for file in files:
-            fits_file = os.path.join(path, file)
-
-    hdu = fits.open(fits_file)
-    hdu[0].data = hdu[1].data
-
-    # add zeropoints
-    # https://www.stsci.edu/hst/instrumentation/acs/data-analysis/zeropoints
-    photflam = hdu[0].header["PHOTFLAM"]
-    photplam = hdu[0].header["PHOTFLAM"]
-    hdu[0].header["MAGZP"] = (
-        -2.5 * np.log10(photflam) - 5 * np.log10(photplam) - 2.408
-    )
-    hdu_list = [hdu]
-
-    # remove directory created by MAST download
-    shutil.rmtree("mastDownload", ignore_errors=True)
-
-    # HST images can be large so need to be trimmed
-    pixel_scale = survey_pixel_scale("HST")
-    size_pixels = int(size_arcsec / pixel_scale)
-    pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
-
-    for hdu in hdu_list:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", AstropyWarning)
-            img_wcs = wcs.WCS(hdu[0].header)
-
-        trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)
-        hdu[0].data = trimmed_data.data
-        hdu[0].header.update(trimmed_data.wcs.to_header())
-
-    return hdu_list
-
 # SkyMapper
 def get_SkyMapper_urls(ra, dec, fov, filters="uvgriz"):
     """Obtains the URLs of the SkyMapper images.
@@ -1385,7 +1281,7 @@ def get_SkyMapper_urls(ra, dec, fov, filters="uvgriz"):
     url_list: list
         List of URLs with SkyMapper images.
     """
-    sm_url = "https://api.skymapper.nci.org.au/public/siap/dr2/query"
+    sm_url = "https://api.skymapper.nci.org.au/public/siap/dr4/query"
     svc = sia.SIAService(sm_url)
     imgs_table = svc.search(
         (ra, dec), (fov / np.cos(dec * np.pi / 180), fov), verbosity=2
@@ -1558,8 +1454,8 @@ def get_SPLUS_images(ra, dec, size=3, filters=None):
 
             # add zeropoint
             # file from https://splus.cloud/documentation/dr2_3
-            zps_file = os.path.join(hostphot_path, 'filters', 'SPLUS', 'iDR3_zps.cat')
-            zps_df = pd.read_csv(zps_file, delim_whitespace=True)
+            zps_file = hostphot_path.joinpath('filters', 'SPLUS', 'iDR3_zps.cat')
+            zps_df = pd.read_csv(zps_file, sep='\\s+')
 
             field = hdu[0].header['OBJECT'].replace('_', '-')
             field_df = zps_df[zps_df['#field']==field]

@@ -29,26 +29,7 @@ pip install hostphot
 
 ### Requirements
 
-HostPhot has the following requirements:
-
-```code
-numpy
-pandas
-matplotlib
-python-dotenv
-astropy
-reproject
-photutils
-astroquery
-extinction
-sfdmap
-pyvo
-sep
-ipywidgets (optional: for interactive aperture)
-ipympl (optional: for interactive aperture)
-ipython (optional: for interactive aperture)
-pytest (optional: for testing the code)
-```
+HostPhot requirements can be found in the `requirements.txt` file.
 
 ### Tests
 
@@ -185,6 +166,13 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 ```
 
 ## What's new!
+v2.10.0
+* SkyMapper upgrade from DR2 to DR4 (note that there is still a problem with the photometric calibration of extended sources)
+* Fix HST functions, which includes working with Drizzlepac images
+* Change path handling package (os --> pathlib)
+* Interactive aperture and download of RGB images have been removed and are no longer available
+* Close some fits images that were previously kept opened
+
 v2.9.0
 * Fixing issue when applying/propagating common-mask parameters (e.g. from a coadd) to other images
 * Updated error propagation for Legacy Survey with inverse-variance maps (using it as a weight mask now)
