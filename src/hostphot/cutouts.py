@@ -1541,6 +1541,59 @@ def get_UKIDSS_images(ra, dec, size=3, filters='ZYJHK'):
     
     return hdu_list
 
+def update_JWST_header(hdu):
+    """Updates the JWST image header with the necessary keywords.
+
+    Parameters
+    ----------
+    hdu : Header Data Unit.
+        JWST FITS image.
+    """
+    # get WCS - SCI is hdu[1] - hostphot always assumes hdu[0] is used, so need to move them over
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        img_wcs = wcs.WCS(hdu[1].header)
+    hdu[0].header.update(img_wcs.to_header())
+    hdu[0].header["PIXAR_SR"] = hdu[1].header["PIXAR_SR"]
+    hdu[0].data = hdu[1].data
+
+    # add zeropoints
+    # https://jwst-docs.stsci.edu/jwst-near-infrared-camera/nircam-performance/nircam-absolute-flux-calibration-and-zeropoints
+    pixar_sr = hdu[0].header["PIXAR_SR"]
+    hdu[0].header["MAGZP"] = (
+       -6.10 - (2.5 * np.log10(pixar_sr))
+    )
+
+def set_JWST_image(file, filt, name):
+    """Moves a previously downloaded JWST image into the work directory.
+
+    The image's header is updated with the necessary keywords to obtain
+    photometry and is also moved under the objects directory inside the
+    work directory.
+
+    JWST images take very long to download, so the user might prefer to
+    download the images manually and then use this function to include
+    the image into the workflow.
+
+    Parameters
+    ----------
+    file : str
+        JWST image to use.
+    filt : str
+        JWST filter, e.g. ``NIRCam_F150W``.
+    name : str
+        Object's name.
+    """
+    check_work_dir(workdir)
+    obj_dir = os.path.join(workdir, name)
+    if not os.path.isdir(obj_dir):
+        os.mkdir(obj_dir)
+
+    hdu = fits.open(file)
+    update_JWST_header(hdu)
+    outfile = os.path.join(obj_dir, f"JWST_{filt}.fits")
+    hdu.writeto(outfile, overwrite=True)
+
 # Check orientation
 # ------------------
 def match_wcs(fits_files):

@@ -297,11 +297,12 @@ def get_image_exptime(header, survey):
         exptime = header['TEXPOSED']
     elif survey=="UKIDSS":
         exptime = header['EXP_TIME']*header['NEXP']
+    elif survey=="JWST":
+       exptime = header["XPOSURE"]
     else:
         exptime = 1.0
 
     return exptime
-
 
 def correct_HST_aperture(filt, ap_area, header):
     """Get the aperture correction for the given configuration.
@@ -328,6 +329,7 @@ def correct_HST_aperture(filt, ap_area, header):
     instrument = filt_split[-2]
 
     if instrument == "UVIS":
+        # either UVIS1 or UVIS2
         instrument = header["APERTURE"]
 
     # assuming circular aperture
@@ -747,7 +749,7 @@ def uncertainty_calculation(
     elif survey == "Spitzer":
         # already added at the beginning
         pass
-    elif survey == "VISTA":
+    elif survey in ["VISTA", "UKIDSS"]:
         # add uncertainty from the ZP
         zp_unc = header["MAGZRR"]
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
@@ -772,9 +774,10 @@ def uncertainty_calculation(
             zp_unc = 1e-3
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
-    elif survey == "UKIDSS":
-        # nightly ZPs rms
-        zp_unc = header["MAGZRR"]
+    elif survey == "JWST":
+        # see https://jwst-docs.stsci.edu/jwst-calibration-status/nircam-calibration-status/nircam-imaging-calibration-status#NIRCamImagingCalibrationStatus-Photometriccalibration
+        # absolute flux calibration uncertainties < 1%, but set to 1% error for now
+        zp_unc = 0.01 * (header["MAGZP"])
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
     else:
@@ -852,6 +855,8 @@ def check_filters_validity(filters, survey):
     """
     if survey == "HST":
         check_HST_filters(filters)
+    elif survey == "JWST":
+       check_JWST_filters(filters)
 
     else:
         valid_filters = get_survey_filters(survey)
@@ -889,6 +894,28 @@ def check_HST_filters(filt):
         filt in hst_filters
     ), f"Not a valid HST filter ({filt}): {hst_filters}"
 
+def check_JWST_filters(filt):
+    """Check whether the given filter is within the valid
+    options for JWST.
+
+
+    Parameters
+    ----------
+    filt: str
+        Filter to use, e,g, ``NIRCam_F150W``.
+    """
+    if filt is None:
+        raise ValueError(f"'{filt}' is not a valid JWST filter.")
+
+    global hostphot_path
+    jwst_file = glob.glob(os.path.join(hostphot_path, "filters/JWST/*"))
+    jwst_filters = [os.path.basename(file).split(".")[0] for file in jwst_file]
+
+    assert (
+        filt in jwst_filters
+    ), f"Not a valid JWST filter ({filt}): {jwst_filters}"
+
+
 
 def extract_filter(filt, survey, version=None):
     """Extracts the transmission function for the filter.
@@ -914,7 +941,7 @@ def extract_filter(filt, survey, version=None):
     global hostphot_path
 
     check_survey_validity(survey)
-    if survey == "HST":
+    if survey in ["HST", "JWST"]:
         check_filters_validity(filt, survey)
     else:
         check_filters_validity([filt], survey)
@@ -941,6 +968,8 @@ def extract_filter(filt, survey, version=None):
             filt = filt.replace("UVIS", "UVIS2")
         hst_files = glob.glob(filters_path / "*/*")
         filt_file = [file for file in hst_files if filt in file][0]
+    elif survey == "JWST":
+       filt_file = filters_path / f"{filt}.dat"
     else:
         filt_file = filters_path / rf"{survey}_{filt}.dat"
 

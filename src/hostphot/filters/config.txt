@@ -13,3 +13,4 @@ HST		WFC3/UVIS,WFC3/IR				header		0.04,0.13		AB		0.0
 SkyMapper       uvgriz		      				header  	0.5       		AB        	0.0
 SPLUS           u,F378,F395,F410,F430,g,F515,r,F660,i,F861,z    header  	0.55       		AB        	0.0
 UKIDSS          ZYJHK      					header  	0.4       		Vega        	0.528,0.634,0.938,1.379,1.900
+JWST       NIRCam_F090W,NIRCam_F150W,NIRCam_F277W	header  	0.031,0.031,0.063   AB        	0.0

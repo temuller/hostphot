@@ -417,12 +417,12 @@ def multi_band_phot(
     """
     check_survey_validity(survey)
     if filters is None:
-        if survey=='HST':
-            raise ValueError("For HST, the filter needs to be specified!")
+        if survey in ['HST', 'JWST']:
+            raise ValueError(f"For {survey}, the filter needs to be specified!")
         filters = get_survey_filters(survey)
     else:
         check_filters_validity(filters, survey)
-    if survey=='HST':
+    if survey in ['HST', 'JWST']:
         filters = [filters]
 
     # turn float into a list

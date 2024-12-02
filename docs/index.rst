@@ -49,7 +49,7 @@ HostPhot is being actively developed in `a public repository on GitHub
    examples/preprocessing.rst
    examples/photometry_example.rst
    examples/test_full.ipynb
-   examples/hst_example.ipynb
+   examples/hst_and_jwst_example.ipynb
    examples/sed_plotting.ipynb
    
 .. toctree::

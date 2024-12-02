@@ -167,6 +167,7 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 ## What's new!
 v2.10.0
+* Adding JWST! (few NIRCam filters for now - thanks to Lisa Kelsey for this addition)
 * SkyMapper upgrade from DR2 to DR4 (note that there is still a problem with the photometric calibration of extended sources)
 * Fix HST functions, which includes working with Drizzlepac images
 * Change path handling package (os --> pathlib)
