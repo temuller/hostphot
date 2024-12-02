@@ -136,6 +136,7 @@ This is the list of surveys in HostPhot:
   * SkyMapper (not well calibrated for extended sources)
   * SPLUS
   * UKIDSS
+  * JWST (NIRCam only)
 
 ## Contributing
 
