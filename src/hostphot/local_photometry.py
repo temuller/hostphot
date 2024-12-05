@@ -23,7 +23,7 @@ import aplpy
 
 plt.rcParams['mathtext.fontset'] = "cm"
 
-import sep
+import sep_pjw as sep
 from photutils.aperture import aperture_photometry, CircularAperture
 
 from astropy.io import fits

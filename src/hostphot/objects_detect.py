@@ -4,7 +4,7 @@ import aplpy
 
 plt.rcParams["mathtext.fontset"] = "cm"
 
-import sep
+import sep_pjw as sep
 from astroquery.gaia import Gaia
 from astroquery.mast import Catalogs
 from astropy import units as u

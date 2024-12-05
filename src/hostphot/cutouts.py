@@ -697,6 +697,7 @@ def get_unWISE_images(ra, dec, size=3, filters=None, version="allwise"):
         for fits_file in files_list:
             for filt in filters:
                 if f"{filt.lower()}-img-m.fits" in fits_file:
+                    tar_file.extraction_filter = (lambda member, path: member)
                     tar_file.extract(fits_file, ".")
                     hdu = fits.open(fits_file)
                     hdu_list.append(hdu)

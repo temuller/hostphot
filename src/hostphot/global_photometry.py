@@ -20,7 +20,7 @@ import pickle
 import numpy as np
 import pandas as pd
 
-import sep
+import sep_pjw as sep
 from astropy import wcs
 from astropy.io import fits
 

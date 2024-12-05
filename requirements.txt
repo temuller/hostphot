@@ -1,7 +1,6 @@
 pip
 numpy
 pandas
-pickle5; python_version < '3.8'
 matplotlib
 aplpy
 python-dotenv
@@ -12,5 +11,5 @@ astroquery
 extinction
 sfdmap2
 pyvo
-sep
+sep-pjw
 pytest

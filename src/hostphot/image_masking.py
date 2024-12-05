@@ -8,7 +8,7 @@ import aplpy
 
 plt.rcParams["mathtext.fontset"] = "cm"
 
-import sep
+import sep_pjw as sep
 from astropy.io import fits
 from astropy import wcs
 from astropy.coordinates import concatenate

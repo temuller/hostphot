@@ -1011,10 +1011,10 @@ def integrate_filter(
     interp_response = np.interp(
         spectrum_wave, filter_wave, filter_response, left=0.0, right=0.0
     )
-    int1 = np.trapz(
+    int1 = np.trapezoid(
         spectrum_flux * interp_response * spectrum_wave, spectrum_wave
     )
-    int2 = np.trapz(filter_response * filter_wave, filter_wave)
+    int2 = np.trapezoid(filter_response * filter_wave, filter_wave)
     flux_filter = int1 / int2
 
     return flux_filter
