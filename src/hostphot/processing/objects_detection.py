@@ -18,8 +18,9 @@ from astropy.utils.exceptions import AstropyWarning
 
 
 def extract_objects(
-    data, bkg, host_ra, host_dec, threshold, img_wcs, dist_thresh=-1, deblend_cont=0.005
-):
+    data: np.ndarray, bkg: np.ndarray, host_ra: float, host_dec: float, threshold: float, 
+    img_wcs: wcs.WCS, dist_thresh: float = -1, deblend_cont: float = 0.005
+) -> tupe[np.ndarray, np.ndarray]:
     """Extracts objects and their ellipse parameters. The function :func:`sep.extract()`
     is used.
 
@@ -28,39 +29,28 @@ def extract_objects(
 
     Parameters
     ----------
-    data: ndarray
-        Image data.
-    bkg: 2D array
-        Background level of the image.
-    host_ra: float
-        Host-galaxy Right ascension of the galaxy in degrees.
-    host_dec: float
-        Host-galaxy Declination of the galaxy in degrees.
-    threshold: float
-        Source with flux above ``threshold*bkg_rms`` are extracted.
+    data: Image data.
+    bkg: Background level of the image.
+    host_ra: Host-galaxy Right ascension of the galaxy in degrees.
+    host_dec: Host-galaxy Declination of the galaxy in degrees.
+    threshold: Source with flux above ``threshold*bkg_rms`` are extracted.
         See :func:`sep.extract()` for more information.
-    img_wcs: WCS
-        Image's WCS.
-    pixel_scale: float
-        Pixel scale, in units of arcsec/pixel, used to convert from pixel units
+    img_wcs: Image's WCS.
+    pixel_scale: Pixel scale, in units of arcsec/pixel, used to convert from pixel units
         to arcseconds.
-    dist_thresh: float, default ``-1``.
-        Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
+    dist_thresh: Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
         the galaxy is considered as not found and a warning is printed. If a non-positive value
         is given, the threshold is considered as infinite, i.e. the closest detected object is
         considered as the galaxy (default option).
-    deblend_cont : float, default ``0.005``
-        Minimum contrast ratio used for object deblending. Default is 0.005.
+    deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
         To entirely disable deblending, set to 1.0.
 
     Returns
     -------
-    gal_obj: numpy array
-        Galaxy object extracted.
-    nogal_objs: numpy array
-        All objects extracted except for the galaxy.
+    gal_obj: Galaxy object extracted.
+    nogal_objs: All objects extracted except for the galaxy.
     """
     # extract objects with Source Extractor
     objects = sep.extract(data, threshold, err=bkg, deblend_cont=deblend_cont)
@@ -89,23 +79,19 @@ def extract_objects(
     return gal_obj, nogal_objs
 
 
-def find_gaia_objects(ra, dec, rad=0.15):
+def find_gaia_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
     """Finds objects using the Gaia DR3 catalog for the given
     coordinates in a given radius.
 
     Parameters
     ----------
-    ra: float
-        Right ascension in degrees.
-    dec: float
-        Declination in degrees.
-    rad: float, default ``0.15``
-        Search radius in degrees.
+    ra: Right ascension in degrees.
+    dec: Declination in degrees.
+    rad: Search radius in degrees.
 
     Returns
     -------
-    gaia_coord: SkyCoord object
-        Coordinates of the objects found.
+    gaia_coord: Coordinates of the objects found.
     """
     Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
     Gaia.ROW_LIMIT = -1

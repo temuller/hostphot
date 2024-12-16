@@ -1,29 +1,25 @@
 import numpy as np
 from astropy import wcs
+from astropy.io import fits
+from astropy.coordinates import SkyCoord
 from astropy.nddata.utils import Cutout2D
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
-
-def trim_images(fits_files, pos, size):
+def trim_images(fits_files: list[fits.ImageHDU], pos: SkyCoord, size: float) -> list[fits.ImageHDU]:
     """Trims the size of the given fits images.
 
     Parameters
     ----------
-    fits_files: list
-        List of fits images.
-    pos: `~astropy.coordinates.SkyCoord`
-        The position of the cutout array's center.
-    size: int
-        Image size in pixels.
+    fits_files: List of fits images.
+    pos: The position of the cutout array's center.
+    size: Image size in pixels.
 
-    Return
-    ------
-    trimmed_fits_files: list
-        List of the trimmed fits images.
+    Returns
+    -------
+    trimmed_fits_files: List of the trimmed fits images.
     """
-
     trimmed_fits_files = []
     for fits_file in fits_files:
         data = fits_file[0].data.copy()
@@ -42,8 +38,7 @@ def trim_images(fits_files, pos, size):
 
     return trimmed_fits_files
 
-
-def remove_nan(hdu):
+def remove_nan(hdu: list[fits.ImageHDU]) -> list[fits.ImageHDU]:
     """Remove columns and/or rows which have all NaN values.
     The WCS is updated accordingly.
 
@@ -54,8 +49,7 @@ def remove_nan(hdu):
 
     Returns
     -------
-    trimmed_hdu: Header Data Unit
-        Trimmed image.
+    trimmed_hdu: Trimmed image.
     """
     header = hdu[0].header
     data = hdu[0].data

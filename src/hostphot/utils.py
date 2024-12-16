@@ -1176,7 +1176,7 @@ def load_pickle(inputfile):
     return content
 
 @contextmanager
-def suppress_stdout():
+def suppress_stdout() -> None:
     """Suppresses annoying outputs.
 
     Useful with astroquery and aplpy packages.

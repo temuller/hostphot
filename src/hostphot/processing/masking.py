@@ -1,7 +1,7 @@
-from pathlib import Path
 
 import pickle
 import numpy as np
+from pathlib import Path
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import aplpy
@@ -19,14 +19,14 @@ from astropy.convolution import (
 )
 
 from hostphot._constants import workdir, font_family
-from hostphot.image_cleaning import remove_nan
-from hostphot.objects_detect import (
+from .image_cleaning import remove_nan
+from .objects_detect import (
     extract_objects,
     find_gaia_objects,
     find_catalog_objects,
     cross_match,
 )
-from hostphot.utils import (
+from hostphot.surveys_utils import (
     check_survey_validity,
     bkg_surveys,
     adapt_aperture,
@@ -37,29 +37,22 @@ from hostphot.utils import (
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
-
-# ----------------------------------------
-def mask_image(data, objects, r=6, sigma=20):
+def mask_image(data: np.ndarray, objects: np.ndarray, r: float = 6, sigma: float = 20) -> np.ndarray:
     """Masks objects in an image (2D array) by convolving it with
     a 2D Gaussian kernel.
 
     Parameters
     ----------
-    data: ndarray
-        Image data.
-    objects: array
-        Objects extracted with :func:`sep.extract()`.
-    r: float, default ``6``
-        Scale of the semi-mayor and semi-minor axes
+    data: Image data.
+    objects: Objects extracted with :func:`sep.extract()`.
+    r: Scale of the semi-mayor and semi-minor axes
         of the ellipse of the `objects`.
-    sigma: float, default ``20``
-        Standard deviation in pixel units of the 2D Gaussian kernel
+    sigma: Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
 
     Returns
     -------
-    masked_data: 2D array
-        Masked image data.
+    masked_data: Masked image data.
     """
     mask = np.zeros(data.shape, dtype=bool)
     sep.mask_ellipse(
@@ -81,98 +74,72 @@ def mask_image(data, objects, r=6, sigma=20):
 
     return masked_data
 
-
 def create_mask(
-    name,
-    host_ra,
-    host_dec,
-    filt,
-    survey,
-    ra=None,
-    dec=None,
-    bkg_sub=None,
-    threshold=15,
-    sigma=8,
-    r=6,
-    crossmatch=False,
-    gal_dist_thresh=-1,
-    deblend_cont=0.005,
-    extract_params=False,
-    common_params=None,
-    save_plots=True,
-    save_mask_params=True,
-):
+    name: str,
+    host_ra: float,
+    host_dec: float,
+    filt: str,
+    survey: str,
+    ra: Optical[float] = None,
+    dec: Optical[float] = None,
+    bkg_sub: Optical[bool] = None,
+    threshold: float = 15,
+    sigma: float = 8,
+    r: float = 6,
+    crossmatch: bool = False,
+    gal_dist_thresh: float = -1,
+    deblend_cont: float = 0.005,
+    extract_params: bool = False,
+    common_params: Optional[tuple[np.ndarray, np.ndarray, wcs.WCS, float, float, bool]] = None,
+    save_plots: bool = False,
+    save_mask_params: bool = True
+) -> tuple[np.ndarray, np.ndarray, wcs.WCS, float, float, bool]:
     """Calculates the aperture parameters to mask detected sources.
 
     Parameters
     ----------
-    name: str
-        Name of the object to find the path of the fits file.
-    host_ra: float
-        Host-galaxy right ascension in degrees.
-    host_dec: float
-        Host-galaxy declination in degrees.
-    filt: str or list
-        Filter to use to load the fits file. List is commonly used for coadds.
-    survey: str
-        Survey to use for the zero-points and correct filter path.
-    ra: float, default ``None``
-       Right ascension of an object, in degrees. Used for plotting.
-    dec: float, default ``None``
-       Declination of an object, in degrees. Used for plotting.
-    bkg_sub: bool, default ``None``
-        If ``True``, the image gets background subtracted. By default, only
+    name: Name of the object to find the path of the fits file.
+    host_ra: Host-galaxy right ascension in degrees.
+    host_dec: Host-galaxy declination in degrees.
+    filt: Filter to use to load the fits file. List is commonly used for coadds.
+    survey: Survey to use for the zero-points and correct filter path.
+    ra: Right ascension of an object, in degrees. Used for plotting.
+    dec: Declination of an object, in degrees. Used for plotting.
+    bkg_sub: If ``True``, the image gets background subtracted. By default, only
         the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
-    threshold: float, default `15`
-        Threshold used by :func:`sep.extract()` to extract objects.
-    sigma: float, default ``8``
-        Standard deviation in pixel units of the 2D Gaussian kernel
+    threshold: Threshold used by :func:`sep.extract()` to extract objects.
+    sigma: Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
-    r: float, default ``6``
-        Scale of the aperture size for the sources to be masked.
-    crossmatch: bool, default ``False``
-        If ``True``, the detected objects are cross-matched with a
+    r: Scale of the aperture size for the sources to be masked.
+    crossmatch: If ``True``, the detected objects are cross-matched with a
         Gaia catalog.
-    crossmatch: bool, default ``False``
-        If ``True``, the detected objects are cross-matched with a
+    crossmatch: If ``True``, the detected objects are cross-matched with a
         Gaia catalog.
-    gal_dist_thresh: float, default ``-1``.
-        Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
+    gal_dist_thresh: Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
         the galaxy is considered as not found and a warning is printed. If a non-positive value
         is given, the threshold is considered as infinite, i.e. the closest detected object is
         considered as the galaxy (default option).
-    deblend_cont : float, default ``0.005``
-        Minimum contrast ratio used for object deblending. Default is 0.005.
+    deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
         To entirely disable deblending, set to 1.0.
-    extract_params: bool, default ``False``
-        If ``True``, returns the parameters listed below.
-    common_params: tuple, default ``None``
-        Parameters to use for common masking of different filters.
+    extract_params: If ``True``, returns the parameters listed below.
+    common_params: Parameters to use for common masking of different filters.
         These are the same as the outputs of this function.
-    save_plots: bool, default ``True``
-        If ``True``, the mask and galaxy aperture figures are saved.
-    save_mask_params: bool, default `True`
-        If `True`, the extracted mask parameters are saved into a pickle file.
+    save_plots: If ``True``, the mask and galaxy aperture figures are saved.
+    save_mask_params: If `True`, the extracted mask parameters are saved into a pickle file.
 
     Returns
     -------
     **This are only returned if ``extract_params==True``.**
-    gal_obj: array
-        Galaxy object.
-    nogal_obj: array
-        Non-galaxy objects.
-    img_wcs: WCS
-        Image's WCS.
-    sigma: float, default ``8``
-        Standard deviation in pixel units of the 2D Gaussian kernel
+    gal_obj: Galaxy object.
+    nogal_obj: Non-galaxy objects.
+    img_wcs: Image's WCS.
+    sigma: Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
-    r: float
-        Scale of the aperture size for the sources to be masked.
-    flip: bool
-        Whether to flip the orientation of the
+    r: Scale of the aperture size for the sources to be masked.
+    flip: Whether to flip the orientation of the
         aperture. 
     """
     check_survey_validity(survey)
