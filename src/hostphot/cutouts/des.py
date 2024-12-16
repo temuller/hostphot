@@ -62,7 +62,7 @@ def get_DES_urls(ra: float, dec: float, fov: float, filters: str="grizY") -> tup
         url_w_list.append(url_w)
     return url_list, url_w_list
 
-def get_DES_images(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> list[fits.HDUList] | None:
+def get_DES_images(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> fits.HDUList | None:
     """Gets DES fits images for the given coordinates and
     filters.
 

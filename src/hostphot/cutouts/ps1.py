@@ -82,7 +82,7 @@ def get_PS1_urls(ra: float, dec: float, size: float | u.Quantity = 3, filters: O
         url_list.append(base_url + filename)
     return url_list
 
-def get_PS1_images(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> list[fits.HDUList]:
+def get_PS1_images(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> fits.HDUList:
     """Gets PS1 fits images for the given coordinates and
     filters.
 

@@ -5,7 +5,8 @@ from astropy.coordinates import SkyCoord
 from astropy.nddata import Cutout2D
 from astroquery.sdss import SDSS
 
-def get_SDSS_images(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> list[fits.HDUList] | None:
+def get_SDSS_images(ra: float, dec: float, size: float | u.Quantity = 3, 
+                    filters: Optional[str] = None, version: Optional[str] = None) -> fits.HDUList | None:
     """Downloads a set of SDSS fits images for a given set
     of coordinates and filters using SkyView.
 
@@ -17,8 +18,8 @@ def get_SDSS_images(ra: float, dec: float, size: float | u.Quantity = 3, filters
     filters: Filters to use. If ``None``, uses ``ugriz``.
     version: Data release version to use. If not given, use the latest one (``dr17``).
 
-    Return
-    ------
+    Returns
+    -------
     hdu_list: List with fits images for the given filters. ``None`` is returned if no image is found.
     """
     # check filters
