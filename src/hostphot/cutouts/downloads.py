@@ -50,7 +50,7 @@ def download_images(
     survey_dir = Path(workdir, name, survey)
     # check output directory and filters
     if survey_dir.is_dir() is False:
-        survey_dir.mkdir()
+        survey_dir.mkdir(parents=True)
     if filters is None:
         filters = get_survey_filters(survey)
     # check existing images

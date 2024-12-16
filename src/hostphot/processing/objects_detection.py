@@ -1,14 +1,18 @@
 import numpy as np
+from typing import Optional
 import matplotlib.pyplot as plt
 import aplpy
 
 plt.rcParams["mathtext.fontset"] = "cm"
 
-import sep_pjw as sep
-from astroquery.gaia import Gaia
-from astroquery.mast import Catalogs
+from astropy import wcs
+from astropy.io import fits
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from astroquery.gaia import Gaia
+from astroquery.mast import Catalogs
+
+import sep_pjw as sep
 
 from hostphot._constants import font_family
 from hostphot.utils import suppress_stdout
@@ -16,11 +20,10 @@ from hostphot.utils import suppress_stdout
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
-
 def extract_objects(
     data: np.ndarray, bkg: np.ndarray, host_ra: float, host_dec: float, threshold: float, 
     img_wcs: wcs.WCS, dist_thresh: float = -1, deblend_cont: float = 0.005
-) -> tupe[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Extracts objects and their ellipse parameters. The function :func:`sep.extract()`
     is used.
 
@@ -75,9 +78,7 @@ def extract_objects(
 
     objs_id = [i for i in range(len(objects)) if i != gal_id]
     nogal_objs = objects.take(objs_id)
-
     return gal_obj, nogal_objs
-
 
 def find_gaia_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
     """Finds objects using the Gaia DR3 catalog for the given
@@ -116,11 +117,9 @@ def find_gaia_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
     gaia_coord = SkyCoord(
         ra=gaia_ra, dec=gaia_dec, unit=(u.degree, u.degree), frame="icrs"
     )
-
     return gaia_coord
 
-
-def find_catalog_objects(ra, dec, rad=0.15):
+def find_catalog_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
     """Finds objects using the TESS image cutouts (Tic) catalog
     for the given coordinates in a given radius.
 
@@ -129,17 +128,13 @@ def find_catalog_objects(ra, dec, rad=0.15):
 
     Parameters
     ----------
-    ra: float
-        Right ascension in degrees.
-    dec: float
-        Declination in degrees.
-    rad: float, default ``0.15``
-        Search radius in degrees.
+    ra: Right ascension in degrees.
+    dec: Declination in degrees.
+    rad: Search radius in degrees.
 
     Returns
     -------
-    cat_coord: SkyCoord object
-        Coordinates of the objects found.
+    cat_coord: Coordinates of the objects found.
     """
     coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs")
     cat_data = Catalogs.query_criteria(
@@ -151,24 +146,18 @@ def find_catalog_objects(ra, dec, rad=0.15):
     cat_coord = SkyCoord(
         ra=cat_ra, dec=cat_dec, unit=(u.degree, u.degree), frame="icrs"
     )
-
     return cat_coord
 
-
-def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
+def cross_match(objects: np.ndarray, img_wcs: wcs.WCS, coord: SkyCoord, dist_thresh: float = 1.0) -> None:
     """Cross-matches objects with a given set of coordinates.
     Those with a distance of less than ``dist_thresh`` are selected.
 
     Parameters
     ----------
-    objects: array
-        Objects detected with :func:`sep.extract()`.
-    img_wcs: WCS
-        WCS of the image from which the objects were extracted.
-    coord: SkyCoord object
-        Coordinates for the cross-match.
-    dist_thresh: float, default ``1.0``
-        Distance in arcsec to crossmatch the objects with
+    objects: Objects detected with :func:`sep.extract()`.
+    img_wcs: WCS of the image from which the objects were extracted.
+    coord: Coordinates for the cross-match.
+    dist_thresh: Distance in arcsec to crossmatch the objects with
         the given coordinates.
     """
     # coordinates in arcsec
@@ -191,18 +180,17 @@ def cross_match(objects, img_wcs, coord, dist_thresh=1.0):
 
     return objs
 
-
 def plot_detected_objects(
-    hdu,
-    objects,
-    scale,
-    ra=None,
-    dec=None,
-    host_ra=None,
-    host_dec=None,
-    title=None,
-    outfile=None,
-):
+    hdu: list[fits.ImageHDU],
+    objects: np.ndarray,
+    scale: float,
+    ra: Optional[float] = None,
+    dec: Optional[float] = None,
+    host_ra: Optional[float] = None,
+    host_dec: Optional[float] = None,
+    title: Optional[str] = None,
+    outfile: Optional[str] = None,
+) -> None:
     """Plots the objects extracted with :func:`sep.extract()``.
 
     Parameters
@@ -270,21 +258,18 @@ def plot_detected_objects(
         linewidth=3,
         edgecolor="r",
     )
-
     # ticks
     fig.tick_labels.set_font(**{"family": font_family, "size": 18})
     fig.tick_labels.set_xformat("dd.dd")
     fig.tick_labels.set_yformat("dd.dd")
     fig.ticks.set_length(6)
-
+    # other configuration options
     fig.axis_labels.set_font(**{"family": font_family, "size": 18})
-
     fig.set_title(title, **{"family": font_family, "size": 24})
     fig.set_theme("publication")
     fig.ax.legend(
         fancybox=True, framealpha=1, prop={"size": 20, "family": font_family}
     )
-
     if outfile:
         plt.savefig(outfile, bbox_inches="tight")
         plt.close(figure)

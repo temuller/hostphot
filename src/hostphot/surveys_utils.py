@@ -12,6 +12,8 @@ config_df = pd.read_csv(config_file, sep='\\s+')
 
 # surveys that need background subtraction
 bkg_surveys = ["2MASS", "WISE", "VISTA", "SkyMapper", "UKIDSS"]
+# surveys which are flipped respect to most others
+flipped_surveys = ["DES", "VISTA", "UKIDSS"]
 
 def check_survey_validity(survey: str) -> None:
     """Check whether the given survey is whithin the valid

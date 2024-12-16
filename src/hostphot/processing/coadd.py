@@ -29,7 +29,7 @@ def coadd_images(name: str, filters: str | list, survey: str) -> None:
     """
     obj_dir = Path(workdir, name)
     fits_files = [
-         obj_dir / f"{survey}_{filt}.fits" for filt in filters
+         obj_dir / survey / f"{survey}_{filt}.fits" for filt in filters
     ]
     hdu_list = []
     for fits_file in fits_files:
@@ -46,5 +46,5 @@ def coadd_images(name: str, filters: str | list, survey: str) -> None:
     fits_image[0].data = coadd[0]
     if isinstance(filters, list):
         filters = "".join(filt for filt in filters)
-    outfile = obj_dir / f"{survey}_{filters}.fits"
+    outfile = obj_dir / survey / f"{survey}_{filters}.fits"
     fits_image.writeto(outfile, overwrite=True)

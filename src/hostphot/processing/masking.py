@@ -1,7 +1,9 @@
 
 import pickle
 import numpy as np
+import pandas as pd 
 from pathlib import Path
+from typing import Optional
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import aplpy
@@ -19,8 +21,8 @@ from astropy.convolution import (
 )
 
 from hostphot._constants import workdir, font_family
-from .image_cleaning import remove_nan
-from .objects_detect import (
+from .cleaning import remove_nan
+from .objects_detection import (
     extract_objects,
     find_gaia_objects,
     find_catalog_objects,
@@ -29,15 +31,17 @@ from .objects_detect import (
 from hostphot.surveys_utils import (
     check_survey_validity,
     bkg_surveys,
-    adapt_aperture,
-    suppress_stdout,
-    load_pickle
+    flipped_surveys,
+    #adapt_aperture,
+    #suppress_stdout,
+    #load_pickle
 )
+from hostphot.utils import adapt_aperture, suppress_stdout
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
-def mask_image(data: np.ndarray, objects: np.ndarray, r: float = 6, sigma: float = 20) -> np.ndarray:
+def mask_image(data: np.ndarray, objects: np.ndarray, r: float | np.ndarray = 6, sigma: float | np.ndarray = 8) -> np.ndarray:
     """Masks objects in an image (2D array) by convolving it with
     a 2D Gaussian kernel.
 
@@ -80,12 +84,12 @@ def create_mask(
     host_dec: float,
     filt: str,
     survey: str,
-    ra: Optical[float] = None,
-    dec: Optical[float] = None,
-    bkg_sub: Optical[bool] = None,
+    ra: Optional[float] = None,
+    dec: Optional[float] = None,
+    bkg_sub: Optional[bool] = None,
     threshold: float = 15,
-    sigma: float = 8,
-    r: float = 6,
+    sigma: float | np.ndarray = 8,
+    r: float | np.ndarray = 6,
     crossmatch: bool = False,
     gal_dist_thresh: float = -1,
     deblend_cont: float = 0.005,
@@ -147,7 +151,7 @@ def create_mask(
         filt = "".join(f for f in filt)
 
     obj_dir = Path(workdir, name)
-    fits_file = obj_dir / f"{survey}_{filt}.fits"
+    fits_file = obj_dir / survey / f"{survey}_{filt}.fits"
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
 
@@ -190,7 +194,7 @@ def create_mask(
         # the aperture/ellipse parameters are updated accordingly
         gal_obj, nogal_objs, master_img_wcs, sigma, r, flip2 = common_params
 
-        if survey in ["DES", "VISTA", "UKIDSS"]:
+        if survey in flipped_surveys:
             flip = True
         else:
             flip = False
@@ -209,19 +213,29 @@ def create_mask(
     outfile = obj_dir / f"masked_{survey}_{filt}.fits"
     masked_hdu.writeto(outfile, overwrite=True)
 
-    if survey in ["DES", "VISTA", "UKIDSS"]:
+    if survey in flipped_surveys:
         flip = True
     else:
         flip = False
 
     if save_mask_params is True:
-        outfile = obj_dir / f"{survey}_{filt}_mask_parameters.pickle"
-        with open(outfile, "wb") as fp:
-            mask_parameters = gal_obj, nogal_objs, img_wcs, sigma, r, flip
-            pickle.dump(mask_parameters, fp, protocol=4)
+        # save detected objects and masking parameters
+        objects_df = pd.concat([pd.DataFrame(gal_obj), 
+                                pd.DataFrame(nogal_objs)])
+        objects_df["sigma"] = sigma
+        objects_df["r"] = r
+        objects_df["flip"] = flip
+        objects_df["filt"] = filt
+        objects_df["survey"] = survey
+        outfile = obj_dir / survey / f"{survey}_{filt}_mask.csv"
+        objects_df.to_csv(outfile, index=False)
+        #outfile = obj_dir / survey / f"{survey}_{filt}_mask_parameters.pickle"
+        #with open(outfile, "wb") as fp:
+        #    mask_parameters = gal_obj, nogal_objs, img_wcs, sigma, r, flip
+        #    pickle.dump(mask_parameters, fp, protocol=4)
 
     if save_plots:
-        outfile = obj_dir / f"masked_{survey}_{filt}.jpg"
+        outfile = obj_dir / survey / f"{survey}_{filt}_masked.jpg"
         title = f"{name}: {survey}-${filt}$"
         plot_masked_image(
             hdu,
@@ -236,11 +250,9 @@ def create_mask(
             title,
             outfile,
         )
-
     hdu.close()
-
-    if extract_params:
-        return gal_obj, nogal_objs, img_wcs, sigma, r, flip
+    #if extract_params:
+    #    return gal_obj, nogal_objs, img_wcs, sigma, r, flip
 
 def load_mask_params(name, filt, survey):
     """Loads previously saved mask parameters.
@@ -262,53 +274,39 @@ def load_mask_params(name, filt, survey):
         ``create_mask`` function.
     """
     inputfile = Path(workdir, name, rf'{survey}_{filt}_mask_parameters.pickle')
-    
     mask_params = load_pickle(inputfile)
-    
     return mask_params
 
 def plot_masked_image(
-    hdu,
-    masked_hdu,
-    objects,
-    gal_obj=None,
-    r=6,
-    host_ra=None,
-    host_dec=None,
-    ra=None,
-    dec=None,
-    title=None,
-    outfile=None,
-):
+    hdu: list[fits.ImageHDU],
+    masked_hdu: list[fits.ImageHDU],
+    objects: np.ndarray,
+    gal_obj: np.ndarray = None,
+    r: float | np.ndarray = 6,
+    host_ra: Optional[float] = None,
+    host_dec: Optional[float] = None,
+    ra: Optional[float] = None,
+    dec: Optional[float] = None,
+    title: Optional[str] = None,
+    outfile: Optional[float] = None,
+) -> None:
     """Plots the masked image together with the original image and
     the detected objects.
 
     Parameters
     ----------
-    data: ndarray
-        Image data.
-    masked_data: 2D array
-         Masked image data.
-    objects: array
-        Objects extracted with :func:`sep.extract()`.
-    img_wcs: WCS
-        Image's WCS.
-    gal_obj: array, default ``None``
-        Galaxy object.
-    r: float, default ``6``
-        Scale of the aperture size for the masked sources.
-    host_ra: float, default ``None``
-       Right ascension of the galaxy, in degrees. Used for plotting the position of the galaxy.
-    host_dec: float, default ``None``
-       Declination of the galaxy, in degrees. Used for plotting the position of the galaxy.
-    ra: float, default ``None``
-       Right ascension of an object, in degrees. Used for plotting the position of the object.
-    dec: float, default ``None``
-       Declination of an object, in degrees. Used for plotting the position of the object.
-    title: str, default ``None``
-        Title of the image
-    outfile: str, default ``None``
-        If given, path where to save the output figure.
+    data: Image FITS file.
+    masked_data: Masked image FITS file.
+    objects: Objects extracted with :func:`sep.extract()`.
+    img_wcs: Image's WCS.
+    gal_obj: Galaxy object.
+    r: Scale of the aperture size for the masked sources.
+    host_ra: Right ascension of the galaxy, in degrees. Used for plotting the position of the galaxy.
+    host_dec: Declination of the galaxy, in degrees. Used for plotting the position of the galaxy.
+    ra: Right ascension of an object, in degrees. Used for plotting the position of the object.
+    dec: Declination of an object, in degrees. Used for plotting the position of the object.
+    title: Title of the image.
+    outfile: If given, path where to save the output figure.
     """
     figure = plt.figure(figsize=(30, 12))
     with warnings.catch_warnings():
@@ -316,7 +314,6 @@ def plot_masked_image(
         fig1 = aplpy.FITSFigure(hdu, figure=figure, subplot=(1, 3, 1))
         fig2 = aplpy.FITSFigure(hdu, figure=figure, subplot=(1, 3, 2))
         fig3 = aplpy.FITSFigure(masked_hdu, figure=figure, subplot=(1, 3, 3))
-
     fig2.tick_labels.hide_y()
     fig2.axis_labels.hide_y()
     fig3.tick_labels.set_yposition("right")
@@ -329,7 +326,6 @@ def plot_masked_image(
         fig.set_title(titles[i], **{"family": font_family, "size": 24})
         with suppress_stdout():
             fig.show_grayscale(stretch="arcsinh")
-
         # ticks
         fig.tick_labels.set_font(**{"family": font_family, "size": 18})
         fig.tick_labels.set_xformat("dd.dd")
@@ -337,7 +333,6 @@ def plot_masked_image(
         fig.ticks.set_length(6)
 
         fig.axis_labels.set_font(**{"family": font_family, "size": 18})
-
     # galaxy markers
     fig2.show_markers(
         host_ra,
@@ -371,7 +366,6 @@ def plot_masked_image(
         linewidth=3,
         edgecolor="r",
     )
-
     # other sources apertures
     fig2.show_ellipses(
         objects["x"],
@@ -384,7 +378,6 @@ def plot_masked_image(
         edgecolor="orangered",
         linestyle="dotted",
     )
-
     # SN marker
     if (ra is not None) and (dec is not None):
         for fig in figures[1:]:
@@ -401,7 +394,6 @@ def plot_masked_image(
     fig2.ax.legend(
         fancybox=True, framealpha=1, prop={"size": 20, "family": font_family}
     )
-
     # title
     length = len(title) - 2
     text = fig1.ax.text(
@@ -417,7 +409,6 @@ def plot_masked_image(
     text.set_bbox(
         dict(facecolor="white", edgecolor="white", alpha=0.9, boxstyle="round")
     )
-
     if outfile:
         plt.savefig(outfile, bbox_inches="tight")
         plt.close(figure)
