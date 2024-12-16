@@ -1,9 +1,16 @@
 import pyvo
 import numpy as np
 from pathlib import Path
+from typing import Optional
 
 import astropy.units as u
+from astropy.io import fits
 from astropy.coordinates import SkyCoord
+
+from hostphot.surveys_utils import get_survey_filters, check_filters_validity
+
+import warnings
+from astropy.utils.exceptions import AstropyWarning
 
 def get_2MASS_images(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> fits.HDUList:
     """Downloads a set of 2MASS fits images for a given set
@@ -75,8 +82,7 @@ def get_2MASS_images(ra: float, dec: float, size: float | u.Quantity = 3, filter
                 tile_url = Path(f"{ordate}{hemisphere}", f"s{scanno}")
                 fits_url = Path("image", f"{fname}.gz")
                 params_url = f"center={ra},{dec}&size={size_degree}degree&gzip=0"  # center and size of the image
-
-                url = Path(base_url, tile_url, fits_url + "?" + params_url)
+                url = Path(base_url, tile_url, str(fits_url) + "?" + params_url)
                 try:
                     hdu = fits.open(url)
                     ny, nx = hdu[0].data.shape

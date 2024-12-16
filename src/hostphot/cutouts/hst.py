@@ -11,7 +11,9 @@ from pyvo.dal import sia
 from astroquery.esa.hubble import ESAHubble  # HST
 esahubble = ESAHubble()
 
-def update_HST_header(hdu: fits.hdu.ImageHDU):
+from hostphot.surveys_utils import check_HST_filters
+
+def update_HST_header(hdu: fits.hdu.ImageHDU) -> None:
     """Updates the HST image header with the necessary keywords.
 
     Parameters
@@ -38,7 +40,7 @@ def update_HST_header(hdu: fits.hdu.ImageHDU):
         -2.5 * np.log10(photflam) - 5 * np.log10(photplam) - 2.408
     )
 
-def set_HST_image(file: str, filt: str, name: str):
+def set_HST_image(file: str, filt: str, name: str) -> None:
     """Moves a previously downloaded HST image into the work directory.
 
     The image's header is updated with the necessary keywords to obtain
@@ -67,7 +69,7 @@ def set_HST_image(file: str, filt: str, name: str):
     hdu.writeto(outfile, overwrite=True)
 
 def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3, 
-                        filters: Optional[str] = None) -> fits.HDUList:
+                        filt: str) -> list[fits.ImageHDU]:
     """Downloads a set of HST fits images for a given set
     of coordinates and filters using the MAST archive.
 
@@ -163,15 +165,9 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
         with zipfile.ZipFile(temp_file, "r") as zip_ref:
             zip_ref.extractall(temp_dir)
             fits_file = [file for file in temp_dir.rglob("*.gz")][0]
-            #fits_file = [
-            #    file
-            #    for file in glob.glob(f"{temp_dir}/**", recursive=True)
-            #    if file.endswith(".gz")
-            #][0]
         hdu = fits.open(fits_file)
         # remove the temporary files and directory
         temp_file.unlink()
         shutil.rmtree(temp_dir, ignore_errors=True)
     update_HST_header(hdu)
-    hdu_list = [hdu]
-    return hdu_list
+    return [hdu]

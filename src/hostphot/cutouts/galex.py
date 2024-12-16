@@ -1,10 +1,20 @@
+import numpy as np
+from typing import Optional
+
 from astropy import wcs
 import astropy.units as u
+from astropy.io import fits
+from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 from astroquery.mast import Observations
 
+from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
+
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+
 def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3, 
-                    filters: Optional[str] = None, version: Optional[str] = None) -> fits.HDUList:
+                    filters: Optional[str] = None, version: Optional[str] = None) -> list[fits.ImageHDU]:
     """Downloads a set of GALEX fits images for a given set
     of coordinates and filters.
 
@@ -29,12 +39,11 @@ def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3,
     if isinstance(filters, str):
         filters = [filters]
     check_filters_validity(filters, survey)
-
+    # get size in pixels
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec)
     else:
         size_arcsec = size.to(u.arcsec)
-
     pixel_scale = survey_pixel_scale(survey)
     size_pixels = int(size_arcsec.value / pixel_scale)
 
@@ -43,7 +52,6 @@ def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3,
         coords = SkyCoord(
             ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
         )
-
     obs_table = Observations.query_criteria(
         coordinates=coords, radius=size_arcsec, obs_collection=["GALEX"]
     )

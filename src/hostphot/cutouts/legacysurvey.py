@@ -1,8 +1,11 @@
 import astropy.units as u
 from astropy.io import fits
+from typing import Optional
 
-def get_LegacySurvey_images(ra, dec, size=3, filters=Nonera: float, dec: float, size: float | u.Quantity = 3, 
-                        filters: Optional[str] = None, version: str = "dr10") -> fits.HDUList:
+from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
+
+def get_LegacySurvey_images(ra: float, dec: float, size: float | u.Quantity = 3, 
+                        filters: Optional[str] = None, version: str = "dr10") -> list[list[fits.HDUList]]:
     """Gets Legacy Survey fits images for the given coordinates and
     filters.
 
@@ -21,7 +24,7 @@ def get_LegacySurvey_images(ra, dec, size=3, filters=Nonera: float, dec: float, 
     survey = "LegacySurvey"
     if filters is None:
         filters = get_survey_filters(survey)
-        check_filters_validity(filters, survey)
+    check_filters_validity(filters, survey)
 
     pixel_scale = survey_pixel_scale(survey)
     if isinstance(size, (float, int)):
@@ -54,4 +57,5 @@ def get_LegacySurvey_images(ra, dec, size=3, filters=Nonera: float, dec: float, 
         hdu_invvar = fits.ImageHDU(data=data_invvar, 
                                 header=header_invvar)
         hdu_list.append(fits.HDUList([hdu, hdu_invvar]))
+    master_hdu.close()
     return hdu_list

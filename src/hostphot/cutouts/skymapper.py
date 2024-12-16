@@ -1,15 +1,16 @@
+import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from astropy import wcs
 import astropy.units as u
 from astropy.io import fits
 from astropy.coordinates import SkyCoord
 
 from pyvo.dal import sia
+from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
-def get_SkyMapper_urls(ra: float, dec: float, size: float | u.Quantity = 3, 
-                    filters: str = "uvgriz") -> lis[str]:
+def get_SkyMapper_urls(ra: float, dec: float, fov: float | u.Quantity = 3, 
+                    filters: str = "uvgriz") -> list[str] | None:
     """Obtains the URLs of the SkyMapper images.
     
     The images closest to the given coordinates are retrieved 

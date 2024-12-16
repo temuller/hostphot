@@ -1,9 +1,17 @@
 import numpy as np
+from typing import Optional
+
+from astropy import wcs
 from astropy.io import fits
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.nddata import Cutout2D
 from astroquery.sdss import SDSS
+
+from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
+
+import warnings
+from astropy.utils.exceptions import AstropyWarning
 
 def get_SDSS_images(ra: float, dec: float, size: float | u.Quantity = 3, 
                     filters: Optional[str] = None, version: Optional[str] = None) -> fits.HDUList | None:

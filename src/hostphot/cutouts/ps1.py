@@ -1,9 +1,11 @@
-import numpy as numpy
+import numpy as np
+from typing import Optional
+
 from astropy.io import fits
 from astropy import units as u
 from astropy.table import Table
 
-from hostphot.utils import check_filters_validity
+from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 def query_ps1(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> Table:
     """Query 'ps1filenames.py' service to get a list of images

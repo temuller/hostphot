@@ -1,7 +1,15 @@
-import numpy as numpy
+import numpy as np
+import pandas as pd
+from typing import Optional
+
 from pyvo.dal import sia
 from astropy.io import fits
 from astropy import units as u
+
+from hostphot.surveys_utils import get_survey_filters, check_filters_validity
+
+import warnings
+from astropy.utils.exceptions import AstropyWarning
 
 def get_DES_urls(ra: float, dec: float, fov: float, filters: str="grizY") -> tuple[list[str], list[str]]:
     """Obtains the URLs of the DES images+weights with the
@@ -62,7 +70,7 @@ def get_DES_urls(ra: float, dec: float, fov: float, filters: str="grizY") -> tup
         url_w_list.append(url_w)
     return url_list, url_w_list
 
-def get_DES_images(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> fits.HDUList | None:
+def get_DES_images(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> list[fits.HDUList] | None:
     """Gets DES fits images for the given coordinates and
     filters.
 
@@ -105,5 +113,7 @@ def get_DES_images(ra: float, dec: float, size: float | u.Quantity = 3, filters:
                 weight_hdu[0].data, header=weight_hdu[0].header
             )
             hdu_sublist = fits.HDUList([hdu, hdu_err])
+            weight_hdu.close()
         hdu_list.append(hdu_sublist)
+        image_hdu.close()
     return hdu_list

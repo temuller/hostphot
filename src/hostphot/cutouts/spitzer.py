@@ -1,9 +1,13 @@
 import requests
+from typing import Optional
+
 import astropy.units as u
 from astropy.io import fits
 
-def get_Spitzer_images(ra, dec, size=3, filters=Nonera: float, dec: float, size: float | u.Quantity = 3, 
-                        filters: Optional[str] = None) -> fits.HDUList:
+from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
+
+def get_Spitzer_images(ra: float, dec: float, size: float | u.Quantity = 3, 
+                        filters: Optional[str] = None) -> list[fits.ImageHDU]:
     """Gets Spitzer fits images for the given coordinates and
     filters.
 

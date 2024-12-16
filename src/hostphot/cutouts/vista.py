@@ -1,12 +1,15 @@
 import re
 import urllib
+from typing import Optional
 
 from astropy import wcs
 import astropy.units as u
 from astropy.io import fits
 
-def get_VISTA_images(ra, dec, size=3, filters=Nonera: float, dec: float, size: float | u.Quantity = 3, 
-                        filters: Optional[str] = None, version: str = "VHS") -> fits.HDUList:
+from hostphot.surveys_utils import get_survey_filters, check_filters_validity
+
+def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3, 
+                        filters: Optional[str] = None, version: str = "VHS") -> list[fits.ImageHDU]:
     """Gets VISTA fits images for the given coordinates and
     filters.
 
