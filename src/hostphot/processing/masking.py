@@ -93,11 +93,11 @@ def create_mask(
     crossmatch: bool = False,
     gal_dist_thresh: float = -1,
     deblend_cont: float = 0.005,
-    extract_params: bool = False,
-    common_params: Optional[tuple[np.ndarray, np.ndarray, wcs.WCS, float, float, bool]] = None,
+    ref_filt: Optional[str] = None,
+    ref_survey: Optional[str] = None,
     save_plots: bool = False,
-    save_mask_params: bool = True
-) -> tuple[np.ndarray, np.ndarray, wcs.WCS, float, float, bool]:
+    save_mask_params: bool = False
+) -> None:
     """Calculates the aperture parameters to mask detected sources.
 
     Parameters
@@ -128,24 +128,14 @@ def create_mask(
         considered as the galaxy (default option).
     deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
         To entirely disable deblending, set to 1.0.
-    extract_params: If ``True``, returns the parameters listed below.
-    common_params: Parameters to use for common masking of different filters.
-        These are the same as the outputs of this function.
+    ref_filt: Reference filter (or coadd filters) from which to use the mask parameters. Note that the parameters
+        need to have been previously saved with ``save_mask_params=True``.
+    ref_survey: Reference survey from which to use the mask parameters. Note that the parameters
+        need to have been previously saved with ``save_mask_params=True``.
     save_plots: If ``True``, the mask and galaxy aperture figures are saved.
-    save_mask_params: If `True`, the extracted mask parameters are saved into a pickle file.
-
-    Returns
-    -------
-    **This are only returned if ``extract_params==True``.**
-    gal_obj: Galaxy object.
-    nogal_obj: Non-galaxy objects.
-    img_wcs: Image's WCS.
-    sigma: Standard deviation in pixel units of the 2D Gaussian kernel
-        used to convolve the image.
-    r: Scale of the aperture size for the sources to be masked.
-    flip: Whether to flip the orientation of the
-        aperture. 
+    save_mask_params: If `True`, the extracted mask parameters are saved for later use.
     """
+    input_params = locals()  # dictionary
     check_survey_validity(survey)
     if isinstance(filt, list):
         filt = "".join(f for f in filt)
@@ -169,9 +159,13 @@ def create_mask(
     else:
         data_sub = np.copy(data)
 
-    if common_params is None:
+    # save input parameters
+    inputs_df = pd.DataFrame({key:[value] for key, value in input_params.items()})
+    inputs_df.to_csv(obj_dir / survey / f"masking_input_{filt}.csv", index = False)
+
+    if (ref_filt is None) & (ref_survey is None):
         # extract objects
-        gal_obj, nogal_objs = extract_objects(
+        gal_obj, nongal_objs = extract_objects(
             data_sub,
             bkg_rms,
             host_ra,
@@ -188,29 +182,32 @@ def create_mask(
             cat_coord1 = find_gaia_objects(host_ra, host_dec)
             cat_coord2 = find_catalog_objects(host_ra, host_dec)
             cat_coord = concatenate([cat_coord1, cat_coord2])
-            nogal_objs = cross_match(nogal_objs, img_wcs, cat_coord)
+            nongal_objs = cross_match(nongal_objs, img_wcs, cat_coord)
     else:
         # use objects previously extracted
         # the aperture/ellipse parameters are updated accordingly
-        gal_obj, nogal_objs, master_img_wcs, sigma, r, flip2 = common_params
+        gal_obj, nongal_objs, master_img_wcs, sigma, r, flip2 = load_mask_params(name, ref_filt, ref_survey)
 
-        if survey in flipped_surveys:
-            flip = True
-        else:
-            flip = False
-        if flip == flip2:
-            flip_ = False
-        else:
-            flip_ = True
-
-        gal_obj, _ = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
-        nogal_objs, conv_factor = adapt_aperture(nogal_objs, master_img_wcs, img_wcs, flip_)
-        sigma /= conv_factor
-
-    masked_data = mask_image(data_sub, nogal_objs, r=r, sigma=sigma)
+        if survey != ref_survey:
+            # cross-survey mask: need to adapt some values
+            # flipping images 
+            if survey in flipped_surveys:
+                flip = True
+            else:
+                flip = False
+            if flip == flip2:
+                flip_ = False
+            else:
+                flip_ = True
+            # adapt sizes
+            gal_obj, _ = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
+            nongal_objs, conv_factor = adapt_aperture(nongal_objs, master_img_wcs, img_wcs, flip_)
+            sigma /= conv_factor
+    
+    masked_data = mask_image(data_sub, nongal_objs, r=r, sigma=sigma)
     masked_hdu = deepcopy(hdu)
     masked_hdu[0].data = masked_data
-    outfile = obj_dir / f"masked_{survey}_{filt}.fits"
+    outfile = obj_dir / survey /f"{survey}_{filt}_masked.fits"
     masked_hdu.writeto(outfile, overwrite=True)
 
     if survey in flipped_surveys:
@@ -221,18 +218,14 @@ def create_mask(
     if save_mask_params is True:
         # save detected objects and masking parameters
         objects_df = pd.concat([pd.DataFrame(gal_obj), 
-                                pd.DataFrame(nogal_objs)])
+                                pd.DataFrame(nongal_objs)])
         objects_df["sigma"] = sigma
         objects_df["r"] = r
         objects_df["flip"] = flip
         objects_df["filt"] = filt
         objects_df["survey"] = survey
-        outfile = obj_dir / survey / f"{survey}_{filt}_mask.csv"
+        outfile = obj_dir / survey / f"{survey}_{filt}_mask_params.csv"
         objects_df.to_csv(outfile, index=False)
-        #outfile = obj_dir / survey / f"{survey}_{filt}_mask_parameters.pickle"
-        #with open(outfile, "wb") as fp:
-        #    mask_parameters = gal_obj, nogal_objs, img_wcs, sigma, r, flip
-        #    pickle.dump(mask_parameters, fp, protocol=4)
 
     if save_plots:
         outfile = obj_dir / survey / f"{survey}_{filt}_masked.jpg"
@@ -240,7 +233,7 @@ def create_mask(
         plot_masked_image(
             hdu,
             masked_hdu,
-            nogal_objs,
+            nongal_objs,
             gal_obj,
             r,
             host_ra,
@@ -251,31 +244,43 @@ def create_mask(
             outfile,
         )
     hdu.close()
-    #if extract_params:
-    #    return gal_obj, nogal_objs, img_wcs, sigma, r, flip
 
-def load_mask_params(name, filt, survey):
+def load_mask_params(name: str, filt: str, survey: str) -> tuple[np.ndarray, np.ndarray, wcs.WCS, np.ndarray,
+ float, bool]:
     """Loads previously saved mask parameters.
     
     Parameters
     ----------
-    name: str
-        Name of the object to find the path of the mask-parameters file.
-    filt: str
-        Name of the filter used to create the mask parameters. Coadds are
+    name: Name of the object to find the path of the mask-parameters file.
+    filt: Name of the filter used to create the mask parameters. Coadds are
         also valid.
-    survey: str
-        Survey name to be used.
+    survey: Survey name to be used.
         
     Returns
     -------
-    mask_params: tuple
-        Mask paremeters with the same format as the output of the
-        ``create_mask`` function.
+    gal_obj, nongal_objs, img_wcs, sigma, r, flip: Mask parameters.
     """
-    inputfile = Path(workdir, name, rf'{survey}_{filt}_mask_parameters.pickle')
-    mask_params = load_pickle(inputfile)
-    return mask_params
+    obj_dir = Path(workdir, name)
+    mask_params_file = obj_dir / survey / f"{survey}_{filt}_mask_params.csv"
+    objects_df = pd.read_csv(mask_params_file)
+    # split parameters
+    sigma = objects_df.pop("sigma").values[0]
+    r = objects_df.pop("r").values[1:]  # remove host-galaxy row
+    flip = objects_df.pop("flip").values[0]
+    _ = objects_df.pop("filt")
+    _ = objects_df.pop("survey")
+    # DataFrame to structured array
+    #objects = (pd.melt(objects_df, var_name='Type', value_name='Value').set_index('Type').to_records())
+    objects = objects_df.to_records()  # to structured/record array
+    gal_obj = objects[:1]
+    nongal_objs = objects[1:]
+    # load image WCS
+    fits_file = obj_dir / survey / f"{survey}_{filt}.fits"
+    hdu = fits.open(fits_file)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        img_wcs = wcs.WCS(hdu[0].header, naxis=2)
+    return gal_obj, nongal_objs, img_wcs, sigma, r, flip
 
 def plot_masked_image(
     hdu: list[fits.ImageHDU],
@@ -356,6 +361,7 @@ def plot_masked_image(
         coords_frame="pixel",
     )
     # galaxy pseudo-aperture
+    """
     fig2.show_ellipses(
         gal_obj["x"][0],
         gal_obj["y"][0],
@@ -365,7 +371,9 @@ def plot_masked_image(
         coords_frame="pixel",
         linewidth=3,
         edgecolor="r",
+        linestyle="dotted",
     )
+    """
     # other sources apertures
     fig2.show_ellipses(
         objects["x"],
