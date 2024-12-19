@@ -1,6 +1,7 @@
 import importlib
-import astropy.units as u
+import pandas as pd
 from pathlib import Path
+import astropy.units as u
 from typing import Optional
 
 from hostphot._constants import workdir
@@ -44,6 +45,7 @@ def download_images(
     >>> survey = 'PS1'
     >>> download_images(name, host_ra, host_dec, survey=survey)
     """
+    input_params = locals()  # dictionary
     # initial checks
     check_survey_validity(survey)
     check_work_dir(workdir)
@@ -53,6 +55,11 @@ def download_images(
         survey_dir.mkdir(parents=True)
     if filters is None:
         filters = get_survey_filters(survey)
+
+    # save input parameters
+    inputs_df = pd.DataFrame({key:[value] for key, value in input_params.items()})
+    inputs_df.to_csv(survey_dir / "cutouts_input.csv", index = False)
+
     # check existing images
     if overwrite is False:
         filters_without_image = []
@@ -66,6 +73,7 @@ def download_images(
                 filters_without_image.append(filt)  
         # only download images not found locally
         filters = filters_without_image  
+
     # extract download function for the given survey
     if survey == "2MASS":
         survey_module = importlib.import_module('hostphot.cutouts.twomass')
@@ -73,6 +81,7 @@ def download_images(
         survey_module = importlib.import_module('hostphot.cutouts.wise')
     else:
         survey_module = importlib.import_module(f'hostphot.cutouts.{survey.lower()}') 
+
     # download the images
     get_images = getattr(survey_module, f'get_{survey}_images') 
     if survey in ["SDSS", "GALEX", "unWISE", "LegacySurvey", "VISTA"]:
@@ -96,6 +105,7 @@ def download_images(
             hdu.close()
         else:
             hdu.close()
+
     # remove directory if it remains empty
     try:
         obj_dir.rmdir()
