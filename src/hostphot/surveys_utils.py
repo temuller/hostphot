@@ -3,17 +3,17 @@ import pandas as pd
 from pathlib import Path
 from typing import Optional
 
-import warnings
-
 import hostphot
+
 hostphot_path = Path(hostphot.__path__[0])
 config_file = hostphot_path.joinpath("filters", "config.txt")
-config_df = pd.read_csv(config_file, sep='\\s+')
+config_df = pd.read_csv(config_file, sep="\\s+")
 
 # surveys that need background subtraction
 bkg_surveys = ["2MASS", "WISE", "VISTA", "SkyMapper", "UKIDSS"]
 # surveys which are flipped respect to most others
 flipped_surveys = ["DES", "VISTA", "UKIDSS"]
+
 
 def check_survey_validity(survey: str) -> None:
     """Check whether the given survey is whithin the valid
@@ -26,6 +26,7 @@ def check_survey_validity(survey: str) -> None:
     global config_df
     surveys = list(config_df.survey)
     assert survey in surveys, f"Survey '{survey}' not in {surveys}"
+
 
 def get_survey_filters(survey: str) -> str | list:
     """Gets all the valid filters for the given survey.
@@ -49,6 +50,7 @@ def get_survey_filters(survey: str) -> str | list:
     if "," in filters:
         filters = filters.split(",")
     return filters
+
 
 def survey_zp(survey: str) -> str | dict:
     """Returns the zero-point for a given survey.
@@ -77,6 +79,7 @@ def survey_zp(survey: str) -> str | dict:
     else:
         zp_dict = {filt: float(zps) for filt in filters}
     return zp_dict
+
 
 def survey_pixel_scale(survey: str, filt: Optional[str] = None) -> float:
     """Returns the pixel scale for a given survey.
@@ -123,6 +126,7 @@ def survey_pixel_scale(survey: str, filt: Optional[str] = None) -> float:
 
     return float(pixel_scale)
 
+
 def check_filters_validity(filters: str | list, survey: str) -> None:
     """Check whether the given filters are whithin the valid
     options for the given survey.
@@ -135,7 +139,7 @@ def check_filters_validity(filters: str | list, survey: str) -> None:
     if survey == "HST":
         check_HST_filters(filters)
     elif survey == "JWST":
-       check_JWST_filters(filters)
+        check_JWST_filters(filters)
     else:
         valid_filters = get_survey_filters(survey)
         for filt in filters:
@@ -144,6 +148,7 @@ def check_filters_validity(filters: str | list, survey: str) -> None:
                 f"'{survey}' survey ({valid_filters})"
             )
             assert filt in valid_filters, message
+
 
 def check_HST_filters(filt: str) -> None:
     """Check whether the given filter is whithin the valid
@@ -162,9 +167,8 @@ def check_HST_filters(filt: str) -> None:
     global hostphot_path
     filters_dir = hostphot_path / "filters/HST"
     hst_filters = [file.name.split(".")[0] for file in filters_dir.rglob("*.dat")]
-    assert (
-        filt in hst_filters
-    ), f"Not a valid HST filter ({filt}): {hst_filters}"
+    assert filt in hst_filters, f"Not a valid HST filter ({filt}): {hst_filters}"
+
 
 def check_JWST_filters(filt: str) -> None:
     """Check whether the given filter is within the valid
@@ -180,11 +184,12 @@ def check_JWST_filters(filt: str) -> None:
     global hostphot_path
     filters_dir = hostphot_path / "filters/JWST"
     jwst_filters = [file.name.split(".")[0] for file in filters_dir.rglob("*.dat")]
-    assert (
-        filt in jwst_filters
-    ), f"Not a valid JWST filter ({filt}): {jwst_filters}"
+    assert filt in jwst_filters, f"Not a valid JWST filter ({filt}): {jwst_filters}"
 
-def extract_filter(filt: str, survey: str, version: Optional[str] = None) -> tuple[np.array, np.array]:
+
+def extract_filter(
+    filt: str, survey: str, version: Optional[str] = None
+) -> tuple[np.array, np.array]:
     """Extracts the transmission function for the filter.
 
     Parameters
@@ -214,19 +219,21 @@ def extract_filter(filt: str, survey: str, version: Optional[str] = None) -> tup
     if survey == "LegacySurvey":
         if version == "BASS+MzLS":
             if filt == "z":
-                filt_file = filters_path / rf"MzLS_z.dat"
+                filt_file = filters_path / "MzLS_z.dat"
             else:
-                filt_file = filters_path / rf"BASS_{filt}.dat"
+                filt_file = filters_path / f"BASS_{filt}.dat"
         elif version == "DECam":
-            filt_file = filters_path / rf"DECAM_{filt}.dat"
+            filt_file = filters_path / f"DECAM_{filt}.dat"
     elif survey == "HST":
         if "UVIS" in filt:
             # Usually UVIS2 is used, but there is no large difference
             filt = filt.replace("UVIS", "UVIS2")
-        filt_file = [file for file in Path(filters_path, "HST").rglob("*.dat") if filt in file][0]
+        filt_file = [
+            file for file in Path(filters_path, "HST").rglob("*.dat") if filt in file
+        ][0]
     elif survey == "JWST":
-       filt_file = filters_path / f"{filt}.dat"
+        filt_file = filters_path / f"{filt}.dat"
     else:
-        filt_file = filters_path / rf"{survey}_{filt}.dat"
+        filt_file = filters_path / f"{survey}_{filt}.dat"
     wave, transmission = np.loadtxt(filt_file).T
     return wave, transmission

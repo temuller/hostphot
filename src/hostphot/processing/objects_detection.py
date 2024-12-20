@@ -3,8 +3,6 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import aplpy
 
-plt.rcParams["mathtext.fontset"] = "cm"
-
 from astropy import wcs
 from astropy.io import fits
 from astropy import units as u
@@ -13,12 +11,13 @@ from astroquery.gaia import Gaia
 from astroquery.mast import Catalogs
 
 import sep_pjw as sep
-
 from hostphot._constants import font_family
 from hostphot.utils import suppress_stdout
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
+
+plt.rcParams["mathtext.fontset"] = "cm"
 
 def extract_objects(
     data: np.ndarray, bkg: np.ndarray, host_ra: float, host_dec: float, threshold: float, 

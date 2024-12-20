@@ -7,7 +7,10 @@ from astropy.nddata.utils import Cutout2D
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
-def trim_images(fits_files: list[fits.ImageHDU], pos: SkyCoord, size: float) -> list[fits.ImageHDU]:
+
+def trim_images(
+    fits_files: list[fits.ImageHDU], pos: SkyCoord, size: float
+) -> list[fits.ImageHDU]:
     """Trims the size of the given fits images.
 
     Parameters
@@ -37,6 +40,7 @@ def trim_images(fits_files: list[fits.ImageHDU], pos: SkyCoord, size: float) -> 
         trimmed_fits_files.append(fits_file)
 
     return trimmed_fits_files
+
 
 def remove_nan(hdu: list[fits.ImageHDU]) -> list[fits.ImageHDU]:
     """Remove columns and/or rows which have all NaN values.

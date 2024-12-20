@@ -1,7 +1,6 @@
-
 import pickle
 import numpy as np
-import pandas as pd 
+import pandas as pd
 from pathlib import Path
 from typing import Optional
 from copy import deepcopy
@@ -32,16 +31,22 @@ from hostphot.surveys_utils import (
     check_survey_validity,
     bkg_surveys,
     flipped_surveys,
-    #adapt_aperture,
-    #suppress_stdout,
-    #load_pickle
+    # adapt_aperture,
+    # suppress_stdout,
+    # load_pickle
 )
 from hostphot.utils import adapt_aperture, suppress_stdout
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
-def mask_image(data: np.ndarray, objects: np.ndarray, r: float | np.ndarray = 6, sigma: float | np.ndarray = 8) -> np.ndarray:
+
+def mask_image(
+    data: np.ndarray,
+    objects: np.ndarray,
+    r: float | np.ndarray = 6,
+    sigma: float | np.ndarray = 8,
+) -> np.ndarray:
     """Masks objects in an image (2D array) by convolving it with
     a 2D Gaussian kernel.
 
@@ -78,6 +83,7 @@ def mask_image(data: np.ndarray, objects: np.ndarray, r: float | np.ndarray = 6,
 
     return masked_data
 
+
 def create_mask(
     name: str,
     host_ra: float,
@@ -96,7 +102,7 @@ def create_mask(
     ref_filt: Optional[str] = None,
     ref_survey: Optional[str] = None,
     save_plots: bool = False,
-    save_mask_params: bool = False
+    save_mask_params: bool = False,
 ) -> None:
     """Calculates the aperture parameters to mask detected sources.
 
@@ -160,8 +166,8 @@ def create_mask(
         data_sub = np.copy(data)
 
     # save input parameters
-    inputs_df = pd.DataFrame({key:[value] for key, value in input_params.items()})
-    inputs_df.to_csv(obj_dir / survey / f"masking_input_{filt}.csv", index = False)
+    inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
+    inputs_df.to_csv(obj_dir / survey / f"masking_input_{filt}.csv", index=False)
 
     if (ref_filt is None) & (ref_survey is None):
         # extract objects
@@ -173,7 +179,7 @@ def create_mask(
             threshold,
             img_wcs,
             gal_dist_thresh,
-            deblend_cont
+            deblend_cont,
         )
         # preprocessing: cross-match extracted objects with a catalog
         # using two Gaia catalogs as they do not always include the
@@ -186,11 +192,13 @@ def create_mask(
     else:
         # use objects previously extracted
         # the aperture/ellipse parameters are updated accordingly
-        gal_obj, nongal_objs, master_img_wcs, sigma, r, flip2 = load_mask_params(name, ref_filt, ref_survey)
+        gal_obj, nongal_objs, master_img_wcs, sigma, r, flip2 = load_mask_params(
+            name, ref_filt, ref_survey
+        )
 
         if survey != ref_survey:
             # cross-survey mask: need to adapt some values
-            # flipping images 
+            # flipping images
             if survey in flipped_surveys:
                 flip = True
             else:
@@ -201,13 +209,15 @@ def create_mask(
                 flip_ = True
             # adapt sizes
             gal_obj, _ = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
-            nongal_objs, conv_factor = adapt_aperture(nongal_objs, master_img_wcs, img_wcs, flip_)
+            nongal_objs, conv_factor = adapt_aperture(
+                nongal_objs, master_img_wcs, img_wcs, flip_
+            )
             sigma /= conv_factor
-    
+
     masked_data = mask_image(data_sub, nongal_objs, r=r, sigma=sigma)
     masked_hdu = deepcopy(hdu)
     masked_hdu[0].data = masked_data
-    outfile = obj_dir / survey /f"{survey}_{filt}_masked.fits"
+    outfile = obj_dir / survey / f"{survey}_{filt}_masked.fits"
     masked_hdu.writeto(outfile, overwrite=True)
 
     if survey in flipped_surveys:
@@ -217,8 +227,7 @@ def create_mask(
 
     if save_mask_params is True:
         # save detected objects and masking parameters
-        objects_df = pd.concat([pd.DataFrame(gal_obj), 
-                                pd.DataFrame(nongal_objs)])
+        objects_df = pd.concat([pd.DataFrame(gal_obj), pd.DataFrame(nongal_objs)])
         objects_df["sigma"] = sigma
         objects_df["r"] = r
         objects_df["flip"] = flip
@@ -245,17 +254,19 @@ def create_mask(
         )
     hdu.close()
 
-def load_mask_params(name: str, filt: str, survey: str) -> tuple[np.ndarray, np.ndarray, wcs.WCS, np.ndarray,
- float, bool]:
+
+def load_mask_params(
+    name: str, filt: str, survey: str
+) -> tuple[np.ndarray, np.ndarray, wcs.WCS, np.ndarray, float, bool]:
     """Loads previously saved mask parameters.
-    
+
     Parameters
     ----------
     name: Name of the object to find the path of the mask-parameters file.
     filt: Name of the filter used to create the mask parameters. Coadds are
         also valid.
     survey: Survey name to be used.
-        
+
     Returns
     -------
     gal_obj, nongal_objs, img_wcs, sigma, r, flip: Mask parameters.
@@ -270,7 +281,7 @@ def load_mask_params(name: str, filt: str, survey: str) -> tuple[np.ndarray, np.
     _ = objects_df.pop("filt")
     _ = objects_df.pop("survey")
     # DataFrame to structured array
-    #objects = (pd.melt(objects_df, var_name='Type', value_name='Value').set_index('Type').to_records())
+    # objects = (pd.melt(objects_df, var_name='Type', value_name='Value').set_index('Type').to_records())
     objects = objects_df.to_records()  # to structured/record array
     gal_obj = objects[:1]
     nongal_objs = objects[1:]
@@ -281,6 +292,7 @@ def load_mask_params(name: str, filt: str, survey: str) -> tuple[np.ndarray, np.
         warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(hdu[0].header, naxis=2)
     return gal_obj, nongal_objs, img_wcs, sigma, r, flip
+
 
 def plot_masked_image(
     hdu: list[fits.ImageHDU],

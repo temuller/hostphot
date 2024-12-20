@@ -6,7 +6,11 @@ from typing import Optional
 
 from hostphot._constants import workdir
 from hostphot.utils import check_work_dir
-from hostphot.surveys_utils import get_survey_filters, check_survey_validity, check_filters_validity
+from hostphot.surveys_utils import (
+    get_survey_filters,
+    check_survey_validity,
+)
+
 
 def download_images(
     name: str,
@@ -57,8 +61,8 @@ def download_images(
         filters = get_survey_filters(survey)
 
     # save input parameters
-    inputs_df = pd.DataFrame({key:[value] for key, value in input_params.items()})
-    inputs_df.to_csv(survey_dir / "cutouts_input.csv", index = False)
+    inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
+    inputs_df.to_csv(survey_dir / "cutouts_input.csv", index=False)
 
     # check existing images
     if overwrite is False:
@@ -68,22 +72,22 @@ def download_images(
                 inst = version.replace("/", "_")
                 filt_image = survey_dir / f"{survey}_{inst}_{filters}.fits"
             else:
-                filt_image = survey_dir / f'{survey}_{filt}.fits'
+                filt_image = survey_dir / f"{survey}_{filt}.fits"
             if filt_image.is_file() is False:
-                filters_without_image.append(filt)  
+                filters_without_image.append(filt)
         # only download images not found locally
-        filters = filters_without_image  
+        filters = filters_without_image
 
     # extract download function for the given survey
     if survey == "2MASS":
-        survey_module = importlib.import_module('hostphot.cutouts.twomass')
+        survey_module = importlib.import_module("hostphot.cutouts.twomass")
     elif survey == "unWISE":
-        survey_module = importlib.import_module('hostphot.cutouts.wise')
+        survey_module = importlib.import_module("hostphot.cutouts.wise")
     else:
-        survey_module = importlib.import_module(f'hostphot.cutouts.{survey.lower()}') 
+        survey_module = importlib.import_module(f"hostphot.cutouts.{survey.lower()}")
 
     # download the images
-    get_images = getattr(survey_module, f'get_{survey}_images') 
+    get_images = getattr(survey_module, f"get_{survey}_images")
     if survey in ["SDSS", "GALEX", "unWISE", "LegacySurvey", "VISTA"]:
         hdu_list = get_images(ra, dec, size, filters, version)
     else:
@@ -108,6 +112,6 @@ def download_images(
 
     # remove directory if it remains empty
     try:
-        obj_dir.rmdir()
+        survey_dir.rmdir()
     except:
         pass
