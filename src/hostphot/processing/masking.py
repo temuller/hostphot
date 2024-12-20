@@ -275,6 +275,7 @@ def load_mask_params(
     obj_dir = Path(workdir, name)
     mask_params_file = obj_dir / survey / f"{survey}_{filt}_mask_params.csv"
     objects_df = pd.read_csv(mask_params_file)
+    
     # split parameters
     sigma = objects_df.pop("sigma").values[0]
     r = objects_df.pop("r").values[1:]  # remove host-galaxy row
@@ -286,12 +287,14 @@ def load_mask_params(
     objects = objects_df.to_records()
     gal_obj = objects[:1]
     nongal_objs = objects[1:]
+    
     # load image WCS
     fits_file = obj_dir / survey / f"{survey}_{filt}.fits"
     hdu = fits.open(fits_file)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(hdu[0].header, naxis=2)
+        
     return gal_obj, nongal_objs, img_wcs, sigma, r, flip
 
 
