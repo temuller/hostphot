@@ -103,6 +103,7 @@ def create_mask(
     ref_survey: Optional[str] = None,
     save_plots: bool = False,
     save_mask_params: bool = False,
+    save_input: bool = True,
 ) -> None:
     """Calculates the aperture parameters to mask detected sources.
 
@@ -140,6 +141,7 @@ def create_mask(
         need to have been previously saved with ``save_mask_params=True``.
     save_plots: If ``True``, the mask and galaxy aperture figures are saved.
     save_mask_params: If `True`, the extracted mask parameters are saved for later use.
+    save_input: Whether to save the input parameters.
     """
     input_params = locals()  # dictionary
     check_survey_validity(survey)
@@ -166,8 +168,9 @@ def create_mask(
         data_sub = np.copy(data)
 
     # save input parameters
-    inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
-    inputs_df.to_csv(obj_dir / survey / f"masking_input_{filt}.csv", index=False)
+    if save_input is True:
+        inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
+        inputs_df.to_csv(obj_dir / survey / f"masking_input_{filt}.csv", index=False)
 
     if (ref_filt is None) & (ref_survey is None):
         # extract objects

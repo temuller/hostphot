@@ -29,20 +29,16 @@ from astropy import units as u, wcs
 from astropy.cosmology import FlatLambdaCDM, Cosmology
 
 from hostphot._constants import workdir, font_family
+from hostphot.processing.cleaning import remove_nan
+from hostphot.photometry.dust import calc_extinction
+from hostphot.surveys_utils import get_survey_filters, check_filters_validity, check_survey_validity, survey_pixel_scale, bkg_surveys
 from hostphot.utils import (
-    get_survey_filters,
-    check_survey_validity,
-    check_filters_validity,
     calc_sky_unc,
     get_image_exptime,
-    survey_pixel_scale,
     check_work_dir,
     magnitude_calculation,
     suppress_stdout,
-    bkg_surveys,
 )
-from hostphot.processing.cleaning import remove_nan
-from hostphot.photometry.dust import calc_extinction
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -233,10 +229,10 @@ def photometry(
     check_work_dir(workdir)
     obj_dir = Path(workdir, name)
     if use_mask:
-        suffix = "masked_"
+        suffix = "_masked"
     else:
         suffix = ""
-    fits_file = obj_dir / f"{suffix}{survey}_{filt}.fits"
+    fits_file = obj_dir / survey / f"{survey}_{filt}{suffix}.fits"
 
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
@@ -322,8 +318,8 @@ def photometry(
         fluxes_err.append(flux_err)
 
         if save_plots:
-            outfile = obj_dir / rf"local_{survey}_{filt}_{ap_radius}kpc.jpg"
-            title = f"{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$"
+            outfile = obj_dir/ survey / f"local_{survey}_{filt}_{ap_radius}kpc.jpg"
+            title = fr"{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$"
             plot_aperture(hdu, px, py, radius_pix, title, outfile)
 
     hdu.close()
@@ -345,6 +341,7 @@ def multi_band_phot(
     save_plots: bool = True,
     save_results: bool = True,
     raise_exception: bool = True,
+    save_input: bool = True,
 ) -> pd.DataFrame:
     """Calculates the local aperture photometry for multiple filters.
 
@@ -369,6 +366,7 @@ def multi_band_phot(
     save_plots: If ``True``, the figure with the aperture is saved.
     save_results: If ``True``, the magnitudes are saved into a csv file.
     raise_exception: If ``True``, an exception is raised if the photometry fails for any filter.
+    save_input: Whether to save the input parameters.
 
     Returns
     -------
@@ -385,6 +383,7 @@ def multi_band_phot(
                             survey=survey, ap_radii=ap_radii,
                             use_mask=True, save_plots=True)
     """
+    input_params = locals()  # dictionary
     check_survey_validity(survey)
     if filters is None:
         if survey in ["HST", "JWST"]:
@@ -394,8 +393,14 @@ def multi_band_phot(
         check_filters_validity(filters, survey)
     if survey in ["HST", "JWST"]:
         filters = [filters]
+        
+    # save input parameters
+    if save_input is True:
+        inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
+        outfile = Path(workdir, name, survey, "local_phot_input.csv")
+        inputs_df.to_csv(outfile, index=False)
 
-    # turn float into a list
+    # turn int/float into a list
     if isinstance(ap_radii, (float, int)):
         ap_radii = [ap_radii]
 
@@ -443,7 +448,7 @@ def multi_band_phot(
 
     phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
     if save_results is True:
-        outfile = Path(workdir, name, f"{survey}_local.csv")
+        outfile = Path(workdir, name, survey, f"{survey}_local_photometry.csv")
         phot_df.to_csv(outfile, index=False)
 
     return phot_df

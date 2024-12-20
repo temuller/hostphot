@@ -21,6 +21,7 @@ def download_images(
     filters: Optional[str | list] = None,
     overwrite: bool = True,
     version: str = None,
+    save_input: bool = True,
 ):
     """Download images for a given object in the given filters of a
     given survey.
@@ -40,6 +41,7 @@ def download_images(
     filters: Filters for the images.
     overwrite: If ``True``, the images are overwritten if they alreadyexist.
     version: Version used by some surveys including multiple surveys. E.g. ``VHS`` for VISTA.
+    save_input: Whether to save the input parameters.
 
     Examples
     --------
@@ -61,8 +63,9 @@ def download_images(
         filters = get_survey_filters(survey)
 
     # save input parameters
-    inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
-    inputs_df.to_csv(survey_dir / "cutouts_input.csv", index=False)
+    if save_input is True:
+        inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
+        inputs_df.to_csv(survey_dir / "cutouts_input.csv", index=False)
 
     # check existing images
     if overwrite is False:

@@ -25,20 +25,23 @@ from astropy import wcs
 from astropy.io import fits
 
 from hostphot._constants import workdir
-from hostphot.utils import (
+from hostphot.processing.objects_detection import extract_objects, plot_detected_objects
+from hostphot.processing.cleaning import remove_nan
+from hostphot.photometry.dust import calc_extinction
+from hostphot.surveys_utils import (
     get_survey_filters,
-    check_survey_validity,
     check_filters_validity,
+    check_survey_validity,
+    survey_pixel_scale,
+    bkg_surveys,
+)
+from hostphot.utils import (
     get_image_gain,
     check_work_dir,
     magnitude_calculation,
     adapt_aperture,
-    bkg_surveys,
-    load_pickle
+    load_pickle,
 )
-from hostphot.processing.objects_detection import extract_objects, plot_detected_objects
-from hostphot.processing.cleaning import remove_nan
-from hostphot.photometry.dust import calc_extinction
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -46,7 +49,14 @@ from astropy.utils.exceptions import AstropyWarning
 sep.set_sub_object_limit(1e4)
 
 
-def kron_flux(data: np.ndarray, err: float, gain: float, objects: np.ndarray, kronrad: float, scale: float) -> tuple[float, float]:
+def kron_flux(
+    data: np.ndarray,
+    err: float,
+    gain: float,
+    objects: np.ndarray,
+    kronrad: float,
+    scale: float,
+) -> tuple[np.ndarray, np.ndarray]:
     """Calculates the Kron flux.
 
     Parameters
@@ -85,10 +95,12 @@ def kron_flux(data: np.ndarray, err: float, gain: float, objects: np.ndarray, kr
     return flux, flux_err
 
 
-def optimize_kron_flux(data: np.ndarray, err: float, gain: float, objects: np.ndarray, eps: float = 0.001) -> tuple[float, float, float, float]:
+def optimize_kron_flux(
+    data: np.ndarray, err: float, gain: float, objects: np.ndarray, eps: float = 0.001
+) -> tuple[float, float, float, float]:
     """Optimizes the Kron flux by iteration over different scales.
 
-    The stop condition is met when the change in flux between iterations 
+    The stop condition is met when the change in flux between iterations
     is less that ``eps``.
 
     Parameters
@@ -107,23 +119,21 @@ def optimize_kron_flux(data: np.ndarray, err: float, gain: float, objects: np.nd
     opt_scale: Optimized scale for the Kron radius.
     """
     kronrad, _ = sep.kron_radius(
-            data,
-            objects["x"],
-            objects["y"],
-            objects["a"],
-            objects["b"],
-            objects["theta"],
-            r=6.0,  # following sep docs
-        )
+        data,
+        objects["x"],
+        objects["y"],
+        objects["a"],
+        objects["b"],
+        objects["theta"],
+        r=6.0,  # following sep docs
+    )
     kronrad = kronrad[0]
-    
+
     opt_flux = 0.0
     # iterate over scale
     scales = np.arange(1, 10, 0.01)
     for scale in scales:
-        flux, flux_err = kron_flux(
-            data, err, gain, objects, kronrad, scale
-        )
+        flux, flux_err = kron_flux(data, err, gain, objects, kronrad, scale)
         flux, flux_err = flux[0], flux_err[0]
 
         calc_eps = np.abs(opt_flux - flux) / flux
@@ -208,12 +218,12 @@ def extract_kronparams(
     check_work_dir(workdir)
     obj_dir = Path(workdir, name)
     if use_mask:
-        suffix = "masked_"
+        suffix = "_masked"
     else:
         suffix = ""
     if isinstance(filt, list):
         filt = "".join(f for f in filt)
-    fits_file = obj_dir / rf"{suffix}{survey}_{filt}.fits"
+    fits_file = obj_dir / survey / f"{survey}_{filt}{suffix}.fits"
 
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
@@ -235,7 +245,7 @@ def extract_kronparams(
     # background error
     if survey in ["LegacySurvey"]:
         invvar_map = hdu[1].data
-        error = np.sqrt(1/invvar_map)
+        error = np.sqrt(1 / invvar_map)
     else:
         error = bkg_rms
 
@@ -248,7 +258,7 @@ def extract_kronparams(
         threshold,
         img_wcs,
         gal_dist_thresh,
-        deblend_cont
+        deblend_cont,
     )
     if optimize_kronrad:
         gain = 1  # doesn't matter here
@@ -267,7 +277,7 @@ def extract_kronparams(
         )
 
     if save_plots is True:
-        outfile = obj_dir / f"global_{survey}_{filt}.jpg"
+        outfile = obj_dir / survey / f"global_{survey}_{filt}.jpg"
         title = f"{name}: {survey}-${filt}$"
         plot_detected_objects(
             hdu,
@@ -296,9 +306,10 @@ def extract_kronparams(
 
     return gal_obj, img_wcs, kronrad, scale, flip
 
+
 def load_aperture_params(name, filt, survey):
     """Loads previously saved aperture parameters.
-    
+
     Parameters
     ----------
     name: str
@@ -308,18 +319,19 @@ def load_aperture_params(name, filt, survey):
         also valid.
     survey: str
         Survey name to be used.
-        
+
     Returns
     -------
     aperture_params: tuple
         Aperture paremeters with the same format as the output of the
         ``extract_kronparams`` function.
     """
-    inputfile = Path(workdir, name, rf'{survey}_{filt}_aperture_parameters.pickle')
-    
+    inputfile = Path(workdir, name, rf"{survey}_{filt}_aperture_parameters.pickle")
+
     aperture_params = load_pickle(inputfile)
-    
+
     return aperture_params
+
 
 def photometry(
     name: str,
@@ -333,7 +345,7 @@ def photometry(
     threshold: float = 10,
     use_mask: bool = True,
     correct_extinction: float = True,
-    aperture_params: XXXX = None,
+    aperture_params: float = None,  # ToDo type needs to be fixed!
     optimize_kronrad: bool = True,
     eps: float = 0.0001,
     gal_dist_thresh: float = -1,
@@ -387,18 +399,22 @@ def photometry(
     total_flux_err: Total flux error on the aperture flux.
     zp: Zeropoint.
     """
-    if survey == 'SkyMapper':
-        warnings.warn(("SkyMapper photometry is not completely trustworthy due to imprecision in "
-                       "the zeropoint for extended sources, which might be solved in a future data release."))
+    if survey == "SkyMapper":
+        warnings.warn(
+            (
+                "SkyMapper photometry is not completely trustworthy due to imprecision in "
+                "the zeropoint for extended sources, which might be solved in a future data release."
+            )
+        )
 
     check_survey_validity(survey)
     check_work_dir(workdir)
     obj_dir = Path(workdir, name)
     if use_mask:
-        suffix = "masked_"
+        suffix = "_masked"
     else:
         suffix = ""
-    fits_file = obj_dir / rf"{suffix}{survey}_{filt}.fits"
+    fits_file = obj_dir / survey / f"{survey}_{filt}{suffix}.fits"
 
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
@@ -422,7 +438,7 @@ def photometry(
     # background error
     if survey in ["LegacySurvey"]:
         invvar_map = hdu[1].data
-        error = np.sqrt(1/invvar_map)
+        error = np.sqrt(1 / invvar_map)
     else:
         error = bkg_rms
 
@@ -455,7 +471,7 @@ def photometry(
             threshold,
             img_wcs,
             gal_dist_thresh,
-            deblend_cont
+            deblend_cont,
         )
 
         # aperture photometry
@@ -475,9 +491,7 @@ def photometry(
                 6.0,
             )
             scale = 2.5
-            flux, flux_err = kron_flux(
-                data_sub, error, gain, gal_obj, kronrad, scale
-            )
+            flux, flux_err = kron_flux(data_sub, error, gain, gal_obj, kronrad, scale)
             flux, flux_err = flux[0], flux_err[0]
 
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
@@ -507,7 +521,7 @@ def photometry(
     if correct_extinction is True:
         A_ext = calc_extinction(filt, survey, host_ra, host_dec)
         mag -= A_ext
-        flux *= 10**(0.4*A_ext)
+        flux *= 10 ** (0.4 * A_ext)
 
     if save_plots is True:
         outfile = obj_dir / f"global_{survey}_{filt}.jpg"
@@ -550,6 +564,7 @@ def multi_band_phot(
     save_plots: bool = True,
     save_results: bool = True,
     raise_exception: bool = True,
+    save_input: bool = True,
 ):
     """Calculates multi-band aperture photometry of the host galaxy
     for an object.
@@ -592,6 +607,7 @@ def multi_band_phot(
     save_plots: If ``True``, the mask and galaxy aperture figures are saved.
     save_results: If ``True``, the magnitudes are saved into a csv file.
     raise_exception: If ``True``, an exception is raised if the photometry fails for any filter.
+    save_input: Whether to save the input parameters.
 
     Returns
     -------
@@ -608,15 +624,22 @@ def multi_band_phot(
                             use_mask=True, common_aperture=True,
                             coadd_filters='riz', save_plots=True)
     """
+    input_params = locals()  # dictionary
     check_survey_validity(survey)
     if filters is None:
-        if survey in ['HST', 'JWST']:
+        if survey in ["HST", "JWST"]:
             raise ValueError(f"For {survey}, the filter needs to be specified!")
         filters = get_survey_filters(survey)
     else:
         check_filters_validity(filters, survey)
-    if survey in ['HST', 'JWST']:
+    if survey in ["HST", "JWST"]:
         filters = [filters]
+        
+     # save input parameters
+    if save_input is True:
+        inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
+        outfile = Path(workdir, name, survey, "global_phot_input.csv")
+        inputs_df.to_csv(outfile, index=False)
 
     results_dict = {
         "name": name,
@@ -678,11 +701,9 @@ def multi_band_phot(
                 results_dict[f"{filt}_flux_err"] = np.nan
                 results_dict[f"{filt}_zeropoint"] = np.nan
 
-    phot_df = pd.DataFrame(
-            {key: [val] for key, val in results_dict.items()}
-        )
+    phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
     if save_results is True:
-        outfile = Path(workdir, name, rf"{survey}_global.csv")
+        outfile = Path(workdir, name, survey, f"{survey}_global.csv")
         phot_df.to_csv(outfile, index=False)
 
     return phot_df

@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from hostphot.cutouts import download_images
-import hostphot.local_photometry as lp
+import hostphot.photometry.local_photometry as lp
 
 
 class TestHostPhot(unittest.TestCase):

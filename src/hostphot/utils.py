@@ -27,10 +27,6 @@ config_file = hostphot_path.joinpath("filters", "config.txt")
 config_df = pd.read_csv(config_file, sep='\\s+')
 plt.rcParams["mathtext.fontset"] = "cm"
 
-# surveys that need background subtraction
-bkg_surveys = ["2MASS", "WISE", "VISTA", "SkyMapper", "UKIDSS"]
-
-
 def calc_sky_unc(image, exptime):
     """Calculates the uncertainty of the image from the
     sky standard deviation, sigma-clipped STD.
