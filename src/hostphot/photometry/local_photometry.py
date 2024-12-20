@@ -31,20 +31,23 @@ from astropy.cosmology import FlatLambdaCDM, Cosmology
 from hostphot._constants import workdir, font_family
 from hostphot.processing.cleaning import remove_nan
 from hostphot.photometry.dust import calc_extinction
-from hostphot.surveys_utils import get_survey_filters, check_filters_validity, check_survey_validity, survey_pixel_scale, bkg_surveys
-from hostphot.utils import (
-    calc_sky_unc,
-    get_image_exptime,
-    check_work_dir,
-    magnitude_calculation,
-    suppress_stdout,
+from hostphot.utils import check_work_dir, suppress_stdout
+from hostphot.surveys_utils import (
+    get_survey_filters,
+    check_filters_validity,
+    check_survey_validity,
+    survey_pixel_scale,
+    bkg_surveys,
 )
+from hostphot.photometry.phot_utils import calc_sky_unc, magnitude_calculation
+from hostphot.photometry.image_utils import get_image_exptime
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
 plt.rcParams["mathtext.fontset"] = "cm"
 
+# set initial cosmology
 H0 = 70
 Om0 = 0.3
 __cosmo__ = FlatLambdaCDM(H0, Om0)
@@ -306,8 +309,7 @@ def photometry(
             extra_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
             mag_err = np.sqrt(mag_err**2 + extra_err**2)
         """
-        # extinction correction is optional
-        if correct_extinction:
+        if correct_extinction is True:
             A_ext = calc_extinction(filt, survey, ra, dec)
             mag -= A_ext
             flux *= 10 ** (0.4 * A_ext)
@@ -318,8 +320,8 @@ def photometry(
         fluxes_err.append(flux_err)
 
         if save_plots:
-            outfile = obj_dir/ survey / f"local_{survey}_{filt}_{ap_radius}kpc.jpg"
-            title = fr"{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$"
+            outfile = obj_dir / survey / f"local_{survey}_{filt}_{ap_radius}kpc.jpg"
+            title = rf"{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$"
             plot_aperture(hdu, px, py, radius_pix, title, outfile)
 
     hdu.close()
@@ -393,7 +395,7 @@ def multi_band_phot(
         check_filters_validity(filters, survey)
     if survey in ["HST", "JWST"]:
         filters = [filters]
-        
+
     # save input parameters
     if save_input is True:
         inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})

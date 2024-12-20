@@ -1,4 +1,3 @@
-import pickle
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -7,7 +6,6 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import aplpy
 
-plt.rcParams["mathtext.fontset"] = "cm"
 
 import sep_pjw as sep
 from astropy.io import fits
@@ -27,18 +25,18 @@ from .objects_detection import (
     find_catalog_objects,
     cross_match,
 )
+from hostphot.utils import suppress_stdout
+from hostphot.photometry.image_utils import adapt_aperture
 from hostphot.surveys_utils import (
     check_survey_validity,
     bkg_surveys,
     flipped_surveys,
-    # adapt_aperture,
-    # suppress_stdout,
-    # load_pickle
 )
-from hostphot.utils import adapt_aperture, suppress_stdout
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
+
+plt.rcParams["mathtext.fontset"] = "cm"
 
 
 def mask_image(

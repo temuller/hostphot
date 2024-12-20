@@ -28,19 +28,14 @@ from hostphot._constants import workdir
 from hostphot.processing.objects_detection import extract_objects, plot_detected_objects
 from hostphot.processing.cleaning import remove_nan
 from hostphot.photometry.dust import calc_extinction
+from hostphot.utils import check_work_dir
+from hostphot.photometry.phot_utils import magnitude_calculation
+from hostphot.photometry.image_utils import get_image_gain, adapt_aperture
 from hostphot.surveys_utils import (
     get_survey_filters,
     check_filters_validity,
     check_survey_validity,
-    survey_pixel_scale,
     bkg_surveys,
-)
-from hostphot.utils import (
-    get_image_gain,
-    check_work_dir,
-    magnitude_calculation,
-    adapt_aperture,
-    load_pickle,
 )
 
 import warnings
@@ -396,7 +391,7 @@ def photometry(
     mag: Aperture magnitude.
     mag_err: Error on the aperture magnitude.
     flux: Aperture flux.
-    total_flux_err: Total flux error on the aperture flux.
+    flux_err: Total flux error on the aperture flux.
     zp: Zeropoint.
     """
     if survey == "SkyMapper":
@@ -494,8 +489,8 @@ def photometry(
             flux, flux_err = kron_flux(data_sub, error, gain, gal_obj, kronrad, scale)
             flux, flux_err = flux[0], flux_err[0]
 
+    # aperture area for an ellipse (or circle)
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
-
     mag, mag_err, flux, flux_err, zp = magnitude_calculation(
         flux,
         flux_err,
@@ -634,8 +629,8 @@ def multi_band_phot(
         check_filters_validity(filters, survey)
     if survey in ["HST", "JWST"]:
         filters = [filters]
-        
-     # save input parameters
+
+    # save input parameters
     if save_input is True:
         inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
         outfile = Path(workdir, name, survey, "global_phot_input.csv")

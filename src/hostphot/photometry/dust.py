@@ -9,7 +9,7 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 
 import hostphot
-from hostphot.utils import integrate_filter, extract_filter
+from hostphot.photometry.phot_utils import integrate_filter, extract_filter
 
 import warnings
 
