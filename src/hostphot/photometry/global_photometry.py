@@ -35,6 +35,7 @@ from hostphot.surveys_utils import (
     get_survey_filters,
     check_filters_validity,
     check_survey_validity,
+    flipped_surveys,
     bkg_surveys,
 )
 
@@ -145,7 +146,7 @@ def optimize_kron_flux(
     return opt_flux, opt_flux_err, kronrad, opt_scale
 
 
-def extract_kronparams(
+def extract_aperture(
     name: str,
     host_ra: float,
     host_dec: float,
@@ -163,7 +164,7 @@ def extract_kronparams(
     save_plots: bool = True,
     save_aperture_params: bool = True,
 ):
-    """Calculates the aperture parameters for common aperture.
+    """Calculates the aperture for a given galaxy.
 
     Parameters
     ----------
@@ -273,7 +274,7 @@ def extract_kronparams(
 
     if save_plots is True:
         outfile = obj_dir / survey / f"global_{survey}_{filt}.jpg"
-        title = f"{name}: {survey}-${filt}$"
+        title = rf"{name}: {survey}-${filt}$"
         plot_detected_objects(
             hdu,
             gal_obj,
@@ -286,46 +287,64 @@ def extract_kronparams(
             outfile,
         )
 
-    if survey in ["DES", "VISTA", "UKIDSS"]:
+    if survey in flipped_surveys:
         flip = True
     else:
         flip = False
 
     if save_aperture_params is True:
-        outfile = obj_dir / rf"{survey}_{filt}_aperture_parameters.pickle"
-        with open(outfile, "wb") as fp:
-            aperture_parameters = gal_obj, img_wcs, kronrad, scale, flip
-            pickle.dump(aperture_parameters, fp, protocol=4)
-
+        # save galaxy object and aperture parameters
+        gal_df = pd.DataFrame(gal_obj)
+        gal_df["kronrad"] = kronrad
+        gal_df["scale"] = scale
+        gal_df["flip"] = flip
+        gal_df["filt"] = filt
+        gal_df["survey"] = survey
+        outfile = obj_dir / survey / f"aperture_parameters_{filt}.csv"
+        gal_df.to_csv(outfile, index=False)
     hdu.close()
 
     return gal_obj, img_wcs, kronrad, scale, flip
 
 
-def load_aperture_params(name, filt, survey):
+def load_aperture_params(
+    name: str, filt: str, survey: str
+) -> tuple[np.ndarray, wcs.WCS, float, float, bool]:
     """Loads previously saved aperture parameters.
 
     Parameters
     ----------
-    name: str
-        Name of the object to find the path of the aperture-parameters file.
-    filt: str
-        Name of the filter used for the aperture parameters. Coadds are
+    name: Name of the object to find the path of the aperture-parameters file.
+    filt: Name of the filter used for the aperture parameters. Coadds are
         also valid.
-    survey: str
-        Survey name to be used.
+    survey: Survey name to be used.
 
     Returns
     -------
-    aperture_params: tuple
-        Aperture paremeters with the same format as the output of the
-        ``extract_kronparams`` function.
+    gal_obj, nongal_objs, img_wcs, sigma, r, flip: Mask parameters.
     """
-    inputfile = Path(workdir, name, rf"{survey}_{filt}_aperture_parameters.pickle")
+    obj_dir = Path(workdir, name)
+    aper_params_file = obj_dir / survey / f"aperture_parameters_{filt}.csv"
+    gal_df = pd.read_csv(aper_params_file)
 
-    aperture_params = load_pickle(inputfile)
+    # split parameters
+    kronrad = gal_df.pop("kronrad").values[0]
+    scale = gal_df.pop("scale").values[0]  # remove host-galaxy row
+    flip = gal_df.pop("flip").values[0]
+    # remove unused columns
+    _ = gal_df.pop("filt")
+    _ = gal_df.pop("survey")
+    # DataFrame to structured/record array
+    gal_obj = gal_df.to_records()
 
-    return aperture_params
+    # load image WCS
+    fits_file = obj_dir / survey / f"{survey}_{filt}.fits"
+    hdu = fits.open(fits_file)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        img_wcs = wcs.WCS(hdu[0].header, naxis=2)
+
+    return gal_obj, img_wcs, kronrad, scale, flip
 
 
 def photometry(
@@ -340,12 +359,15 @@ def photometry(
     threshold: float = 10,
     use_mask: bool = True,
     correct_extinction: float = True,
-    aperture_params: float = None,  # ToDo type needs to be fixed!
     optimize_kronrad: bool = True,
     eps: float = 0.0001,
     gal_dist_thresh: float = -1,
     deblend_cont: float = 0.005,
+    common_aperture: bool = False,
+    ref_filt: Optional[str] = None,
+    ref_survey: Optional[str] = None,
     save_plots: bool = True,
+    save_aperture_params: bool = False,
 ) -> tuple[float, float, float, float, float]:
     """Calculates the global aperture photometry of a galaxy using
     the Kron flux.
@@ -369,9 +391,6 @@ def photometry(
         been created beforehand.
     correct_extinction: If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
         by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
-    aperture_params: Tuple with objects info and Kron parameters. Used for
-        common aperture. If given, the Kron parameters are not
-        re-calculated
     optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the
         aperture size until the change in flux is less than ``eps``.
     eps: The Kron radius is increased until the change in flux is lower than ``eps``.
@@ -384,7 +403,13 @@ def photometry(
         considered as the galaxy (default option).
     deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
         To entirely disable deblending, set to 1.0.
+    common_aperture: Whether to use common aperture photometry using the reference filter(s) and survey.
+    ref_filt: Reference filter (or coadd filters) from which to use the aperture parameters. Note that the parameters
+        need to have been previously saved with ``save_aperture_params=True``.
+    ref_survey: Reference survey from which to use the aperture parameters. Note that the parameters
+        need to have been previously saved with ``save_aperture_params=True``.
     save_plots: If `True`, the mask and galaxy aperture figures are saved.
+    save_aperture_params: Whether to save the aperture parameters.
 
     Returns
     -------
@@ -401,7 +426,6 @@ def photometry(
                 "the zeropoint for extended sources, which might be solved in a future data release."
             )
         )
-
     check_survey_validity(survey)
     check_work_dir(workdir)
     obj_dir = Path(workdir, name)
@@ -436,58 +460,56 @@ def photometry(
         error = np.sqrt(1 / invvar_map)
     else:
         error = bkg_rms
+        
+    if (ref_filt is None) | (ref_survey is None) | (common_aperture is False):
+        gal_obj, img_wcs, kronrad, scale, _ = extract_aperture(
+            name,
+            host_ra,
+            host_dec,
+            filt,
+            survey,
+            ra,
+            dec,
+            bkg_sub,
+            threshold,
+            use_mask,
+            optimize_kronrad,
+            eps,
+            gal_dist_thresh,
+            deblend_cont,
+            save_plots,
+            save_aperture_params,
+        )
+        flux, flux_err = kron_flux(data_sub, error, gain, gal_obj, kronrad, scale)
+        flux, flux_err = flux[0], flux_err[0]
+    else:
+        # load previously saved aperture parameters
+        gal_obj, master_img_wcs, kronrad, scale, flip2 = load_aperture_params(
+            name, ref_filt, ref_survey
+        )
+        if survey != ref_survey:
+            # adapt different surveys
+            if survey in flipped_surveys:
+                flip = True
+            else:
+                flip = False
+            if flip == flip2:
+                flip_ = False
+            else:
+                flip_ = True
 
-    if aperture_params is not None:
-        gal_obj, master_img_wcs, kronrad, scale, flip2 = aperture_params
-
-        if survey in ["DES", "VISTA", "UKIDSS"]:
-            flip = True
+            # factor used for scaling the Kron radius between different pixel-scales / surveys
+            gal_obj, conv_factor = adapt_aperture(
+                gal_obj, master_img_wcs, img_wcs, flip_
+            )
         else:
-            flip = False
-        if flip == flip2:
-            flip_ = False
-        else:
-            flip_ = True
-
-        gal_obj, conv_factor = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
-        # factor used for scaling the Kron radius between different pixel scales
+            # dealing with the same survey
+            conv_factor = 1
 
         flux, flux_err = kron_flux(
             data_sub, error, gain, gal_obj, kronrad * conv_factor, scale
         )
         flux, flux_err = flux[0], flux_err[0]
-    else:
-        # extract galaxy
-        gal_obj, _ = extract_objects(
-            data_sub,
-            bkg_rms,
-            host_ra,
-            host_dec,
-            threshold,
-            img_wcs,
-            gal_dist_thresh,
-            deblend_cont,
-        )
-
-        # aperture photometry
-        # This uses what would be the default SExtractor parameters.
-        # See https://sep.readthedocs.io/en/v1.1.x/apertures.html
-        if optimize_kronrad:
-            opt_res = optimize_kron_flux(data_sub, error, gain, gal_obj, eps)
-            flux, flux_err, kronrad, scale = opt_res
-        else:
-            kronrad, _ = sep.kron_radius(
-                data_sub,
-                gal_obj["x"],
-                gal_obj["y"],
-                gal_obj["a"],
-                gal_obj["b"],
-                gal_obj["theta"],
-                6.0,
-            )
-            scale = 2.5
-            flux, flux_err = kron_flux(data_sub, error, gain, gal_obj, kronrad, scale)
-            flux, flux_err = flux[0], flux_err[0]
 
     # aperture area for an ellipse (or circle)
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
@@ -500,26 +522,14 @@ def photometry(
         header,
         bkg_rms,
     )
-    """"
-    if survey in ["LegacySurvey"]:
-        invvar_map = hdu[1].data
-        var_map = 1/invvar_map
-        sum_var, _ = kron_flux(
-                var_map, bkg_rms, gain, gal_obj, kronrad, scale
-            )
-        extra_flux_err = np.sqrt(sum_var[0]) 
-        flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
-        extra_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
-        mag_err = np.sqrt(mag_err**2 + extra_err**2)
-    """
     if correct_extinction is True:
         A_ext = calc_extinction(filt, survey, host_ra, host_dec)
         mag -= A_ext
         flux *= 10 ** (0.4 * A_ext)
 
     if save_plots is True:
-        outfile = obj_dir / f"global_{survey}_{filt}.jpg"
+        outfile = obj_dir / survey / f"global_{survey}_{filt}.jpg"
         title = f"{name}: {survey}-${filt}$"
         plot_detected_objects(
             hdu,
@@ -532,7 +542,6 @@ def photometry(
             title,
             outfile,
         )
-
     hdu.close()
 
     return mag, mag_err, flux, flux_err, zp
@@ -550,16 +559,17 @@ def multi_band_phot(
     threshold: float = 10,
     use_mask: bool = True,
     correct_extinction: bool = True,
-    aperture_params=None,
-    common_aperture: bool = True,
-    coadd_filters: str | list = "riz",
+    common_aperture: bool = False,
+    ref_filt: Optional[str | list] = None,
     optimize_kronrad: bool = True,
     eps: float = 0.0001,
     gal_dist_thresh: float = -1,
+    deblend_cont: float = 0.005,
     save_plots: bool = True,
+    save_aperture_params: bool = True,
     save_results: bool = True,
     raise_exception: bool = True,
-    save_input: bool = True,
+    save_input: bool = True, 
 ):
     """Calculates multi-band aperture photometry of the host galaxy
     for an object.
@@ -581,13 +591,8 @@ def multi_band_phot(
     use_mask: If ``True``, the masked fits files are used. These must have
         been created beforehand.
     correct_extinction: If ``True``, the magnitudes are corrected for extinction.
-    aperture_params: tuple, default `None`
-        Tuple with objects info and Kron parameters. Used for common aperture. If given,
-        the Kron parameters are not re-calculated. If given, this supersedes the use of
-        coadds for common aperture (``common_aperture`` parameter).
-    common_aperture: If ``True``, use a coadd image for common aperture photometry. This is not used
-        if ``aperture_params`` is given.
-    coadd_filters: Filters of the coadd image. Used for common aperture photometry.
+    common_aperture: Whether to use common aperture photometry using the reference filter(s).
+    ref_filt: Reference filter(s) used for common aperture photometry.
     optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the
         aperture size until the change in flux is less than ``eps``.
     eps: The Kron radius is increased until the change in flux is lower than ``eps``.
@@ -599,7 +604,10 @@ def multi_band_phot(
         the galaxy is considered as not found and a warning is printed. If a non-positive value
         is given, the threshold is considered as infinite, i.e. the closest detected object is
         considered as the galaxy (default option).
+    deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
+        To entirely disable deblending, set to 1.0.
     save_plots: If ``True``, the mask and galaxy aperture figures are saved.
+    save_aperture_params: Whether to save the aperture parameters.
     save_results: If ``True``, the magnitudes are saved into a csv file.
     raise_exception: If ``True``, an exception is raised if the photometry fails for any filter.
     save_input: Whether to save the input parameters.
@@ -617,7 +625,7 @@ def multi_band_phot(
     >>> results = gp.multi_band_phot(name, host_ra, host_dec,
                             survey=survey, ra=ra, dec=dec,
                             use_mask=True, common_aperture=True,
-                            coadd_filters='riz', save_plots=True)
+                            ref_filt='riz', save_plots=True)
     """
     input_params = locals()  # dictionary
     check_survey_validity(survey)
@@ -643,12 +651,12 @@ def multi_band_phot(
         "survey": survey,
     }
 
-    if common_aperture is True and aperture_params is None:
-        aperture_params = extract_kronparams(
+    if (common_aperture is True) & (ref_filt is not None):
+        _ = extract_aperture(
             name,
             host_ra,
             host_dec,
-            coadd_filters,
+            ref_filt,
             survey,
             ra=ra,
             dec=dec,
@@ -658,7 +666,9 @@ def multi_band_phot(
             optimize_kronrad=optimize_kronrad,
             eps=eps,
             gal_dist_thresh=gal_dist_thresh,
+            deblend_cont=deblend_cont,
             save_plots=save_plots,
+            save_aperture_params=True,
         )
 
     for filt in filters:
@@ -675,11 +685,15 @@ def multi_band_phot(
                 threshold=threshold,
                 use_mask=use_mask,
                 correct_extinction=correct_extinction,
-                aperture_params=aperture_params,
                 optimize_kronrad=optimize_kronrad,
                 eps=eps,
                 gal_dist_thresh=gal_dist_thresh,
+                deblend_cont=deblend_cont,
+                common_aperture=common_aperture,
+                ref_filt=ref_filt,
+                ref_survey=survey,  # use same survey
                 save_plots=save_plots,
+                save_aperture_params=save_aperture_params,
             )
             results_dict[filt] = mag
             results_dict[f"{filt}_err"] = mag_err
@@ -698,7 +712,7 @@ def multi_band_phot(
 
     phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
     if save_results is True:
-        outfile = Path(workdir, name, survey, f"{survey}_global.csv")
+        outfile = Path(workdir, name, survey, "global_photometry.csv")
         phot_df.to_csv(outfile, index=False)
 
     return phot_df

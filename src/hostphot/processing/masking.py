@@ -234,7 +234,7 @@ def create_mask(
         objects_df["flip"] = flip
         objects_df["filt"] = filt
         objects_df["survey"] = survey
-        outfile = obj_dir / survey / f"{survey}_{filt}_mask_params.csv"
+        outfile = obj_dir / survey / f"mask_params_{filt}.csv"
         objects_df.to_csv(outfile, index=False)
 
     if save_plots is True:
@@ -273,7 +273,7 @@ def load_mask_params(
     gal_obj, nongal_objs, img_wcs, sigma, r, flip: Mask parameters.
     """
     obj_dir = Path(workdir, name)
-    mask_params_file = obj_dir / survey / f"{survey}_{filt}_mask_params.csv"
+    mask_params_file = obj_dir / survey / f"mask_params_{filt}.csv"
     objects_df = pd.read_csv(mask_params_file)
     
     # split parameters
@@ -352,8 +352,10 @@ def plot_masked_image(
         fig.tick_labels.set_xformat("dd.dd")
         fig.tick_labels.set_yformat("dd.dd")
         fig.ticks.set_length(6)
-
-        fig.axis_labels.set_font(**{"family": font_family, "size": 18})  # this line is giving a warning!
+        # ToDo: solve this deprecation warning (Aplpy should do it?)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", AstropyWarning)
+            fig.axis_labels.set_font(**{"family": font_family, "size": 18})  # this line is giving a warning!
     # galaxy markers
     fig2.show_markers(
         host_ra,

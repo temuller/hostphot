@@ -164,8 +164,10 @@ def plot_aperture(
     fig.tick_labels.set_xformat("dd.dd")
     fig.tick_labels.set_yformat("dd.dd")
     fig.ticks.set_length(6)
-
-    fig.axis_labels.set_font(**{"family": font_family, "size": 18})
+    # ToDo: solve this deprecation warning (Aplpy should do it?)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        fig.axis_labels.set_font(**{"family": font_family, "size": 18})
 
     fig.set_title(title, **{"family": font_family, "size": 24})
     fig.set_theme("publication")
@@ -450,7 +452,7 @@ def multi_band_phot(
 
     phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
     if save_results is True:
-        outfile = Path(workdir, name, survey, f"{survey}_local_photometry.csv")
+        outfile = Path(workdir, name, survey, "local_photometry.csv")
         phot_df.to_csv(outfile, index=False)
 
     return phot_df

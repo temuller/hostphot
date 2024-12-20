@@ -274,7 +274,10 @@ def plot_detected_objects(
     fig.tick_labels.set_yformat("dd.dd")
     fig.ticks.set_length(6)
     # other configuration options
-    fig.axis_labels.set_font(**{"family": font_family, "size": 18})
+    # ToDo: solve this deprecation warning (Aplpy should do it?)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        fig.axis_labels.set_font(**{"family": font_family, "size": 18})
     fig.set_title(title, **{"family": font_family, "size": 24})
     fig.set_theme("publication")
     fig.ax.legend(fancybox=True, framealpha=1, prop={"size": 20, "family": font_family})
