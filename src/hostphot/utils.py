@@ -50,7 +50,7 @@ def plot_fits(fits_file: str | Path | list[fits.ImageHDU], ext: int = 0) -> None
     ext: Extension index.
     """
     if isinstance(fits_file, str) or isinstance(fits_file, Path):
-        title = fits_file.name.split()[0]
+        title = Path(fits_file).name.split()[0]
     else:
         title = None
 
@@ -66,7 +66,10 @@ def plot_fits(fits_file: str | Path | list[fits.ImageHDU], ext: int = 0) -> None
     fig.tick_labels.set_xformat("dd.dd")
     fig.tick_labels.set_yformat("dd.dd")
     fig.ticks.set_length(6)
-    fig.axis_labels.set_font(**{"family": font_family, "size": 18})
+    # ToDo: solve this deprecation warning (Aplpy should do it?)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        fig.axis_labels.set_font(**{"family": font_family, "size": 18})
     # title + theme
     fig.set_title(title, **{"family": font_family, "size": 24})
     fig.set_theme("publication")
