@@ -236,14 +236,14 @@ def create_mask(
         outfile = obj_dir / survey / f"{survey}_{filt}_mask_params.csv"
         objects_df.to_csv(outfile, index=False)
 
-    if save_plots:
+    if save_plots is True:
         outfile = obj_dir / survey / f"{survey}_{filt}_masked.jpg"
-        title = f"{name}: {survey}-${filt}$"
+        title = fr"{name}: {survey}-${filt}$"
         plot_masked_image(
             hdu,
             masked_hdu,
-            nongal_objs,
             gal_obj,
+            nongal_objs,
             r,
             host_ra,
             host_dec,
@@ -278,11 +278,11 @@ def load_mask_params(
     sigma = objects_df.pop("sigma").values[0]
     r = objects_df.pop("r").values[1:]  # remove host-galaxy row
     flip = objects_df.pop("flip").values[0]
+    # remove unused columns
     _ = objects_df.pop("filt")
     _ = objects_df.pop("survey")
-    # DataFrame to structured array
-    # objects = (pd.melt(objects_df, var_name='Type', value_name='Value').set_index('Type').to_records())
-    objects = objects_df.to_records()  # to structured/record array
+    # DataFrame to structured/record array
+    objects = objects_df.to_records()
     gal_obj = objects[:1]
     nongal_objs = objects[1:]
     # load image WCS
@@ -297,8 +297,8 @@ def load_mask_params(
 def plot_masked_image(
     hdu: list[fits.ImageHDU],
     masked_hdu: list[fits.ImageHDU],
+    gal_obj: np.ndarray,
     objects: np.ndarray,
-    gal_obj: np.ndarray = None,
     r: float | np.ndarray = 6,
     host_ra: Optional[float] = None,
     host_dec: Optional[float] = None,
@@ -349,7 +349,7 @@ def plot_masked_image(
         fig.tick_labels.set_yformat("dd.dd")
         fig.ticks.set_length(6)
 
-        fig.axis_labels.set_font(**{"family": font_family, "size": 18})
+        fig.axis_labels.set_font(**{"family": font_family, "size": 18})  # this line is giving a warning!
     # galaxy markers
     fig2.show_markers(
         host_ra,
@@ -415,20 +415,21 @@ def plot_masked_image(
         fancybox=True, framealpha=1, prop={"size": 20, "family": font_family}
     )
     # title
-    length = len(title) - 2
-    text = fig1.ax.text(
-        0.022 * length,
-        0.06,
-        title,
-        fontsize=28,
-        horizontalalignment="center",
-        verticalalignment="center",
-        transform=fig1.ax.transAxes,
-        font=font_family,
-    )
-    text.set_bbox(
-        dict(facecolor="white", edgecolor="white", alpha=0.9, boxstyle="round")
-    )
+    if title is not None:
+        length = len(title) - 2
+        text = fig1.ax.text(
+            0.022 * length,
+            0.06,
+            title,
+            fontsize=28,
+            horizontalalignment="center",
+            verticalalignment="center",
+            transform=fig1.ax.transAxes,
+            font=font_family,
+        )
+        text.set_bbox(
+            dict(facecolor="white", edgecolor="white", alpha=0.9, boxstyle="round")
+        )
     if outfile:
         plt.savefig(outfile, bbox_inches="tight")
         plt.close(figure)

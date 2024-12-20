@@ -19,9 +19,16 @@ from astropy.utils.exceptions import AstropyWarning
 
 plt.rcParams["mathtext.fontset"] = "cm"
 
+
 def extract_objects(
-    data: np.ndarray, bkg: np.ndarray, host_ra: float, host_dec: float, threshold: float, 
-    img_wcs: wcs.WCS, dist_thresh: float = -1, deblend_cont: float = 0.005
+    data: np.ndarray,
+    bkg: np.ndarray,
+    host_ra: float,
+    host_dec: float,
+    threshold: float,
+    img_wcs: wcs.WCS,
+    dist_thresh: float = -1,
+    deblend_cont: float = 0.005,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Extracts objects and their ellipse parameters. The function :func:`sep.extract()`
     is used.
@@ -79,6 +86,7 @@ def extract_objects(
     nogal_objs = objects.take(objs_id)
     return gal_obj, nogal_objs
 
+
 def find_gaia_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
     """Finds objects using the Gaia DR3 catalog for the given
     coordinates in a given radius.
@@ -107,9 +115,7 @@ def find_gaia_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
         print(exc)
         print("No objects found with Gaia DR3, switching to DR2")
         Gaia.MAIN_GAIA_TABLE = "gaiadr2.gaia_source"
-        gaia_cat = Gaia.query_object_async(
-            coordinate=coord, width=width, height=height
-        )
+        gaia_cat = Gaia.query_object_async(coordinate=coord, width=width, height=height)
 
     gaia_ra = np.array(gaia_cat["ra"].value)
     gaia_dec = np.array(gaia_cat["dec"].value)
@@ -117,6 +123,7 @@ def find_gaia_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
         ra=gaia_ra, dec=gaia_dec, unit=(u.degree, u.degree), frame="icrs"
     )
     return gaia_coord
+
 
 def find_catalog_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
     """Finds objects using the TESS image cutouts (Tic) catalog
@@ -147,7 +154,10 @@ def find_catalog_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
     )
     return cat_coord
 
-def cross_match(objects: np.ndarray, img_wcs: wcs.WCS, coord: SkyCoord, dist_thresh: float = 1.0) -> None:
+
+def cross_match(
+    objects: np.ndarray, img_wcs: wcs.WCS, coord: SkyCoord, dist_thresh: float = 1.0
+) -> None:
     """Cross-matches objects with a given set of coordinates.
     Those with a distance of less than ``dist_thresh`` are selected.
 
@@ -178,6 +188,7 @@ def cross_match(objects: np.ndarray, img_wcs: wcs.WCS, coord: SkyCoord, dist_thr
     objs = objects.take(objs_id)
 
     return objs
+
 
 def plot_detected_objects(
     hdu: list[fits.ImageHDU],
@@ -266,9 +277,7 @@ def plot_detected_objects(
     fig.axis_labels.set_font(**{"family": font_family, "size": 18})
     fig.set_title(title, **{"family": font_family, "size": 24})
     fig.set_theme("publication")
-    fig.ax.legend(
-        fancybox=True, framealpha=1, prop={"size": 20, "family": font_family}
-    )
+    fig.ax.legend(fancybox=True, framealpha=1, prop={"size": 20, "family": font_family})
     if outfile:
         plt.savefig(outfile, bbox_inches="tight")
         plt.close(figure)

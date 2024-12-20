@@ -12,8 +12,6 @@ import matplotlib.image as img
 import aplpy
 from contextlib import contextmanager
 
-plt.rcParams["mathtext.fontset"] = "cm"
-
 from astropy.stats import sigma_clipped_stats
 from photutils.utils import calc_total_error
 from photutils.aperture import EllipticalAperture
@@ -27,6 +25,7 @@ from hostphot._constants import font_family
 hostphot_path = Path(hostphot.__path__[0])
 config_file = hostphot_path.joinpath("filters", "config.txt")
 config_df = pd.read_csv(config_file, sep='\\s+')
+plt.rcParams["mathtext.fontset"] = "cm"
 
 # surveys that need background subtraction
 bkg_surveys = ["2MASS", "WISE", "VISTA", "SkyMapper", "UKIDSS"]
