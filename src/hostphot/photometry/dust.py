@@ -1,17 +1,15 @@
-import os
-from pathlib import Path
-
 import tarfile
 import requests
 import numpy as np
+from pathlib import Path
 
-from sfdmap2 import sfdmap
 import extinction
+from sfdmap2 import sfdmap
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
 import hostphot
-from .utils import integrate_filter, extract_filter
+from hostphot.utils import integrate_filter, extract_filter
 
 import warnings
 
@@ -32,13 +30,11 @@ def _download_dustmaps():
         for sky in ["n", "s"]
     ]
     maps_files = dust_files + mask_files
-    existing_files = [os.path.isfile(file) for file in maps_files]
+    existing_files = [file.is_file() for file in maps_files]
 
     if not all(existing_files) == True:
         # download dust maps
-        sfdmaps_url = (
-            "https://github.com/kbarbary/sfddata/archive/master.tar.gz"
-        )
+        sfdmaps_url = "https://github.com/kbarbary/sfddata/archive/master.tar.gz"
         response = requests.get(sfdmaps_url)
 
         master_tar = Path("master.tar.gz")
@@ -49,44 +45,33 @@ def _download_dustmaps():
         tar = tarfile.open(master_tar)
         tar.extractall(mapsdir)
         tar.close()
-        os.remove(master_tar)
+        master_tar.unlink()  # remove file
 
 
 def deredden(
-    wave,
-    flux,
-    ra,
-    dec,
-    scaling=0.86,
-    reddening_law="fitzpatrick99",
-    r_v=3.1,
-):
+    wave: np.ndarray,
+    flux: np.ndarray,
+    ra: float,
+    dec: float,
+    scaling: float = 0.86,
+    reddening_law: str = "fitzpatrick99",
+    r_v: float = 3.1,
+) -> np.ndarray:
     """Dereddens the given spectrum, given a right ascension and declination or :math:`E(B-V)`.
 
     Parameters
     ----------
-    wave : array
-        Wavelength values.
-    flux : array
-        Flux density values.
-    ra : float
-        Right ascension in degrees.
-    dec : float
-        Declination in degrees.
-    scaling: float, default ``0.86``
-        Calibration of the Milky Way dust maps. Either ``0.86``
+    wave: Wavelength values.
+    flux: Flux density values.
+    ra:  Right ascension in degrees.
+    dec: Declination in degrees.
+    scaling: Calibration of the Milky Way dust maps. Either ``0.86``
         for the Schlafly & Finkbeiner (2011) recalibration or ``1.0`` for the original
         dust map of Schlegel, Fikbeiner & Davis (1998).
-    reddening_law: str, default ``fitzpatrick99``
-        Reddening law. The options are: ``ccm89`` (Cardelli, Clayton & Mathis 1989),
+    reddening_law: Reddening law. The options are: ``ccm89`` (Cardelli, Clayton & Mathis 1989),
         ``odonnell94`` (O'Donnell 1994), ``fitzpatrick99`` (Fitzpatrick 1999), ``calzetti00``
         (Calzetti 2000) and ``fm07`` (Fitzpatrick & Massa 2007 with :math:`R_V` = 3.1.)
-    dustmaps_dir : str, default ``None``
-        Directory where the dust maps of Schlegel, Fikbeiner & Davis (1998) are found.
-    r_v : float, default ``3.1``
-        Total-to-selective extinction ratio (:math:`R_V`)
-    ebv : float, default ``None``
-        Colour excess (:math:`E(B-V)`). If given, this is used instead of the dust map value.
+    r_v: Total-to-selective extinction ratio (:math:`R_V`)
 
     Returns
     -------
@@ -126,43 +111,39 @@ def deredden(
 
 
 def calc_extinction(
-    filt, survey, ra, dec, scaling=0.86, reddening_law="fitzpatrick99", r_v=3.1
+    filt: str,
+    survey: str,
+    ra: float,
+    dec: float,
+    scaling: float = 0.86,
+    reddening_law: str = "fitzpatrick99",
+    r_v: float = 3.1,
 ):
     """Calculates the extinction for a given filter, right ascension and declination
     or `E(B-V)`.
 
     Parameters
     ----------
-    filter_wave : array
-        Filter's wavelength range.
-    filter_response : array
-        Filter's response function.
-    ra : float
-        Right ascension.
-    dec : float
-        Declinationin degrees.
-    scaling: float, default ``0.86``
-        Calibration of the Milky Way dust maps. Either ``0.86``
+    filter_wave: Filter's wavelength range.
+    filter_response: Filter's response function.
+    ra: Right ascension.
+    dec: Declinationin degrees.
+    scaling: Calibration of the Milky Way dust maps. Either ``0.86``
         for the Schlafly & Finkbeiner (2011) recalibration or ``1.0`` for the original
         dust map of Schlegel, Fikbeiner & Davis (1998).
-    reddening_law: str, default ``fitzpatrick99``
-        Reddening law. The options are: ``ccm89`` (Cardelli, Clayton & Mathis 1989),
+    reddening_law: Reddening law. The options are: ``ccm89`` (Cardelli, Clayton & Mathis 1989),
         ``odonnell94`` (O'Donnell 1994), ``fitzpatrick99`` (Fitzpatrick 1999), ``calzetti00``
         (Calzetti 2000) and ``fm07`` (Fitzpatrick & Massa 2007 with :math:`R_V` = 3.1.)
-    r_v : float, default ``3.1``
-        Total-to-selective extinction ratio (:math:`R_V`)
+    r_v: Total-to-selective extinction ratio (:math:`R_V`)
 
     Returns
     -------
-    A_ext : float
-        Extinction value in magnitudes.
+    A_ext: Extinction value in magnitudes.
     """
     if survey == "LegacySurvey":
         # https://datalab.noirlab.edu/ls/bass.php
         # declination above ~32 and above the galactic plane
-        gal_coords = SkyCoord(
-            ra=ra * u.degree, dec=dec * u.degree, frame="icrs"
-        )
+        gal_coords = SkyCoord(ra=ra * u.degree, dec=dec * u.degree, frame="icrs")
         if (dec > 32.375) and (gal_coords.b.value > 0):
             version = "BASS+MzLS"
         else:
@@ -175,14 +156,10 @@ def calc_extinction(
 
     # calculate extinction
     flux = 100
-    dereddened_flux = deredden(
-        filter_wave, flux, ra, dec, scaling, reddening_law, r_v
-    )
+    dereddened_flux = deredden(filter_wave, flux, ra, dec, scaling, reddening_law, r_v)
 
     f1 = integrate_filter(filter_wave, flux, filter_wave, filter_response)
-    f2 = integrate_filter(
-        filter_wave, dereddened_flux, filter_wave, filter_response
-    )
+    f2 = integrate_filter(filter_wave, dereddened_flux, filter_wave, filter_response)
     A_ext = -2.5 * np.log10(f1 / f2)
 
     return A_ext

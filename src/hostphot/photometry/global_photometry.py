@@ -14,11 +14,11 @@
 #
 # Some parts of this notebook are based on https://github.com/djones1040/PS1_surface_brightness/blob/master/Surface%20Brightness%20Tutorial.ipynb and codes from Lluís Galbany
 
-from pathlib import Path
-
 import pickle
 import numpy as np
 import pandas as pd
+from pathlib import Path
+from typing import Optional
 
 import sep_pjw as sep
 from astropy import wcs
@@ -36,9 +36,9 @@ from hostphot.utils import (
     bkg_surveys,
     load_pickle
 )
-from hostphot.objects_detect import extract_objects, plot_detected_objects
-from hostphot.image_cleaning import remove_nan
-from hostphot.dust import calc_extinction
+from hostphot.processing.objects_detection import extract_objects, plot_detected_objects
+from hostphot.processing.cleaning import remove_nan
+from hostphot.photometry.dust import calc_extinction
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -46,31 +46,22 @@ from astropy.utils.exceptions import AstropyWarning
 sep.set_sub_object_limit(1e4)
 
 
-# -------------------------------
-def kron_flux(data, err, gain, objects, kronrad, scale):
+def kron_flux(data: np.ndarray, err: float, gain: float, objects: np.ndarray, kronrad: float, scale: float) -> tuple[float, float]:
     """Calculates the Kron flux.
 
     Parameters
     ----------
-    data: ndarray
-        Data of an image.
-    err: float or 2D array
-        Background error of the images.
-    gain: float
-        Gain value.
-    objects: array
-        Objects detected with `sep.extract()`.
-    kronrad: float
-        Kron radius.
-    scale: float
-        Scale of the Kron radius.
+    data: Data of an image.
+    err: Background error of the images.
+    gain: Gain value.
+    objects: Objects detected with `sep.extract()`.
+    kronrad: Kron radius.
+    scale: Scale of the Kron radius.
 
     Returns
     -------
-    flux: array
-        Kron flux.
-    flux_err: array
-        Kron flux error.
+    flux: Kron flux.
+    flux_err: Kron flux error.
     """
     # theta must be in the range [-pi/2, pi/2] for sep.sum_ellipse()
     if objects["theta"] > np.pi / 2:
@@ -94,7 +85,7 @@ def kron_flux(data, err, gain, objects, kronrad, scale):
     return flux, flux_err
 
 
-def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
+def optimize_kron_flux(data: np.ndarray, err: float, gain: float, objects: np.ndarray, eps: float = 0.001) -> tuple[float, float, float, float]:
     """Optimizes the Kron flux by iteration over different scales.
 
     The stop condition is met when the change in flux between iterations 
@@ -102,27 +93,18 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
 
     Parameters
     ----------
-    data: ndarray
-        Data of an image.
-    err: float or ndarray
-        Background error of the images.
-    gain: float
-        Gain value.
-    objects: array
-        Objects detected with :func:`sep.extract()`.
-    eps: float, default ``0.0001`` (0.1%)
-        Minimum percent change in flux allowed between iterations.
+    data: Data of an image.
+    err: Background error of the images.
+    gain: Gain value.
+    objects: Objects detected with :func:`sep.extract()`.
+    eps: Minimum percent change in flux allowed between iterations.
 
     Returns
     -------
-    opt_flux: float
-        Optimized Kron flux.
-    opt_flux_err: float
-        Optimized Kron flux error.
-    kronrad: float
-        Kron radius.
-    opt_scale: float
-        Optimized scale for the Kron radius.
+    opt_flux: Optimized Kron flux.
+    opt_flux_err: Optimized Kron flux error.
+    kronrad: Kron radius.
+    opt_scale: Optimized scale for the Kron radius.
     """
     kronrad, _ = sep.kron_radius(
             data,
@@ -159,70 +141,54 @@ def optimize_kron_flux(data, err, gain, objects, eps=0.0001):
 
 
 def extract_kronparams(
-    name,
-    host_ra,
-    host_dec,
-    filt,
-    survey,
-    ra=None,
-    dec=None,
-    bkg_sub=False,
-    threshold=10,
-    use_mask=True,
-    optimize_kronrad=True,
-    eps=0.0001,
-    gal_dist_thresh=-1,
-    deblend_cont=0.005,
-    save_plots=True,
-    save_aperture_params=True,
+    name: str,
+    host_ra: float,
+    host_dec: float,
+    filt: str,
+    survey: str,
+    ra: float = None,
+    dec: float = None,
+    bkg_sub: bool = False,
+    threshold: float = 10,
+    use_mask: bool = True,
+    optimize_kronrad: bool = True,
+    eps: float = 0.0001,
+    gal_dist_thresh: float = -1,
+    deblend_cont: float = 0.005,
+    save_plots: bool = True,
+    save_aperture_params: bool = True,
 ):
     """Calculates the aperture parameters for common aperture.
 
     Parameters
     ----------
-    name: str
-        Name of the object to find the path of the fits file.
-    host_ra: float
-        Host-galaxy right ascension of the galaxy in degrees.
-    host_dec: float
-        Host-galaxy declination of the galaxy in degrees.
-    filt: str or list
-        Filter to use to load the fits file. List is commonly used for coadds.
-    survey: str
-        Survey to use for the zero-points and pixel scale.
-    ra: float, default ``None``
-       Right ascension of an object, in degrees. Used for plotting the position of the object.
-    dec: float, default ``None``
-       Declination of an object, in degrees. Used for plotting the position of the object.
-    bkg_sub: bool, default `None`
-        If `True`, the image gets background subtracted. By default, only
+    name: Name of the object to find the path of the fits file.
+    host_ra: Host-galaxy right ascension of the galaxy in degrees.
+    host_dec: Host-galaxy declination of the galaxy in degrees.
+    filt: Filter to use to load the fits file. List is commonly used for coadds.
+    survey: Survey to use for the zero-points and pixel scale.
+    ra: Right ascension of an object, in degrees. Used for plotting the position of the object.
+    dec: Declination of an object, in degrees. Used for plotting the position of the object.
+    bkg_sub: If `True`, the image gets background subtracted. By default, only
         the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
-    threshold: float, default `10`
-        Threshold used by `sep.extract()` to extract objects.
-    use_mask: bool, default `True`
-        If `True`, the masked fits files are used. These must have
+    threshold: Threshold used by `sep.extract()` to extract objects.
+    use_mask: If `True`, the masked fits files are used. These must have
         been created beforehand.
-    optimize_kronrad: bool, default `True`
-        If `True`, the Kron-radius scale is optimized, increasing the
+    optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the
         aperture size until the change in flux is less than ``eps``.
-    eps: float, default ``0.0001``
-        The Kron radius is increased until the change in flux is lower than ``eps``.
+    eps: The Kron radius is increased until the change in flux is lower than ``eps``.
         A value of 0.0001 means 0.01% change in flux.
-    gal_dist_thresh: float, default ``-1``.
-        Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
+    gal_dist_thresh: Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
         the galaxy is considered as not found and a warning is printed. If a non-positive value
         is given, the threshold is considered as infinite, i.e. the closest detected object is
         considered as the galaxy (default option).
-    deblend_cont : float, default ``0.005``
-        Minimum contrast ratio used for object deblending. Default is 0.005.
+    deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
         To entirely disable deblending, set to 1.0.
-    save_plots: bool, default `True`
-        If `True`, the mask and galaxy aperture figures are saved.
-    save_aperture_params: bool, default `True`
-        If `True`, the extracted mask parameters are saved into a pickle file.
+    save_plots: If `True`, the mask and galaxy aperture figures are saved.
+    save_aperture_params: If `True`, the extracted mask parameters are saved into a pickle file.
 
     Returns
     -------
@@ -356,24 +322,24 @@ def load_aperture_params(name, filt, survey):
     return aperture_params
 
 def photometry(
-    name,
-    host_ra,
-    host_dec,
-    filt,
-    survey,
-    ra=None,
-    dec=None,
-    bkg_sub=None,
-    threshold=10,
-    use_mask=True,
-    correct_extinction=True,
-    aperture_params=None,
-    optimize_kronrad=True,
-    eps=0.0001,
-    gal_dist_thresh=-1,
-    deblend_cont=0.005,
-    save_plots=True,
-):
+    name: str,
+    host_ra: float,
+    host_dec: float,
+    filt: str,
+    survey: str,
+    ra: Optional[float] = None,
+    dec: Optional[float] = None,
+    bkg_sub: Optional[bool] = None,
+    threshold: float = 10,
+    use_mask: bool = True,
+    correct_extinction: float = True,
+    aperture_params: XXXX = None,
+    optimize_kronrad: bool = True,
+    eps: float = 0.0001,
+    gal_dist_thresh: float = -1,
+    deblend_cont: float = 0.005,
+    save_plots: bool = True,
+) -> tuple[float, float, float, float, float]:
     """Calculates the global aperture photometry of a galaxy using
     the Kron flux.
 
@@ -381,67 +347,45 @@ def photometry(
 
     Parameters
     ----------
-    name: str
-        Name of the object to find the path of the fits file.
-    host_ra: float
-        Host-galaxy right ascension of the galaxy in degrees.
-    host_dec: float
-        Host-galaxy declination of the galaxy in degrees.
-    filt: str
-        Filter to use to load the fits file.
-    survey: str
-        Survey to use for the zero-points and pixel scale.
-    ra: float, default ``None``
-       Right ascension of an object, in degrees. Used for plotting the position of the object.
-    dec: float, default ``None``
-       Declination of an object, in degrees. Used for plotting the position of the object.
-    bkg_sub: bool, default ``None``
-        If ``True``, the image gets background subtracted. By default, only
+    name: Name of the object to find the path of the fits file.
+    host_ra: Host-galaxy right ascension of the galaxy in degrees.
+    host_dec: Host-galaxy declination of the galaxy in degrees.
+    filt: Filter to use to load the fits file.
+    survey: Survey to use for the zero-points and pixel scale.
+    ra: Right ascension of an object, in degrees. Used for plotting the position of the object.
+    dec: Declination of an object, in degrees. Used for plotting the position of the object.
+    bkg_sub: If ``True``, the image gets background subtracted. By default, only
         the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
-    threshold: float, default `10`
-        Threshold used by `sep.extract()` to extract objects.
-    use_mask: bool, default `True`
-        If `True`, the masked fits files are used. These must have
+    threshold: Threshold used by `sep.extract()` to extract objects.
+    use_mask: If `True`, the masked fits files are used. These must have
         been created beforehand.
-    correct_extinction: bool, default `True`
-        If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
+    correct_extinction: If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
         by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
-    aperture_params: tuple, default `None`
-        Tuple with objects info and Kron parameters. Used for
+    aperture_params: Tuple with objects info and Kron parameters. Used for
         common aperture. If given, the Kron parameters are not
         re-calculated
-    optimize_kronrad: bool, default `True`
-        If `True`, the Kron-radius scale is optimized, increasing the
+    optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the
         aperture size until the change in flux is less than ``eps``.
-    eps: float, default ``0.0001``
-        The Kron radius is increased until the change in flux is lower than ``eps``.
+    eps: The Kron radius is increased until the change in flux is lower than ``eps``.
         A value of 0.0001 means 0.01% change in flux.
-    gal_dist_thresh: float, default ``-1``.
-        Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
+    gal_dist_thresh: Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
         the galaxy is considered as not found and a warning is printed. If a non-positive value
         is given, the threshold is considered as infinite, i.e. the closest detected object is
         considered as the galaxy (default option).
-    deblend_cont : float, default ``0.005``
-        Minimum contrast ratio used for object deblending. Default is 0.005.
+    deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
         To entirely disable deblending, set to 1.0.
-    save_plots: bool, default `True`
-        If `True`, the mask and galaxy aperture figures are saved.
+    save_plots: If `True`, the mask and galaxy aperture figures are saved.
 
     Returns
     -------
-    mag: float
-        Aperture magnitude.
-    mag_err: float
-        Error on the aperture magnitude.
-    flux: float
-        Aperture flux.
-    total_flux_err: float
-        Total flux error on the aperture flux.
-    zp: float
-        Zeropoint.
+    mag: Aperture magnitude.
+    mag_err: Error on the aperture magnitude.
+    flux: Aperture flux.
+    total_flux_err: Total flux error on the aperture flux.
+    zp: Zeropoint.
     """
     if survey == 'SkyMapper':
         warnings.warn(("SkyMapper photometry is not completely trustworthy due to imprecision in "
@@ -586,92 +530,72 @@ def photometry(
 
 
 def multi_band_phot(
-    name,
-    host_ra,
-    host_dec,
-    filters=None,
-    survey="PS1",
-    ra=None,
-    dec=None,
-    bkg_sub=None,
-    threshold=10,
-    use_mask=True,
-    correct_extinction=True,
+    name: str,
+    host_ra: float,
+    host_dec: float,
+    filters: Optional[str | list] = None,
+    survey: str = "PS1",
+    ra: Optional[float] = None,
+    dec: Optional[float] = None,
+    bkg_sub: Optional[bool] = None,
+    threshold: float = 10,
+    use_mask: bool = True,
+    correct_extinction: bool = True,
     aperture_params=None,
-    common_aperture=True,
-    coadd_filters="riz",
-    optimize_kronrad=True,
-    eps=0.0001,
-    gal_dist_thresh=-1,
-    save_plots=True,
-    save_results=True,
-    raise_exception=True,
+    common_aperture: bool = True,
+    coadd_filters: str | list = "riz",
+    optimize_kronrad: bool = True,
+    eps: float = 0.0001,
+    gal_dist_thresh: float = -1,
+    save_plots: bool = True,
+    save_results: bool = True,
+    raise_exception: bool = True,
 ):
     """Calculates multi-band aperture photometry of the host galaxy
     for an object.
 
     Parameters
     ----------
-    name: str
-        Name of the object to find the path of the fits file.
-    host_ra: float
-        Host-galaxy right ascension of the galaxy in degrees.
-    host_dec: float
-        Host-galaxy declination of the galaxy in degrees.
-    filters: str, default, ``None``
-        Filters to use to load the fits files. If `None` use all
+    name: Name of the object to find the path of the fits file.
+    host_ra: Host-galaxy right ascension of the galaxy in degrees.
+    host_dec: Host-galaxy declination of the galaxy in degrees.
+    filters: Filters to use to load the fits files. If `None` use all
         the filters of the given survey.
-    survey: str, default ``PS1``
-        Survey to use for the zero-points and pixel scale.
-    ra: float, default ``None``
-       Right ascension of an object, in degrees. Used for plotting the position of the object.
-    dec: float, default ``None``
-       Declination of an object, in degrees. Used for plotting the position of the object.
-    bkg_sub: bool, default ``None``
-        If ``True``, the image gets background subtracted. By default, only
+    survey: Survey to use for the zero-points and pixel scale.
+    ra: Right ascension of an object, in degrees. Used for plotting the position of the object.
+    dec: Declination of an object, in degrees. Used for plotting the position of the object.
+    bkg_sub: If ``True``, the image gets background subtracted. By default, only
         the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
-    threshold: float, default ``10``
-        Threshold used by :func:`sep.extract()` to extract objects.
-    use_mask: bool, default ``True``
-        If ``True``, the masked fits files are used. These must have
+    threshold: Threshold used by :func:`sep.extract()` to extract objects.
+    use_mask: If ``True``, the masked fits files are used. These must have
         been created beforehand.
-    correct_extinction: bool, default ``True``
-        If ``True``, the magnitudes are corrected for extinction.
+    correct_extinction: If ``True``, the magnitudes are corrected for extinction.
     aperture_params: tuple, default `None`
         Tuple with objects info and Kron parameters. Used for common aperture. If given,
         the Kron parameters are not re-calculated. If given, this supersedes the use of
         coadds for common aperture (``common_aperture`` parameter).
-    common_aperture: bool, default ``True``
-        If ``True``, use a coadd image for common aperture photometry. This is not used
+    common_aperture: If ``True``, use a coadd image for common aperture photometry. This is not used
         if ``aperture_params`` is given.
-    coadd_filters: str, default ``riz``
-        Filters of the coadd image. Used for common aperture photometry.
-    optimize_kronrad: bool, default ``True``
-        If `True`, the Kron-radius scale is optimized, increasing the
+    coadd_filters: Filters of the coadd image. Used for common aperture photometry.
+    optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the
         aperture size until the change in flux is less than ``eps``.
-    eps: float, default ``0.0001``
-        The Kron radius is increased until the change in flux is lower than ``eps``.
+    eps: The Kron radius is increased until the change in flux is lower than ``eps``.
         A value of 0.0001 means 0.01% change in flux.
         when optimizing the Kron radius.
-    gal_dist_thresh: float, default ``-1``.
-        Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
+    gal_dist_thresh: Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
         the galaxy is considered as not found and a warning is printed. If a non-positive value
         is given, the threshold is considered as infinite, i.e. the closest detected object is
         considered as the galaxy (default option).
-    save_plots: bool, default ``True``
-        If ``True``, the mask and galaxy aperture figures are saved.
-    save_results: bool, default ``True``
-        If ``True``, the magnitudes are saved into a csv file.
-    raise_exception: bool, default ``True``
-        If ``True``, an exception is raised if the photometry fails for any filter.
+    save_plots: If ``True``, the mask and galaxy aperture figures are saved.
+    save_results: If ``True``, the magnitudes are saved into a csv file.
+    raise_exception: If ``True``, an exception is raised if the photometry fails for any filter.
 
     Returns
     -------
-    results_dict: dict
-        Dictionary with the object's photometry and other info.
+    phot_df: DataFrame with the object's photometry and other info.
 
     Examples
     --------
@@ -754,11 +678,11 @@ def multi_band_phot(
                 results_dict[f"{filt}_flux_err"] = np.nan
                 results_dict[f"{filt}_zeropoint"] = np.nan
 
-    if save_results is True:
-        outfile = Path(workdir, name, rf"{survey}_global.csv")
-        phot_df = pd.DataFrame(
+    phot_df = pd.DataFrame(
             {key: [val] for key, val in results_dict.items()}
         )
+    if save_results is True:
+        outfile = Path(workdir, name, rf"{survey}_global.csv")
         phot_df.to_csv(outfile, index=False)
 
-    return results_dict
+    return phot_df

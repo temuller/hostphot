@@ -14,21 +14,19 @@
 #
 # Some parts of this notebook are based on https://github.com/djones1040/PS1_surface_brightness/blob/master/Surface%20Brightness%20Tutorial.ipynb and codes from Lluís Galbany
 
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
+from pathlib import Path
+from typing import Optional
 import matplotlib.pyplot as plt
+
 import aplpy
-
-plt.rcParams['mathtext.fontset'] = "cm"
-
 import sep_pjw as sep
 from photutils.aperture import aperture_photometry, CircularAperture
 
 from astropy.io import fits
 from astropy import units as u, wcs
-from astropy.cosmology import FlatLambdaCDM
+from astropy.cosmology import FlatLambdaCDM, Cosmology
 
 from hostphot._constants import workdir, font_family
 from hostphot.utils import (
@@ -43,80 +41,70 @@ from hostphot.utils import (
     suppress_stdout,
     bkg_surveys,
 )
-from hostphot.image_cleaning import remove_nan
-from hostphot.dust import calc_extinction
+from hostphot.processing.cleaning import remove_nan
+from hostphot.photometry.dust import calc_extinction
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
+
+plt.rcParams["mathtext.fontset"] = "cm"
 
 H0 = 70
 Om0 = 0.3
 __cosmo__ = FlatLambdaCDM(H0, Om0)
 sep.set_sub_object_limit(1e4)
 
-# ----------------------------------------
-def choose_cosmology(cosmo):
+
+def choose_cosmology(cosmo: Cosmology) -> None:
     """Updates the cosmology used to calculate the aperture size.
 
     Parameters
     ----------
-    cosmo: `astropy.cosmology` object
-        Cosmological model. E.g. :func:`FlatLambdaCDM(70, 0.3)`.
+    cosmo: Cosmological model. E.g. :func:`FlatLambdaCDM(70, 0.3)`.
     """
     global __cosmo__
     __cosmo__ = cosmo
 
 
-# -------------------------------
-def calc_aperture_size(z, ap_radius):
+def calc_aperture_size(z: float, ap_radius: float) -> float:
     """Calculates the size of the aperture in arsec,
     for aperture photometry, given a physical size.
 
     Parameters
     ----------
-    z: float
-        Redshift.
-    ap_radius: float
-        Physical aperture size in kpc.
+    z: Redshift.
+    ap_radius: Physical aperture size in kpc.
 
     Returns
     -------
-    radius_arcsec: float
-        Aperture size in arcsec.
+    radius_arcsec: Aperture size in arcsec.
     """
     ap_radius = ap_radius * u.kpc
-
     # transverse separations
     transv_sep_per_arcmin = __cosmo__.kpc_proper_per_arcmin(z)
     transv_sep_per_arcsec = transv_sep_per_arcmin.to(u.kpc / u.arcsec)
-
     radius_arcsec = ap_radius / transv_sep_per_arcsec
 
     return radius_arcsec.value
 
 
-def extract_aperture_flux(data, error, px, py, radius):
+def extract_aperture_flux(
+    data: np.ndarray, error: np.ndarray, px: float, py: float, radius: float
+) -> tuple[float, float]:
     """Extracts aperture photometry of a single image.
 
     Parameters
     ----------
-    data: array
-        Image data in a 2D numpy array.
-    error: array
-        Errors of ``data``.
-    px: float
-        x-axis pixel coordinate of the aperture center.
-    py: float
-        y-axis pixel coordinate of the aperture center.
-    radius: float
-        Aperture radius in pixels.
+    data: Image data in a 2D numpy array.
+    error: Errors of ``data``.
+    px: x-axis pixel coordinate of the aperture center.
+    py: y-axis pixel coordinate of the aperture center.
+    radius: Aperture radius in pixels.
 
     Returns
     -------
-    raw_flux: float
-        Aperture photometry ("raw" flux).
-    raw_flux_err: float
-        Uncertainty on the aperture photometry.
+    raw_flux: Aperture photometry ("raw" flux).
+    raw_flux_err: Uncertainty on the aperture photometry.
     """
     aperture = CircularAperture((px, py), r=radius)
     ap_results = aperture_photometry(data, aperture, error=error)
@@ -126,54 +114,63 @@ def extract_aperture_flux(data, error, px, py, radius):
     return raw_flux, raw_flux_err
 
 
-def plot_aperture(hdu, px, py, radius_pix, title, outfile=None):
+def plot_aperture(
+    hdu: list[fits.ImageHDU],
+    px: float,
+    py: float,
+    radius_pix: float,
+    title: str,
+    outfile: Optional[str | Path] = None,
+) -> None:
     """Plots the aperture for the given parameters.
 
     Parameters
     ----------
-    data: ndarray
-        Data of an image.
-    px: float
-        X-axis center of the aperture in pixels.
-    py: float
-        Y-axis center of the aperture in pixels.
-    radius_pix: float
-        Aperture radius in pixels.
-    img_wcs: WCS
-        Image's WCS.
-    title: str
-        Title of the figure.
-    outfile: str, default ``None``
-        If given, path where to save the output figure.
+    hdu: HDU image.
+    px: x-axis center of the aperture in pixels.
+    py: y-axis center of the aperture in pixels.
+    radius_pix: Aperture radius in pixels.
+    title: Title of the figure.
+    outfile: If given, path where to save the output figure.
     """
 
     figure = plt.figure(figsize=(10, 10))
-    title, label = title.split('|')
+    title, label = title.split("|")
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         fig = aplpy.FITSFigure(hdu, figure=figure)
 
     with suppress_stdout():
-        fig.show_grayscale(stretch='arcsinh')
+        fig.show_grayscale(stretch="arcsinh")
 
     # plot SN and aperture
-    fig.show_markers(px, py, edgecolor='k', facecolor='aqua', 
-                     marker='*', s=200, label='SN', coords_frame='pixel')
-    fig.show_circles(px, py, radius_pix, coords_frame='pixel', linewidth=3, edgecolor='r')
-    fig.show_lines([], [], color='r', lw=3, label=label)  # for the legend only
+    fig.show_markers(
+        px,
+        py,
+        edgecolor="k",
+        facecolor="aqua",
+        marker="*",
+        s=200,
+        label="SN",
+        coords_frame="pixel",
+    )
+    fig.show_circles(
+        px, py, radius_pix, coords_frame="pixel", linewidth=3, edgecolor="r"
+    )
+    fig.show_lines([], [], color="r", lw=3, label=label)  # for the legend only
 
-    #ticks
-    fig.tick_labels.set_font(**{'family':font_family, 'size':18})
-    fig.tick_labels.set_xformat('dd.dd')
-    fig.tick_labels.set_yformat('dd.dd')
+    # ticks
+    fig.tick_labels.set_font(**{"family": font_family, "size": 18})
+    fig.tick_labels.set_xformat("dd.dd")
+    fig.tick_labels.set_yformat("dd.dd")
     fig.ticks.set_length(6)
 
-    fig.axis_labels.set_font(**{'family':font_family, 'size':18})
+    fig.axis_labels.set_font(**{"family": font_family, "size": 18})
 
-    fig.set_title(title, **{'family':font_family, 'size':24})
-    fig.set_theme('publication')
-    fig.ax.legend(fancybox=True, framealpha=1, prop={'size':20, 'family':font_family})
+    fig.set_title(title, **{"family": font_family, "size": 24})
+    fig.set_theme("publication")
+    fig.ax.legend(fancybox=True, framealpha=1, prop={"size": 20, "family": font_family})
 
     if outfile:
         plt.savefig(outfile, bbox_inches="tight")
@@ -181,68 +178,57 @@ def plot_aperture(hdu, px, py, radius_pix, title, outfile=None):
     else:
         plt.show()
 
+
 def photometry(
-    name,
-    ra,
-    dec,
-    z,
-    filt,
-    survey,
-    ap_radii=1,
-    bkg_sub=None,
-    use_mask=True,
-    correct_extinction=True,
-    save_plots=True,
-):
+    name: str,
+    ra: float,
+    dec: float,
+    z: float,
+    filt: str,
+    survey: str,
+    ap_radii: int | float = 1,
+    bkg_sub: Optional[bool] = None,
+    use_mask: bool = True,
+    correct_extinction: bool = True,
+    save_plots: bool = True,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
     """Calculates the local aperture photometry in a given radius.
 
     Parameters
     ----------
-    name: str
-        Name of the object to find the path of the fits file.
-    ra: float
-        Right Ascensions in degrees to center the aperture.
-    dec: float
-        Declinations in degrees to center the aperture.
-    z: float
-        Redshift of the object to estimate the physical calculate
+    name: Name of the object to find the path of the fits file.
+    ra: Right Ascensions in degrees to center the aperture.
+    dec: Declinations in degrees to center the aperture.
+    z: Redshift of the object to estimate the physical calculate
         of the aperture.
-    filt: str
-        Filter to use to load the fits file.
-    survey: str
-        Survey to use for the zero-points and pixel scale.
-    ap_radii: float or list-like, default ``1``
-        Physical size of the aperture in kpc.
-    bkg_sub: bool, default ``None``
-        If ``True``, the image gets background subtracted. By default, only
+    filt: Filter to use to load the fits file.
+    survey: Survey to use for the zero-points and pixel scale.
+    ap_radii: Physical size of the aperture in kpc.
+    bkg_sub: If ``True``, the image gets background subtracted. By default, only
         the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
-    use_mask: bool, default ``True``
-        If ``True``, the masked fits files are used. These must have
+    use_mask: If ``True``, the masked fits files are used. These must have
         been created beforehand.
-    correct_extinction: bool, default `True`
-        If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
+    correct_extinction: If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
         by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
-    save_plots: bool, default ``True``
-        If ``True``, the figure with the aperture is saved.
+    save_plots: If ``True``, the figure with the aperture is saved.
 
     Returns
     -------
-    mags: list
-        Aperture magnitudes for the given aperture radii.
-    mags_err: list
-        Aperture magnitude errors for the given aperture radii.
-    fluxes: list
-        Aperture flux for the given aperture radii.
-    fluxes_err: list
-        Aperture flux errors for the given aperture radii.
-    zp: float
-        Zeropoint.
+    mags: Aperture magnitudes for the given aperture radii.
+    mags_err: Aperture magnitude errors for the given aperture radii.
+    fluxes: Aperture flux for the given aperture radii.
+    fluxes_err: Aperture flux errors for the given aperture radii.
+    zp: Zeropoint.
     """
-    if survey == 'SkyMapper':
-        warnings.warn(("SkyMapper photometry is not completely trustworthy due to imprecision in "
-                       "the zeropoint for extended sources, which might be solved in a future data release."))
-        
+    if survey == "SkyMapper":
+        warnings.warn(
+            (
+                "SkyMapper photometry is not completely trustworthy due to imprecision in "
+                "the zeropoint for extended sources, which might be solved in a future data release."
+            )
+        )
+
     check_survey_validity(survey)
     check_work_dir(workdir)
     obj_dir = Path(workdir, name)
@@ -276,17 +262,17 @@ def photometry(
         ap_radii = [ap_radii]
 
     pixel_scale = survey_pixel_scale(survey, filt)
-    if survey == 'UKIDSS' and filt == 'J':
-        if 'LAS' in header['PROJECT'].split('/')[-1]:
-            # if the J comes from the LAS then the observations were micro-stepped
-            # in the J-band so the pixel size is smaller.
-            nustep = header['NUSTEP']
-            pixel_scale /= nustep/2  # divided by 2 for the two dimensions (x and y)
+    if survey == "UKIDSS" and filt == "J":
+        if "LAS" in header["PROJECT"].split("/")[-1]:
+            # if the J comes from the LAS, then the observations were micro-stepped,
+            # so the pixel size is smaller.
+            nustep = header["NUSTEP"]
+            pixel_scale /= nustep / 2  # divided by 2 for the two dimensions (x and y)
 
     # background error
     if survey in ["LegacySurvey"]:
         invvar_map = hdu[1].data
-        error = np.sqrt(1/invvar_map)
+        error = np.sqrt(1 / invvar_map)
     else:
         error = calc_sky_unc(data_sub, exptime)
 
@@ -299,9 +285,7 @@ def photometry(
         radius_arcsec = calc_aperture_size(z, ap_radius)
         radius_pix = radius_arcsec / pixel_scale
 
-        flux, flux_err = extract_aperture_flux(
-            data_sub, error, px, py, radius_pix
-        )
+        flux, flux_err = extract_aperture_flux(data_sub, error, px, py, radius_pix)
 
         ap_area = np.pi * (radius_pix**2)
         mag, mag_err, flux, flux_err, zp = magnitude_calculation(
@@ -330,7 +314,7 @@ def photometry(
         if correct_extinction:
             A_ext = calc_extinction(filt, survey, ra, dec)
             mag -= A_ext
-            flux *= 10**(0.4*A_ext)
+            flux *= 10 ** (0.4 * A_ext)
 
         mags.append(mag)
         mags_err.append(mag_err)
@@ -339,7 +323,7 @@ def photometry(
 
         if save_plots:
             outfile = obj_dir / rf"local_{survey}_{filt}_{ap_radius}kpc.jpg"
-            title = f'{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$'
+            title = f"{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$"
             plot_aperture(hdu, px, py, radius_pix, title, outfile)
 
     hdu.close()
@@ -348,61 +332,47 @@ def photometry(
 
 
 def multi_band_phot(
-    name,
-    ra,
-    dec,
-    z,
-    filters=None,
-    survey="PS1",
-    ap_radii=1,
-    bkg_sub=None,
-    use_mask=True,
-    correct_extinction=True,
-    save_plots=True,
-    save_results=True,
-    raise_exception=True,
-):
+    name: str,
+    ra: float,
+    dec: float,
+    z: float,
+    filters: Optional[str | list] = None,
+    survey: str = "PS1",
+    ap_radii: int | float = 1,
+    bkg_sub: Optional[bool] = None,
+    use_mask: bool = True,
+    correct_extinction: bool = True,
+    save_plots: bool = True,
+    save_results: bool = True,
+    raise_exception: bool = True,
+) -> pd.DataFrame:
     """Calculates the local aperture photometry for multiple filters.
 
     Parameters
     ----------
-    name: str
-        Name of the object to find the path of the fits file.
-    ra: float
-        Right Ascensions in degrees to center the aperture.
-    dec: float
-        Declinations in degrees to center the aperture.
-    z: float
-        Redshift of the object to estimate the physical calculate
+    name: Name of the object to find the path of the fits file.
+    ra: Right Ascensions in degrees to center the aperture.
+    dec: Declinations in degrees to center the aperture.
+    z: Redshift of the object to estimate the physical calculate
         of the aperture.
-    filters: str, default, ``None``
-        Filters to use to load the fits files. If ``None`` use all
+    filters: Filters to use to load the fits files. If ``None`` use all
         the filters of the given survey.
-    survey: str, default ``PS1``
-        Survey to use for the zero-points and pixel scale.
-    ap_radii: float or list-like, default ``1``
-        Physical size of the aperture in kpc.
-    bkg_sub: bool, default ``None``
-        If ``True``, the image gets background subtracted. By default, only
+    survey: Survey to use for the zero-points and pixel scale.
+    ap_radii: Physical size of the aperture in kpc.
+    bkg_sub: If ``True``, the image gets background subtracted. By default, only
         the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
-    use_mask: bool, default ``True``
-        If ``True``, the masked fits files are used. These must have
+    use_mask: If ``True``, the masked fits files are used. These must have
         been created beforehand.
-    correct_extinction: bool, default `True`
-        If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
+    correct_extinction: If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
         by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
-    save_plots: bool, default ``True``
-        If ``True``, the figure with the aperture is saved.
-    save_results: bool, default ``True``
-        If ``True``, the magnitudes are saved into a csv file.
-    raise_exception: bool, default ``True``
-        If ``True``, an exception is raised if the photometry fails for any filter.
+    save_plots: If ``True``, the figure with the aperture is saved.
+    save_results: If ``True``, the magnitudes are saved into a csv file.
+    raise_exception: If ``True``, an exception is raised if the photometry fails for any filter.
 
     Returns
     -------
-    results_dict: dict
-        Dictionary with the object's photometry and other info.
+    phot_df: DataFrame with the object's photometry and other info.
 
     Examples
     --------
@@ -417,12 +387,12 @@ def multi_band_phot(
     """
     check_survey_validity(survey)
     if filters is None:
-        if survey in ['HST', 'JWST']:
+        if survey in ["HST", "JWST"]:
             raise ValueError(f"For {survey}, the filter needs to be specified!")
         filters = get_survey_filters(survey)
     else:
         check_filters_validity(filters, survey)
-    if survey in ['HST', 'JWST']:
+    if survey in ["HST", "JWST"]:
         filters = [filters]
 
     # turn float into a list
@@ -436,7 +406,7 @@ def multi_band_phot(
         "redshift": z,
         "survey": survey,
     }
-    
+
     for filt in filters:
         try:
             mags, mags_err, fluxes, fluxes_err, zp = photometry(
@@ -471,11 +441,9 @@ def multi_band_phot(
                     results_dict[f"{filt}_{radius}_flux_err"] = np.nan
                 results_dict[f"{filt}_zeropoint"] = np.nan
 
+    phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
     if save_results is True:
-        outfile = Path(workdir, name, rf"{survey}_local.csv")
-        phot_df = pd.DataFrame(
-            {key: [val] for key, val in results_dict.items()}
-        )
+        outfile = Path(workdir, name, f"{survey}_local.csv")
         phot_df.to_csv(outfile, index=False)
 
-    return results_dict
+    return phot_df
