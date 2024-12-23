@@ -308,7 +308,7 @@ def extract_aperture(
 
 
 def load_aperture_params(
-    name: str, filt: str, survey: str
+    name: str, filt: str | list, survey: str
 ) -> tuple[np.ndarray, wcs.WCS, float, float, bool]:
     """Loads previously saved aperture parameters.
 
@@ -323,6 +323,8 @@ def load_aperture_params(
     -------
     gal_obj, nongal_objs, img_wcs, sigma, r, flip: Mask parameters.
     """
+    if isinstance(filt, list):
+        filt = "".join(f for f in filt)
     obj_dir = Path(workdir, name)
     aper_params_file = obj_dir / survey / f"aperture_parameters_{filt}.csv"
     gal_df = pd.read_csv(aper_params_file)
@@ -460,8 +462,9 @@ def photometry(
         error = np.sqrt(1 / invvar_map)
     else:
         error = bkg_rms
-        
+
     if (ref_filt is None) | (ref_survey is None) | (common_aperture is False):
+        # independent photometry for each filter
         gal_obj, img_wcs, kronrad, scale, _ = extract_aperture(
             name,
             host_ra,
@@ -482,8 +485,14 @@ def photometry(
         )
         flux, flux_err = kron_flux(data_sub, error, gain, gal_obj, kronrad, scale)
         flux, flux_err = flux[0], flux_err[0]
+    elif ((common_aperture is True) & (ref_filt is None)) | (
+        (common_aperture is True) & (ref_survey is None)
+    ):
+        raise ValueError(
+            "Reference filter(s) 'ref_filt' and survey 'ref_survey' must be given for common aperture photometry"
+        )
     else:
-        # load previously saved aperture parameters
+        # common aperture photometry
         gal_obj, master_img_wcs, kronrad, scale, flip2 = load_aperture_params(
             name, ref_filt, ref_survey
         )
@@ -561,6 +570,7 @@ def multi_band_phot(
     correct_extinction: bool = True,
     common_aperture: bool = False,
     ref_filt: Optional[str | list] = None,
+    ref_survey: Optional[str | list] = None,
     optimize_kronrad: bool = True,
     eps: float = 0.0001,
     gal_dist_thresh: float = -1,
@@ -569,7 +579,7 @@ def multi_band_phot(
     save_aperture_params: bool = True,
     save_results: bool = True,
     raise_exception: bool = True,
-    save_input: bool = True, 
+    save_input: bool = True,
 ):
     """Calculates multi-band aperture photometry of the host galaxy
     for an object.
@@ -591,8 +601,10 @@ def multi_band_phot(
     use_mask: If ``True``, the masked fits files are used. These must have
         been created beforehand.
     correct_extinction: If ``True``, the magnitudes are corrected for extinction.
-    common_aperture: Whether to use common aperture photometry using the reference filter(s).
+    common_aperture: Whether to use common aperture photometry using the reference filter(s) and survey.
     ref_filt: Reference filter(s) used for common aperture photometry.
+    ref_survey: Reference survey used for common aperture photometry. By default uses the same
+        as the input 'survey'.
     optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the
         aperture size until the change in flux is less than ``eps``.
     eps: The Kron radius is increased until the change in flux is lower than ``eps``.
@@ -651,13 +663,17 @@ def multi_band_phot(
         "survey": survey,
     }
 
+    if ref_survey is None:
+        ref_survey = survey
+
     if (common_aperture is True) & (ref_filt is not None):
+        # use common aperture
         _ = extract_aperture(
             name,
             host_ra,
             host_dec,
             ref_filt,
-            survey,
+            ref_survey,
             ra=ra,
             dec=dec,
             bkg_sub=bkg_sub,
@@ -669,6 +685,10 @@ def multi_band_phot(
             deblend_cont=deblend_cont,
             save_plots=save_plots,
             save_aperture_params=True,
+        )
+    elif (common_aperture is True) & (ref_filt is None):
+        raise ValueError(
+            "Reference filter(s) 'ref_filt' must be given for common aperture"
         )
 
     for filt in filters:
@@ -691,7 +711,7 @@ def multi_band_phot(
                 deblend_cont=deblend_cont,
                 common_aperture=common_aperture,
                 ref_filt=ref_filt,
-                ref_survey=survey,  # use same survey
+                ref_survey=ref_survey,
                 save_plots=save_plots,
                 save_aperture_params=save_aperture_params,
             )
