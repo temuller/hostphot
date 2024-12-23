@@ -257,7 +257,7 @@ def create_mask(
 
 
 def load_mask_params(
-    name: str, filt: str, survey: str
+    name: str, filt: str | list, survey: str
 ) -> tuple[np.ndarray, np.ndarray, wcs.WCS, np.ndarray, float, bool]:
     """Loads previously saved mask parameters.
 
@@ -272,6 +272,8 @@ def load_mask_params(
     -------
     gal_obj, nongal_objs, img_wcs, sigma, r, flip: Mask parameters.
     """
+    if isinstance(filt, list):
+        filt = ''.join(f for f in filt)
     obj_dir = Path(workdir, name)
     mask_params_file = obj_dir / survey / f"mask_params_{filt}.csv"
     objects_df = pd.read_csv(mask_params_file)
