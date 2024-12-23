@@ -57,8 +57,6 @@ def get_WISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
     else:
         size_arcsec = size.to(u.arcsec)
 
-    pixel_scale = survey_pixel_scale(survey)
-
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         coords = SkyCoord(

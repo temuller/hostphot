@@ -12,7 +12,10 @@ from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
-def get_2MASS_images(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> fits.HDUList:
+
+def get_2MASS_images(
+    ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None
+) -> fits.HDUList:
     """Downloads a set of 2MASS fits images for a given set
     of coordinates and filters.
 
@@ -40,20 +43,14 @@ def get_2MASS_images(ra: float, dec: float, size: float | u.Quantity = 3, filter
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
-        coords = SkyCoord(
-            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
-        )
-        twomass_services = pyvo.regsearch(
-            servicetype="image", keywords=["2mass"]
-        )
+        coords = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs")
+        twomass_services = pyvo.regsearch(servicetype="image", keywords=["2mass"])
         table = twomass_services[0].search(pos=coords, size=size_degree)
         twomass_df = table.to_table().to_pandas()
         twomass_df = twomass_df[twomass_df.format == "image/fits"]
 
         # for more info: https://irsa.ipac.caltech.edu/ibe/docs/twomass/allsky/allsky/#main
-        base_url = (
-            "https://irsa.ipac.caltech.edu/ibe/data/twomass/allsky/allsky"
-        )
+        base_url = "https://irsa.ipac.caltech.edu/ibe/data/twomass/allsky/allsky"
 
         hdu_list = []
         for filt in filters:
@@ -79,10 +76,10 @@ def get_2MASS_images(ra: float, dec: float, size: float | u.Quantity = 3, filter
                 n_zeros = 3 - len(str(scanno))
                 scanno = n_zeros * "0" + str(scanno)
 
-                tile_url = Path(f"{ordate}{hemisphere}", f"s{scanno}")
-                fits_url = Path("image", f"{fname}.gz")
+                tile_url = f"/{ordate}{hemisphere}/s{scanno}"
+                fits_url = f"/image/{fname}.gz"
                 params_url = f"center={ra},{dec}&size={size_degree}degree&gzip=0"  # center and size of the image
-                url = Path(base_url, tile_url, str(fits_url) + "?" + params_url)
+                url = base_url + tile_url + fits_url + "?" + params_url
                 try:
                     hdu = fits.open(url)
                     ny, nx = hdu[0].data.shape
@@ -92,7 +89,7 @@ def get_2MASS_images(ra: float, dec: float, size: float | u.Quantity = 3, filter
                     # some images might give 500 Internal Server Error
                     # because the cutout does not overlap the image
                     pass
-            if len(tmp_hdu_list)==0:
+            if len(tmp_hdu_list) == 0:
                 hdu_list.append(None)
             else:
                 # pick largest image, which usually is the best

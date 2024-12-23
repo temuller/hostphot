@@ -22,7 +22,7 @@ def download_images(
     overwrite: bool = True,
     version: str = None,
     save_input: bool = True,
-):
+) -> None:
     """Download images for a given object in the given filters of a
     given survey.
 
@@ -80,6 +80,8 @@ def download_images(
                 filters_without_image.append(filt)
         # only download images not found locally
         filters = filters_without_image
+        if len(filters) == 0:
+            return None
 
     # extract download function for the given survey
     if survey == "2MASS":
@@ -90,7 +92,7 @@ def download_images(
         survey_module = importlib.import_module(f"hostphot.cutouts.{survey.lower()}")
 
     # download the images
-    get_images = getattr(survey_module, f"get_{survey}_images")
+    get_images = getattr(survey_module, f"get_{survey}_images")  # this is a function
     if survey in ["SDSS", "GALEX", "unWISE", "LegacySurvey", "VISTA"]:
         hdu_list = get_images(ra, dec, size, filters, version)
     else:
