@@ -51,10 +51,9 @@ def plot_fits(fits_file: str | Path | list[fits.ImageHDU], ext: int = 0) -> None
     """
     if isinstance(fits_file, str) or isinstance(fits_file, Path):
         title = Path(fits_file).name.split()[0]
+        fits_file = str(fits_file)
     else:
         title = None
-    # turn to string if not already a string
-    fits_file = str(fits_file)
 
     figure = plt.figure(figsize=(10, 10))
     with warnings.catch_warnings():
