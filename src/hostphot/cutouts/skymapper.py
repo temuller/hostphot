@@ -1,13 +1,11 @@
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 import astropy.units as u
 from astropy.io import fits
-from astropy.coordinates import SkyCoord
 
 from pyvo.dal import sia
-from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
+from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 def get_SkyMapper_urls(ra: float, dec: float, fov: float | u.Quantity = 3, 
                     filters: str = "uvgriz") -> list[str] | None:

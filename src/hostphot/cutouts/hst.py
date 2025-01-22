@@ -1,5 +1,7 @@
 import shutil
 import zipfile
+import numpy as np
+import pandas as pd
 from pathlib import Path
 
 from astropy import wcs
@@ -12,6 +14,10 @@ from astroquery.esa.hubble import ESAHubble  # HST
 esahubble = ESAHubble()
 
 from hostphot.surveys_utils import check_HST_filters
+
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+
 
 def update_HST_header(hdu: fits.hdu.ImageHDU) -> None:
     """Updates the HST image header with the necessary keywords.

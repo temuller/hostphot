@@ -1,6 +1,5 @@
 import pyvo
 import numpy as np
-from pathlib import Path
 from typing import Optional
 
 import astropy.units as u

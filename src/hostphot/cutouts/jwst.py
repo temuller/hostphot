@@ -4,6 +4,10 @@ from astropy.io import fits
 
 from hostphot.surveys_utils import check_JWST_filters
 
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+
+
 def update_JWST_header(hdu: fits.hdu.ImageHDU) -> None:
     """Updates the JWST image header with the necessary keywords.
 

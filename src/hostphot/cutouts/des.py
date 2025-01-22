@@ -8,8 +8,6 @@ from astropy import units as u
 
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
-import warnings
-from astropy.utils.exceptions import AstropyWarning
 
 def get_DES_urls(ra: float, dec: float, fov: float, filters: str="grizY") -> tuple[list[str], list[str]]:
     """Obtains the URLs of the DES images+weights with the
