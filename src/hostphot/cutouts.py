@@ -1017,7 +1017,7 @@ def get_VISTA_images(ra, dec, size=3, filters=None, version="VHS"):
     ), f"Not a valid VISTA survey: choose from {valid_surveys}"
     database = database_dict[version]
 
-    base_url = "http://horus.roe.ac.uk:8080/vdfs/GetImage?archive=VSA&"
+    base_url = "http://vsa.roe.ac.uk:8080/vdfs/GetImage?archive=VSA&"
     survey_dict = {
         "database": database,
         "ra": ra,
