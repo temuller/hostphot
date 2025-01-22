@@ -78,21 +78,21 @@ class TestHostPhot(unittest.TestCase):
         
         for version, coords in surveys.items():
             ra, dec = coords
-            try:
-                download_images(
-                    name,
-                    ra,
-                    dec,
-                    overwrite=True,
-                    survey="VISTA",
-                    version=version,
-                )
-            except Exception as exc:
-                warnings.warn(
-                    "The VISTA SCIENCE ARCHIVE might be having issues..."
-                )
-                print(f"Skipping the test for {version}...")
-                print(exc)
+            #try:
+            download_images(
+                name,
+                ra,
+                dec,
+                overwrite=True,
+                survey="VISTA",
+                version=version,
+            )
+            #except Exception as exc:
+            #    warnings.warn(
+            #        "The VISTA SCIENCE ARCHIVE might be having issues..."
+            #    )
+            #    print(f"Skipping the test for {version}...")
+            #    print(exc)
 
     def test_cutouts_SkyMapper(self):
         download_images(

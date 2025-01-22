@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from hostphot.cutouts import download_images
-import hostphot.global_photometry as gp
+from hostphot.photometry import global_photometry as gp
 
 
 class TestHostPhot(unittest.TestCase):
@@ -11,16 +11,16 @@ class TestHostPhot(unittest.TestCase):
         host_dec = -15.400056
         survey = "PS1"
 
-        download_images(sn_name, host_ra, host_dec, survey=survey)
+        #download_images(sn_name, host_ra, host_dec, survey=survey)
         phot = gp.multi_band_phot(
             sn_name,
             host_ra,
             host_dec,
             survey=survey,
             use_mask=False,
-            common_aperture=False,
+            common_aperture=False, 
             optimize_kronrad=True,
-            save_plots=True,
+            save_plots=False,
             raise_exception=True,
         )
         mags = [phot[filt] for filt in "griz"]

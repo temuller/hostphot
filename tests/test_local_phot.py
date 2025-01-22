@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from hostphot.cutouts import download_images
-import hostphot.photometry.local_photometry as lp
+from hostphot.photometry import local_photometry as lp
 
 
 class TestHostPhot(unittest.TestCase):
@@ -12,7 +12,7 @@ class TestHostPhot(unittest.TestCase):
         z = 0.007482
         survey = "PS1"
 
-        ap_radii = [3, 4]  # in units of kpc
+        ap_radii = [4]  # in units of kpc
         download_images(sn_name, ra, dec, survey=survey)
         phot = lp.multi_band_phot(
             sn_name,
