@@ -8,6 +8,10 @@ from astropy.io import fits
 
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+
+
 def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3, 
                         filters: Optional[str] = None, version: str = "VHS") -> list[fits.ImageHDU]:
     """Gets VISTA fits images for the given coordinates and
@@ -43,10 +47,7 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
 
     if version is None:
         version = "VHS"
-    # These are final data releases - VIDEO has a DR6 and VIKING a DR5, but not I don't know if there is any difference:
-    # VHSDR6: https://b2find.eudat.eu/dataset/0b10d3a0-1cfe-5e67-8a5c-0949db9d19cb
-    # VIDEODR5: https://www.eso.org/sci/publications/announcements/sciann17491.html
-    # VIKINGDR4: https://www.eso.org/sci/publications/announcements/sciann17289.html
+    # Latest data releases
     database_dict = {
         "VHS": "VHSDR6",
         "VIDEO": "VIDEODR6",
@@ -58,7 +59,7 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
     ), f"Not a valid VISTA survey: choose from {valid_surveys}"
     database = database_dict[version]
 
-    base_url = "http://horus.roe.ac.uk:8080/vdfs/GetImage?archive=VSA&"
+    base_url = "http://vsa.roe.ac.uk:8080/vdfs/GetImage?archive=VSA&"
     survey_dict = {
         "database": database,
         "ra": ra,
