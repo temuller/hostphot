@@ -7,7 +7,7 @@ from typing import Optional
 
 import hostphot
 from hostphot._constants import workdir, font_family
-from hostphot.utils import get_survey_filters
+from hostphot.surveys_utils import get_survey_filters
 
 path = Path(hostphot.__path__[0])
 config_file = path.joinpath("filters", "config.txt")
@@ -92,7 +92,7 @@ def plot_sed(
 
     global colours
     obj_path = Path(workdir, name)
-    phot_files = [file for file in obj_path.rglob(r"*_{phot_type}.csv")]
+    phot_files = [file for file in obj_path.rglob(f"*{phot_type}_photometry.csv")]
 
     if include is not None and exclude is not None:
         raise ValueError("'inlcude' cannot be given together with 'exclude'!")
@@ -127,7 +127,7 @@ def plot_sed(
     ax.invert_yaxis()  # for magnitude plot
 
     for file in phot_files:
-        survey = file.name.split("_")[0]
+        survey = file.parts[-2]
         filters = get_survey_filters(survey)
 
         # Vega to AB
