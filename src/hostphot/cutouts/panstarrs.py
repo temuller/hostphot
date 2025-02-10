@@ -28,8 +28,8 @@ def query_ps1(ra: float, dec: float, size: float | u.Quantity = 3, filters: Opti
         filters = get_survey_filters(survey)
     if isinstance(filters, list):
         filters = "".join(filt for filt in filters)
-    # get size in pixels
-    pixel_scale = survey_pixel_scale(survey)
+    # get size in pixels (all filters have the same size)
+    pixel_scale = survey_pixel_scale(survey, "g")
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec).value
     else:
@@ -63,8 +63,8 @@ def get_PS1_urls(ra: float, dec: float, size: float | u.Quantity = 3, filters: O
     check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
-    # get size in pixels
-    pixel_scale = survey_pixel_scale(survey)
+    # get size in pixels (all filters have the same size)
+    pixel_scale = survey_pixel_scale(survey, "g")
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec).value
     else:
@@ -86,8 +86,8 @@ def get_PS1_urls(ra: float, dec: float, size: float | u.Quantity = 3, filters: O
         url_list.append(base_url + filename)
     return url_list
 
-def get_PS1_images(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> fits.HDUList:
-    """Gets PS1 fits images for the given coordinates and
+def get_PanSTARRS_images(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> fits.HDUList:
+    """Gets PanSTARRS fits images for the given coordinates and
     filters.
 
     Parameters

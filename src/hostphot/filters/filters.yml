@@ -24,32 +24,6 @@ PanSTARRS:
     pixel_scale: 0.25 
     magnitude_system: "AB"
     Vega_to_AB: 0.0
-PS1:
-  g:
-    zeropoint: 25
-    pixel_scale: 0.25  # in units of pixel/arsec
-    magnitude_system: "AB"
-    Vega_to_AB: 0.0
-  r:
-    zeropoint: 25
-    pixel_scale: 0.25  
-    magnitude_system: "AB"
-    Vega_to_AB: 0.0
-  i:
-    zeropoint: 25
-    pixel_scale: 0.25  
-    magnitude_system: "AB"
-    Vega_to_AB: 0.0
-  z:
-    zeropoint: 25
-    pixel_scale: 0.25  
-    magnitude_system: "AB"
-    Vega_to_AB: 0.0
-  y:
-    zeropoint: 25
-    pixel_scale: 0.25 
-    magnitude_system: "AB"
-    Vega_to_AB: 0.0
 DES:
   g:
     zeropoint: 30

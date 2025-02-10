@@ -44,8 +44,6 @@ def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3,
         size_arcsec = (size * u.arcmin).to(u.arcsec)
     else:
         size_arcsec = size.to(u.arcsec)
-    pixel_scale = survey_pixel_scale(survey)
-    size_pixels = int(size_arcsec.value / pixel_scale)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
@@ -124,6 +122,9 @@ def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3,
 
     hdu_list = []
     for filt in filters:
+        pixel_scale = survey_pixel_scale(survey, filt)
+        size_pixels = int(size_arcsec.value / pixel_scale)
+    
         hdu = hdu_dict[filt]
         if hdu is None:
             hdu_list.append(None)

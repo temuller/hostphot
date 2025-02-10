@@ -39,7 +39,7 @@ from hostphot.surveys_utils import (
     survey_pixel_scale,
     bkg_surveys,
 )
-from hostphot.photometry.phot_utils import calc_sky_unc, magnitude_calculation
+from hostphot.photometry.photometry_utils import calc_sky_unc, magnitude_calculation
 from hostphot.photometry.image_utils import get_image_exptime
 
 import warnings

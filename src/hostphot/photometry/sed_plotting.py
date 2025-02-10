@@ -7,15 +7,17 @@ from typing import Optional
 
 import hostphot
 from hostphot._constants import workdir, font_family
-from hostphot.surveys_utils import get_survey_filters
+from hostphot.surveys_utils import get_survey_filters, filters_file, load_yml, extract_filter
 
 path = Path(hostphot.__path__[0])
-config_file = path.joinpath("filters", "config.txt")
-config_df = pd.read_csv(config_file, sep="\\s+")
+filters_config = load_yml(filters_file)
+#config_file = path.joinpath("filters", "config.txt")
+#config_df = pd.read_csv(config_file, sep="\\s+")
+
 
 colours = {
     "GALEX": "purple",
-    "PS1": "green",
+    "PanSTARRS": "green",
     "SDSS": "blue",
     "DES": "lightblue",
     "SkyMapper": "slateblue",
@@ -41,14 +43,7 @@ def get_eff_wave(filt: str, survey: str) -> float:
     -------
     eff_wave: Effective wavelength in angstroms.
     """
-    path = Path(hostphot.__path__[0])
-    if survey == "unWISE":
-        survey = "WISE"
-
-    survey_files = path.joinpath("filters", survey).glob("*")
-    filt_file = [file for file in survey_files if str(file).endswith(f"_{filt}.dat")][0]
-
-    wave, trans = np.loadtxt(filt_file).T
+    wave, trans = extract_filter(filt, survey)
     eff_wave = np.sum(wave * trans) / np.sum(trans)
 
     return eff_wave
@@ -102,7 +97,7 @@ def plot_sed(
         include_files = []
         for file in phot_files:
             for pattern in include:
-                if pattern in file:
+                if pattern in str(file):
                     include_files.append(file)
                     break
         phot_files = include_files
@@ -112,7 +107,7 @@ def plot_sed(
         for file in phot_files:
             skip = False
             for pattern in exclude:
-                if pattern in file:
+                if pattern in str(file):
                     skip = True
             if skip is False:
                 include_files.append(file)
@@ -131,20 +126,12 @@ def plot_sed(
         filters = get_survey_filters(survey)
 
         # Vega to AB
-        global config_df
-        survey_df = config_df[config_df.survey == survey]
-        mag_sys_conv = survey_df.mag_sys_conv.values[0]
-        if "," in mag_sys_conv:
-            mag_sys_conv = {
-                filt: float(conv)
-                for filt, conv in zip(filters, mag_sys_conv.split(","))
-            }
-        else:
-            mag_sys_conv = {filt: 0.0 for filt in filters}
+        mag_sys_conv = {filt: filters_config[survey][filt]["Vega_to_AB"] 
+                        for filt in filters}
 
         # adapt name for local photometry
         if phot_type == "local":
-            title = f"{name} - {phot_type} SED (r $= {radius}$ kpc)"
+            title = fr"{name} - {phot_type} SED (r $= {radius}$ kpc)"
             ext = f"_{radius}"
         elif phot_type == "global":
             title = f"{name} - {phot_type} SED"
@@ -176,9 +163,9 @@ def plot_sed(
             phot = np.array(phot) - 2.5 * np.log10((1 + z))
             xlabel = r"Rest Wavelength ($\AA$)"
             if ")" in title:
-                title = title.replace(")", f" @ $z={z}$)")
+                title = title.replace(")", fr" @ $z={z}$)")
             else:
-                title = title + f" ($z={z}$)"
+                title = title + fr" ($z={z}$)"
         else:
             waves = np.array(waves)
             phot = np.array(phot)
@@ -186,6 +173,8 @@ def plot_sed(
         phot_err = np.array(phot_err)
 
         # NaN mask
+        print(file)
+        print(phot, phot_err)
         mask = ~np.isnan(phot) * phot_err > 0
         waves = waves[mask]
         phot = phot[mask]
@@ -194,7 +183,7 @@ def plot_sed(
 
         lims = phot / phot_err < 3  # upper limits;inverted for magnitude plots
         phot_err[lims] = 1  # for visualization
-        label = f'{survey} ({",".join(filt for filt in valid_filters)})'
+        label = f'{survey} ({", ".join(filt for filt in valid_filters)})'
         ax.errorbar(
             waves,
             phot,
@@ -217,7 +206,8 @@ def plot_sed(
 
     ax.set_xlabel(xlabel, fontsize=24, font=font_family)
     ax.set_ylabel("Magnitude (AB)", fontsize=24, font=font_family)
-    ax.set_title(title, fontsize=28, font=font_family)
+    ax.set_title(title, fontsize=28#, font=font_family
+                 )
 
     for label in ax.get_xticklabels():
         label.set_fontproperties(font_family)

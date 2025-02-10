@@ -28,7 +28,7 @@ from hostphot.processing.objects_detection import extract_objects, plot_detected
 from hostphot.processing.cleaning import remove_nan
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir
-from hostphot.photometry.phot_utils import magnitude_calculation
+from hostphot.photometry.photometry_utils import magnitude_calculation
 from hostphot.photometry.image_utils import get_image_gain, adapt_aperture
 from hostphot.surveys_utils import (
     get_survey_filters,
@@ -40,58 +40,12 @@ from hostphot.surveys_utils import (
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
+from photutils.aperture import aperture_photometry, EllipticalAperture
 
 sep.set_sub_object_limit(1e4)
 
 
 def kron_flux(
-    data: np.ndarray,
-    err: float,
-    gain: float,
-    objects: np.ndarray,
-    kronrad: float,
-    scale: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Calculates the Kron flux.
-
-    Parameters
-    ----------
-    data: Data of an image.
-    err: Background error of the images.
-    gain: Gain value.
-    objects: Objects detected with `sep.extract()`.
-    kronrad: Kron radius.
-    scale: Scale of the Kron radius.
-
-    Returns
-    -------
-    flux: Kron flux.
-    flux_err: Kron flux error.
-    """
-    # theta must be in the range [-pi/2, pi/2] for sep.sum_ellipse()
-    if objects["theta"] > np.pi / 2:
-        objects["theta"] -= np.pi
-    elif objects["theta"] < -np.pi / 2:
-        objects["theta"] += np.pi
-
-    flux, flux_err, _ = sep.sum_ellipse(
-        data,
-        objects["x"],
-        objects["y"],
-        objects["a"],
-        objects["b"],
-        objects["theta"],
-        scale * kronrad,
-        err=err,
-        subpix=5,
-        gain=gain,
-    )
-
-    return flux, flux_err
-
-
-from photutils.aperture import aperture_photometry, EllipticalAperture
-def _kron_flux(
     data: np.ndarray,
     err: float,
     gain: float,
@@ -276,7 +230,7 @@ def extract_aperture(
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
-    bkg_rms = bkg.globalrms  # bkg.back()
+    bkg_rms = bkg.back()  # bkg.back()   bkg.globalrms
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg)
     else:
@@ -487,7 +441,7 @@ def photometry(
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
-    bkg_rms = bkg.globalrms  # bkg.back()
+    bkg_rms = bkg.back()  # bkg.back()
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg)
     else:
@@ -520,8 +474,6 @@ def photometry(
             save_plots,
             save_aperture_params,
         )
-        flux, flux_err = kron_flux(data_sub, error, gain, gal_obj, kronrad, scale)
-        flux, flux_err = flux[0], flux_err[0]
     elif ((common_aperture is True) & (ref_filt is None)) | (
         (common_aperture is True) & (ref_survey is None)
     ):
@@ -551,12 +503,14 @@ def photometry(
         else:
             # dealing with the same survey
             conv_factor = 1
+        #print(conv_factor)
+        #kronrad *= conv_factor
 
-        flux, flux_err = kron_flux(
-            data_sub, error, gain, gal_obj, kronrad * conv_factor, scale
-        )
-        flux, flux_err = flux[0], flux_err[0]
-
+    flux, flux_err = kron_flux(
+        data_sub, error, gain, gal_obj, kronrad, scale
+    )
+    flux, flux_err = flux[0], flux_err[0]
+    
     # aperture area for an ellipse (or circle)
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
     mag, mag_err, flux, flux_err, zp = magnitude_calculation(
@@ -598,7 +552,7 @@ def multi_band_phot(
     host_ra: float,
     host_dec: float,
     filters: Optional[str | list] = None,
-    survey: str = "PS1",
+    survey: str = "PanSTARRS",
     ra: Optional[float] = None,
     dec: Optional[float] = None,
     bkg_sub: Optional[bool] = None,
@@ -702,7 +656,7 @@ def multi_band_phot(
 
     if ref_survey is None:
         ref_survey = survey
-
+    """
     if (common_aperture is True) & (ref_filt is not None):
         # use common aperture
         _ = extract_aperture(
@@ -727,6 +681,7 @@ def multi_band_phot(
         raise ValueError(
             "Reference filter(s) 'ref_filt' must be given for common aperture"
         )
+    """
 
     for filt in filters:
         try:

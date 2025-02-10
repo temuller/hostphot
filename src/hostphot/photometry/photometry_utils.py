@@ -21,8 +21,6 @@ from hostphot.photometry.image_utils import (
 )
 
 hostphot_path = Path(hostphot.__path__[0])
-config_file = hostphot_path.joinpath("filters", "config.txt")
-config_df = pd.read_csv(config_file, sep="\\s+")
 
 
 def calc_sky_unc(image: np.ndarray, exptime: float) -> float:
@@ -95,7 +93,7 @@ def uncertainty_calculation(
     ----------
     flux: Aperture flux.
     flux_err: Aperture flux error.
-    survey: Survey name: e.g. ``PS1``, ``GALEX``.
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
     filt: Survey-specific filter.
     ap_area: Aperture area.
     header: Header of an image.
@@ -113,7 +111,7 @@ def uncertainty_calculation(
     mag_err = 2.5 / np.log(10) * flux_err / flux
 
     if survey in [
-        "PS1",
+        "PanSTARRS",
         "DES",
         "LegacySurvey",
         "Spitzer",
@@ -154,7 +152,7 @@ def uncertainty_calculation(
         extra_err = unc_dict[filt]
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
-    elif survey == "PS1":
+    elif survey == "PanSTARRS":
         # add floor systematic error from:
         # https://iopscience.iop.org/article/10.3847/1538-4365/abb82a/pdf
         unc_dict = {
@@ -262,7 +260,7 @@ def uncertainty_calculation(
         k_z = 1.7  # kernel smoothing factor
         n_f = ap_area  # number of frame pixels in the aperture; aprox. as aperture area
         n_c = 4 * n_f  # number of coadd pixels in the aperture
-        sigma_c = bkg_rms  # coadd noise; assumed to be ~background noise
+        sigma_c = np.std(bkg_rms)  # coadd noise; assumed to be ~background noise
 
         SNR = S / np.sqrt(
             S / (gain * N_c)
@@ -380,7 +378,7 @@ def magnitude_calculation(
     Parameters
     ----------
     flux: Aperture flux.
-    survey: Survey name: e.g. ``PS1``, ``GALEX``.
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
     filt: Survey-specific filter.
     ap_area: Aperture area.
     header: Header of an image.
@@ -440,7 +438,7 @@ def magnitude_calculation(
         bkg_rms,
     )
 
-    if survey in ["PS1", "VISTA", "UKIDSS"]:
+    if survey in ["PanSTARRS", "VISTA", "UKIDSS"]:
         # flux needs to be in units of counts per second
         # but only after the error propagation
         exptime = get_image_exptime(header, survey)

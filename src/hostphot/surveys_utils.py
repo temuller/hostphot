@@ -7,8 +7,10 @@ from typing import Optional
 import hostphot
 
 hostphot_path = Path(hostphot.__path__[0])
-config_file = hostphot_path.joinpath("filters", "config.txt")
-config_df = pd.read_csv(config_file, sep="\\s+")
+filters_file = hostphot_path.joinpath("filters", "filters.yml")
+
+#config_file = hostphot_path.joinpath("filters", "config.txt")
+#config_df = pd.read_csv(config_file, sep="\\s+")
 
 # surveys that need background subtraction
 bkg_surveys = ["2MASS", "WISE", "VISTA", "SkyMapper", "UKIDSS"]
@@ -24,8 +26,6 @@ def load_yml(file: str) -> dict:
         except yaml.YAMLError as exc:
             print(exc)
             
-filters_file = hostphot_path.joinpath("filters", "filters.yml")
-filters_config = load_yml(filters_file)
 
 def check_survey_validity(survey: str) -> None:
     """Check whether the given survey is whithin the valid
@@ -33,12 +33,9 @@ def check_survey_validity(survey: str) -> None:
 
     Parameters
     ----------
-    survey: Survey name: e.g. ``PS1``, ``GALEX``.
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
     """
-    
-    #global config_df
-    #surveys = list(config_df.survey)
-    global filters_config
+    filters_config = load_yml(filters_file)
     surveys = list(filters_config.keys())
     assert survey in surveys, f"Survey '{survey}' not in {surveys}"
 
@@ -48,7 +45,7 @@ def get_survey_filters(survey: str) -> str | list:
 
     Parameters
     ----------
-    survey: Survey name: e.g. ``PS1``, ``GALEX``.
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
 
     Returns
     -------
@@ -59,10 +56,7 @@ def get_survey_filters(survey: str) -> str | list:
         # For HST, the filter needs to be specified
         return None
 
-    #global config_df
-    #survey_df = config_df[config_df.survey == survey]
-    #filters = survey_df.filters.values[0]
-    global filters_config
+    filters_config = load_yml(filters_file)
     filters = list(filters_config[survey].keys())
     #if "," in filters:
     #    filters = filters.split(",")
@@ -74,7 +68,7 @@ def survey_zp(survey: str, filt: str) -> str | dict:
 
     Parameters
     ----------
-    survey: Survey name: e.g. ``PS1``, ``GALEX``.
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
 
     Returns
     -------
@@ -82,12 +76,9 @@ def survey_zp(survey: str, filt: str) -> str | dict:
              is different for each image, the string ``header`` is returned.
     """
     check_survey_validity(survey)
-    filters = get_survey_filters(survey)
+    check_filters_validity([filt], survey)
 
-    #global config_df
-    #survey_df = config_df[config_df.survey == survey]
-    #zps = survey_df.zp.values[0]
-    global filters_config
+    filters_config = load_yml(filters_file)
     zp = filters_config[survey][filt]["zeropoint"]
 
     #if zp == "header":
@@ -105,7 +96,7 @@ def survey_pixel_scale(survey: str, filt: Optional[str] = None) -> float:
 
     Parameters
     ----------
-    survey: Survey name: e.g. ``PS1``, ``GALEX``.
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
     filt: Filter to use by surveys that have different pixel scales
           for different filters (e.g. Spitzer's IRAC and MIPS instruments).
 
@@ -114,10 +105,7 @@ def survey_pixel_scale(survey: str, filt: Optional[str] = None) -> float:
     pixel_scale: Pixel scale in units of arcsec/pixel.
     """
     check_survey_validity(survey)
-    #global config_df
-    #survey_df = config_df[config_df.survey == survey]
-    #pixel_scale = survey_df.pixel_scale.values[0]
-    global filters_config
+    filters_config = load_yml(filters_file)
     pixel_scale = filters_config[survey][filt]["pixel_scale"]
     """
     # some surveys have multiple scales (separated by ',') depending on the instrument
@@ -155,7 +143,7 @@ def check_filters_validity(filters: str | list, survey: str) -> None:
     Parameters
     ----------
     filters: Filters to use, e,g, ``griz``.
-    survey: Survey name: e.g. ``PS1``, ``GALEX``.
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
     """
     if survey == "HST":
         check_HST_filters(filters)
