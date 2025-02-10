@@ -167,6 +167,17 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 ```
 
 ## What's new!
+v3.0.0
+* Major internal restructuring of the code
+    * Convert the cutouts into a module with each survey as a different submodule
+    * Storage of input parameters
+    * Storage of output parameters in a more friendly format
+    * Restructuring of output files
+* Fix the VISTA SCIENCE ARCHIVE url for downloading VISTA images
+* The download of VISTA images now automatically chooses the survey with overlap for the given coordinates, prioritising the survey with deeper coverage.
+* The user experience is kept approximately consistent with previous versions, but there are some changes
+
+___
 v2.10.0
 * Adding JWST! (few NIRCam filters for now - thanks to Lisa Kelsey for this addition)
 * SkyMapper upgrade from DR2 to DR4 (note that there is still a problem with the photometric calibration of extended sources)

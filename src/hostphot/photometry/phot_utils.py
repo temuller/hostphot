@@ -395,11 +395,9 @@ def magnitude_calculation(
     zp: Zeropoint.
     """
     # get zeropoint
-    zp_dict = survey_zp(survey)
-    if zp_dict == "header":
+    zp = survey_zp(survey, filt)
+    if zp == "header":
         zp = header["MAGZP"]
-    else:
-        zp = zp_dict[filt]
 
     if survey == "SDSS":
         # SDSS zero-points are not exactly in AB:

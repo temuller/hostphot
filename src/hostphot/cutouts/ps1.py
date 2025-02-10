@@ -26,6 +26,8 @@ def query_ps1(ra: float, dec: float, size: float | u.Quantity = 3, filters: Opti
     check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
+    if isinstance(filters, list):
+        filters = "".join(filt for filt in filters)
     # get size in pixels
     pixel_scale = survey_pixel_scale(survey)
     if isinstance(size, (float, int)):

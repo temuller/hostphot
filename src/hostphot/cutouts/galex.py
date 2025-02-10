@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional
 
-from astropy import wcs
+from astropy.wcs import WCS
 import astropy.units as u
 from astropy.io import fits
 from astropy.nddata import Cutout2D
@@ -129,7 +129,7 @@ def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3,
             hdu_list.append(None)
             continue  # no image in this filter
         # trim data to requested size
-        img_wcs = wcs.WCS(hdu[0].header)
+        img_wcs = WCS(hdu[0].header)
         pos = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
 
         trimmed_data = Cutout2D(hdu[0].data, pos, size_pixels, img_wcs)

@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional
 
-from astropy import wcs
+from astropy.wcs import WCS
 from astropy.io import fits
 from astropy import units as u
 from astropy.coordinates import SkyCoord
@@ -81,7 +81,7 @@ def get_SDSS_images(ra: float, dec: float, size: float | u.Quantity = 3,
     for hdu in hdu_list:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", AstropyWarning)
-            img_wcs = wcs.WCS(hdu[0].header)
+            img_wcs = WCS(hdu[0].header)
         trimmed_data = Cutout2D(hdu[0].data, coords, size_pixels, img_wcs)
         hdu[0].data = trimmed_data.data
         hdu[0].header.update(trimmed_data.wcs.to_header())

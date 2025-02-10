@@ -1,3 +1,4 @@
+import yaml
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -14,6 +15,17 @@ bkg_surveys = ["2MASS", "WISE", "VISTA", "SkyMapper", "UKIDSS"]
 # surveys which are flipped respect to most others
 flipped_surveys = ["DES", "VISTA", "UKIDSS"]
 
+def load_yml(file: str) -> dict:
+    """Simply loads a YAML file.
+    """
+    with open(file) as stream:
+        try:
+            return (yaml.safe_load(stream))
+        except yaml.YAMLError as exc:
+            print(exc)
+            
+filters_file = hostphot_path.joinpath("filters", "filters.yml")
+filters_config = load_yml(filters_file)
 
 def check_survey_validity(survey: str) -> None:
     """Check whether the given survey is whithin the valid
@@ -23,8 +35,11 @@ def check_survey_validity(survey: str) -> None:
     ----------
     survey: Survey name: e.g. ``PS1``, ``GALEX``.
     """
-    global config_df
-    surveys = list(config_df.survey)
+    
+    #global config_df
+    #surveys = list(config_df.survey)
+    global filters_config
+    surveys = list(filters_config.keys())
     assert survey in surveys, f"Survey '{survey}' not in {surveys}"
 
 
@@ -44,15 +59,17 @@ def get_survey_filters(survey: str) -> str | list:
         # For HST, the filter needs to be specified
         return None
 
-    global config_df
-    survey_df = config_df[config_df.survey == survey]
-    filters = survey_df.filters.values[0]
-    if "," in filters:
-        filters = filters.split(",")
+    #global config_df
+    #survey_df = config_df[config_df.survey == survey]
+    #filters = survey_df.filters.values[0]
+    global filters_config
+    filters = list(filters_config[survey].keys())
+    #if "," in filters:
+    #    filters = filters.split(",")
     return filters
 
 
-def survey_zp(survey: str) -> str | dict:
+def survey_zp(survey: str, filt: str) -> str | dict:
     """Returns the zero-point for a given survey.
 
     Parameters
@@ -67,18 +84,20 @@ def survey_zp(survey: str) -> str | dict:
     check_survey_validity(survey)
     filters = get_survey_filters(survey)
 
-    global config_df
-    survey_df = config_df[config_df.survey == survey]
-    zps = survey_df.zp.values[0]
+    #global config_df
+    #survey_df = config_df[config_df.survey == survey]
+    #zps = survey_df.zp.values[0]
+    global filters_config
+    zp = filters_config[survey][filt]["zeropoint"]
 
-    if zps == "header":
-        return zps
-    if "," in zps:
-        zps = zps.split(",")
-        zp_dict = {filt: float(zp) for filt, zp in zip(filters, zps)}
-    else:
-        zp_dict = {filt: float(zps) for filt in filters}
-    return zp_dict
+    #if zp == "header":
+    #    return zp
+    #if "," in zps:
+    #    zps = zps.split(",")
+    #    zp_dict = {filt: float(zp) for filt, zp in zip(filters, zps)}
+    #else:
+    #    zp_dict = {filt: float(zps) for filt in filters}
+    return zp
 
 
 def survey_pixel_scale(survey: str, filt: Optional[str] = None) -> float:
@@ -95,10 +114,12 @@ def survey_pixel_scale(survey: str, filt: Optional[str] = None) -> float:
     pixel_scale: Pixel scale in units of arcsec/pixel.
     """
     check_survey_validity(survey)
-    global config_df
-    survey_df = config_df[config_df.survey == survey]
-    pixel_scale = survey_df.pixel_scale.values[0]
-
+    #global config_df
+    #survey_df = config_df[config_df.survey == survey]
+    #pixel_scale = survey_df.pixel_scale.values[0]
+    global filters_config
+    pixel_scale = filters_config[survey][filt]["pixel_scale"]
+    """
     # some surveys have multiple scales (separated by ',') depending on the instrument
     if len(pixel_scale.split(",")) > 1:
         if survey in ["HST", "JWST"]:
@@ -123,7 +144,7 @@ def survey_pixel_scale(survey: str, filt: Optional[str] = None) -> float:
             print(f"Using the pixel scale of filter {filt_used} ({survey}).")
             pixel_scale = list(pixel_scale_dict.values())[0]
         return pixel_scale
-
+    """
     return float(pixel_scale)
 
 

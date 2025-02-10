@@ -14,14 +14,13 @@
 #
 # Some parts of this notebook are based on https://github.com/djones1040/PS1_surface_brightness/blob/master/Surface%20Brightness%20Tutorial.ipynb and codes from Lluís Galbany
 
-import pickle
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from typing import Optional
 
 import sep_pjw as sep
-from astropy import wcs
+from astropy.wcs import WCS
 from astropy.io import fits
 
 from hostphot._constants import workdir
@@ -89,6 +88,51 @@ def kron_flux(
     )
 
     return flux, flux_err
+
+
+from photutils.aperture import aperture_photometry, EllipticalAperture
+def _kron_flux(
+    data: np.ndarray,
+    err: float,
+    gain: float,
+    objects: np.ndarray,
+    kronrad: float,
+    scale: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculates the Kron flux.
+
+    Parameters
+    ----------
+    data: Data of an image.
+    err: Background error of the images.
+    gain: Gain value.
+    objects: Objects detected with `sep.extract()`.
+    kronrad: Kron radius.
+    scale: Scale of the Kron radius.
+
+    Returns
+    -------
+    flux: Kron flux.
+    flux_err: Kron flux error.
+    """
+    # theta must be in the range [-pi/2, pi/2] for sep.sum_ellipse()
+    if objects["theta"] > np.pi / 2:
+        objects["theta"] -= np.pi
+    elif objects["theta"] < -np.pi / 2:
+        objects["theta"] += np.pi
+
+    positions = np.array([objects["x"], objects["y"]]).T
+    aperture = EllipticalAperture(positions, 
+                                    objects["a"][0] * scale * kronrad, 
+                                    objects["b"][0] * scale * kronrad,
+                                    objects["theta"][0]
+                                    )
+    aperture_photometry(data, aperture, err)
+    phot_table = aperture_photometry(data, aperture, err)
+    flux = phot_table["aperture_sum"].value[0]
+    flux_err = phot_table["aperture_sum_err"].value[0]
+
+    return [flux], [flux_err]
 
 
 def optimize_kron_flux(
@@ -228,11 +272,11 @@ def extract_aperture(
     data = hdu[0].data
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
-        img_wcs = wcs.WCS(header, naxis=2)
+        img_wcs = WCS(header, naxis=2)
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
-    bkg_rms = bkg.globalrms
+    bkg_rms = bkg.globalrms  # bkg.back()
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg)
     else:
@@ -309,7 +353,7 @@ def extract_aperture(
 
 def load_aperture_params(
     name: str, filt: str | list, survey: str
-) -> tuple[np.ndarray, wcs.WCS, float, float, bool]:
+) -> tuple[np.ndarray, WCS, float, float, bool]:
     """Loads previously saved aperture parameters.
 
     Parameters
@@ -344,7 +388,7 @@ def load_aperture_params(
     hdu = fits.open(fits_file)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
-        img_wcs = wcs.WCS(hdu[0].header, naxis=2)
+        img_wcs = WCS(hdu[0].header, naxis=2)
 
     return gal_obj, img_wcs, kronrad, scale, flip
 
@@ -421,13 +465,6 @@ def photometry(
     flux_err: Total flux error on the aperture flux.
     zp: Zeropoint.
     """
-    if survey == "SkyMapper":
-        warnings.warn(
-            (
-                "SkyMapper photometry is not completely trustworthy due to imprecision in "
-                "the zeropoint for extended sources, which might be solved in a future data release."
-            )
-        )
     check_survey_validity(survey)
     check_work_dir(workdir)
     obj_dir = Path(workdir, name)
@@ -446,11 +483,11 @@ def photometry(
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
-        img_wcs = wcs.WCS(header, naxis=2)
+        img_wcs = WCS(header, naxis=2)
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
-    bkg_rms = bkg.globalrms
+    bkg_rms = bkg.globalrms  # bkg.back()
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg)
     else:

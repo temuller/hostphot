@@ -221,15 +221,7 @@ def photometry(
     fluxes: Aperture flux for the given aperture radii.
     fluxes_err: Aperture flux errors for the given aperture radii.
     zp: Zeropoint.
-    """
-    if survey == "SkyMapper":
-        warnings.warn(
-            (
-                "SkyMapper photometry is not completely trustworthy due to imprecision in "
-                "the zeropoint for extended sources, which might be solved in a future data release."
-            )
-        )
-
+    """     
     check_survey_validity(survey)
     check_work_dir(workdir)
     obj_dir = Path(workdir, name)
@@ -298,19 +290,7 @@ def photometry(
             header,
             bkg_rms,
         )
-        """
-        if survey in ["LegacySurvey"]:
-            invvar_map = hdu[1].data
-            var_map = 1/invvar_map
-            sum_var, _ = extract_aperture_flux(
-                        var_map, error, px, py, radius_pix
-                    )
-            extra_flux_err = np.sqrt(sum_var) 
-            flux_err = np.sqrt(flux_err**2 + extra_flux_err**2)
 
-            extra_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
-            mag_err = np.sqrt(mag_err**2 + extra_err**2)
-        """
         if correct_extinction is True:
             A_ext = calc_extinction(filt, survey, ra, dec)
             mag -= A_ext

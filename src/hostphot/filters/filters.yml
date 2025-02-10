@@ -1,0 +1,386 @@
+PanSTARRS:
+  g:
+    zeropoint: 25
+    pixel_scale: 0.25  # in units of pixel/arsec
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  r:
+    zeropoint: 25
+    pixel_scale: 0.25  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  i:
+    zeropoint: 25
+    pixel_scale: 0.25  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  z:
+    zeropoint: 25
+    pixel_scale: 0.25  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  y:
+    zeropoint: 25
+    pixel_scale: 0.25 
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+PS1:
+  g:
+    zeropoint: 25
+    pixel_scale: 0.25  # in units of pixel/arsec
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  r:
+    zeropoint: 25
+    pixel_scale: 0.25  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  i:
+    zeropoint: 25
+    pixel_scale: 0.25  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  z:
+    zeropoint: 25
+    pixel_scale: 0.25  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  y:
+    zeropoint: 25
+    pixel_scale: 0.25 
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+DES:
+  g:
+    zeropoint: 30
+    pixel_scale: 0.263
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  r:
+    zeropoint: 30
+    pixel_scale: 0.263  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  i:
+    zeropoint: 30
+    pixel_scale: 0.263  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  z:
+    zeropoint: 30
+    pixel_scale: 0.263  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  Y:
+    zeropoint: 30
+    pixel_scale: 0.263 
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+SDSS:
+  u:
+    zeropoint: 22.5
+    pixel_scale: 0.396 
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  g:
+    zeropoint: 22.5
+    pixel_scale: 0.396
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  r:
+    zeropoint: 22.5
+    pixel_scale: 0.396  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  i:
+    zeropoint: 22.5
+    pixel_scale: 0.396  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  z:
+    zeropoint: 22.5
+    pixel_scale: 0.396  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+GALEX:
+  FUV:
+    zeropoint: 18.82
+    pixel_scale: 1.5
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  NUV:
+    zeropoint: 20.08
+    pixel_scale: 1.5
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+2MASS:
+  J:
+    zeropoint: "header"
+    pixel_scale: 1.0
+    magnitude_system: "Vega"
+    Vega_to_AB: 0.91  # see https://www.astronomy.ohio-state.edu/martini.10/usefuldata.html
+  H:
+    zeropoint: "header"
+    pixel_scale: 1.0
+    magnitude_system: "Vega"
+    Vega_to_AB: 1.39
+  Ks:
+    zeropoint: "header"
+    pixel_scale: 1.0
+    magnitude_system: "Vega"
+    Vega_to_AB: 1.85
+WISE:
+  W1:
+    zeropoint: "header"
+    pixel_scale: 1.375
+    magnitude_system: "Vega"
+    Vega_to_AB: 2.699  # see https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4h.html
+  W2:
+    zeropoint: "header"
+    pixel_scale: 1.375
+    magnitude_system: "Vega"
+    Vega_to_AB: 3.339
+  W3:
+    zeropoint: "header"
+    pixel_scale: 1.375
+    magnitude_system: "Vega"
+    Vega_to_AB: 5.174
+  W4:
+    zeropoint: "header"
+    pixel_scale: 1.375
+    magnitude_system: "Vega"
+    Vega_to_AB: 6.620
+unWISE:
+  W1:
+    zeropoint: 22.5
+    pixel_scale: 2.75
+    magnitude_system: "Vega"
+    Vega_to_AB: 2.699  # see https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4h.html
+  W2:
+    zeropoint: 22.5
+    pixel_scale: 2.75
+    magnitude_system: "Vega"
+    Vega_to_AB: 3.339
+  W3:
+    zeropoint: 22.5
+    pixel_scale: 2.75
+    magnitude_system: "Vega"
+    Vega_to_AB: 5.174
+  W4:
+    zeropoint: 22.5
+    pixel_scale: 2.75
+    magnitude_system: "Vega"
+    Vega_to_AB: 6.620
+LegacySurvey:
+  g:
+    zeropoint: 22.5
+    pixel_scale: 0.262
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  r:
+    zeropoint: 22.5
+    pixel_scale: 0.262  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  z:
+    zeropoint: 22.5
+    pixel_scale: 0.262  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+Spitzer:
+  IRAC.1:
+    zeropoint: "header"
+    pixel_scale: 0.6
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  IRAC.2:
+    zeropoint: "header"
+    pixel_scale: 0.6  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  IRAC.3:
+    zeropoint: "header"
+    pixel_scale: 0.6  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  IRAC.4:
+    zeropoint: "header"
+    pixel_scale: 0.6  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  MIPS.1:
+    zeropoint: "header"
+    pixel_scale: 2.45
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+VISTA:
+  Z:
+    zeropoint: "header"
+    pixel_scale: 0.339
+    magnitude_system: "Vega"
+    Vega_to_AB: 0.502
+  Y:
+    zeropoint: "header"
+    pixel_scale: 0.339
+    magnitude_system: "Vega"
+    Vega_to_AB: 0.600
+  J:
+    zeropoint: "header"
+    pixel_scale: 0.339
+    magnitude_system: "Vega"
+    Vega_to_AB: 0.916
+  H:
+    zeropoint: "header"
+    pixel_scale: 0.339
+    magnitude_system: "Vega"
+    Vega_to_AB: 1.366
+  Ks:
+    zeropoint: "header"
+    pixel_scale: 0.339
+    magnitude_system: "Vega"
+    Vega_to_AB: 1.827
+SkyMapper:
+  u:
+    zeropoint: "header"
+    pixel_scale: 0.5  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  v:
+    zeropoint: "header"
+    pixel_scale: 0.5  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  g:
+    zeropoint: "header"
+    pixel_scale: 0.5
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  r:
+    zeropoint: "header"
+    pixel_scale: 0.5  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  i:
+    zeropoint: "header"
+    pixel_scale: 0.5  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  z:
+    zeropoint: 2"header"
+    pixel_scale: 0.5  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+SPLUS:
+  u:
+    zeropoint: "header"
+    pixel_scale: 0.55  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  F378:
+    zeropoint: "header"
+    pixel_scale: 0.55  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  F395:
+    zeropoint: "header"
+    pixel_scale: 0.55
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  F410:
+    zeropoint: "header"
+    pixel_scale: 0.55  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  F430:
+    zeropoint: "header"
+    pixel_scale: 0.55  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  g:
+    zeropoint: "header"
+    pixel_scale: 0.55  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  F515:
+    zeropoint: "header"
+    pixel_scale: 0.55  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  r:
+    zeropoint: "header"
+    pixel_scale: 0.55  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  F660:
+    zeropoint: "header"
+    pixel_scale: 0.55  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  i:
+    zeropoint: "header"
+    pixel_scale: 0.55  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  F861:
+    zeropoint: "header"
+    pixel_scale: 0.55  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  z:
+    zeropoint: "header"
+    pixel_scale: 0.55  
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+UKIDSS:
+  Z:
+    zeropoint: "header"
+    pixel_scale: 0.4
+    magnitude_system: "Vega"
+    Vega_to_AB: 0.528
+  Y:
+    zeropoint: "header"
+    pixel_scale: 0.4
+    magnitude_system: "Vega"
+    Vega_to_AB: 0.634
+  J:
+    zeropoint: "header"
+    pixel_scale: 0.4
+    magnitude_system: "Vega"
+    Vega_to_AB: 0.938
+  H:
+    zeropoint: "header"
+    pixel_scale: 0.4
+    magnitude_system: "Vega"
+    Vega_to_AB: 1.379
+  K:
+    zeropoint: "header"
+    pixel_scale: 0.4
+    magnitude_system: "Vega"
+    Vega_to_AB: 1.900
+HST:
+  WFC3_UVIS:
+    zeropoint: "header"
+    pixel_scale: 0.04
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  WFC3_IR:
+    zeropoint: "header"
+    pixel_scale: 0.13
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+JWST:
+  NIRCam_F090W:
+    zeropoint: "header"
+    pixel_scale: 0.031
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  NIRCam_F150W:
+    zeropoint: "header"
+    pixel_scale: 0.031
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0
+  NIRCam_F277W:
+    zeropoint: "header"
+    pixel_scale: 0.063
+    magnitude_system: "AB"
+    Vega_to_AB: 0.0

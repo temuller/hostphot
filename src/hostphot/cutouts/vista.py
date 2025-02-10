@@ -7,18 +7,22 @@ import astropy.units as u
 from astropy.io import fits
 
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
+from hostphot.moc.maps import contains_coords
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
 
 def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3, 
-                        filters: Optional[str] = None, version: str = "VHS") -> list[fits.ImageHDU]:
+                        filters: Optional[str] = None) -> list[fits.ImageHDU]:
     """Gets VISTA fits images for the given coordinates and
     filters.
 
     Note: the different surveys included in VISTA cover different
     parts of the sky and do not necessarily contain the same filters.
+    
+    The available surveys are "VIDEO", "VIKING", "VHS", and chosen in
+    that order, depending on the coverage.
 
     Parameters
     ----------
@@ -45,18 +49,19 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
     if not isinstance(size, (float, int)):
         size = size.to(u.arcmin).value
 
-    if version is None:
-        version = "VHS"
+    for version in ["VIDEO", "VIKING", "VHS"]:
+        overlap = contains_coords(ra, dec, version)
+        if overlap is True:
+            break
+    if overlap is False:
+        return [False] * len(filters)
+    
     # Latest data releases
     database_dict = {
         "VHS": "VHSDR6",
         "VIDEO": "VIDEODR6",
         "VIKING": "VIKINGDR5",
     }
-    valid_surveys = list(database_dict.keys())
-    assert (
-        version in valid_surveys
-    ), f"Not a valid VISTA survey: choose from {valid_surveys}"
     database = database_dict[version]
 
     base_url = "http://vsa.roe.ac.uk:8080/vdfs/GetImage?archive=VSA&"
