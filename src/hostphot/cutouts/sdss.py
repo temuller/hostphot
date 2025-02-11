@@ -48,7 +48,7 @@ def get_SDSS_images(ra: float, dec: float, size: float | u.Quantity = 3,
         size_arcsec = (size * u.arcmin).to(u.arcsec)
     else:
         size_arcsec = size.to(u.arcsec)
-    pixel_scale = survey_pixel_scale(survey)
+    pixel_scale = survey_pixel_scale(survey, "g")  # same pixel scale for all filters
     size_pixels = int(size_arcsec.value / pixel_scale)
     # get SDSS ids near the given coordinates
     coords = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)

@@ -42,7 +42,7 @@ def get_WISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
         size_arcsec = (size * u.arcmin).to(u.arcsec).value
     else:
         size_arcsec = size.to(u.arcsec).value
-    pixel_scale = survey_pixel_scale(survey)
+    pixel_scale = survey_pixel_scale(survey, "W1")  # same pixel scale for all filters
     image_size = size_arcsec / pixel_scale
     coords = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs")
 
@@ -120,7 +120,7 @@ def get_unWISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
         size_arcsec = (size * u.arcmin).to(u.arcsec)
     else:
         size_arcsec = size.to(u.arcsec)
-    pixel_scale = survey_pixel_scale(survey)
+    pixel_scale = survey_pixel_scale(survey, "W1")  # same pixel scale for all filters
     size_pixels = int(size_arcsec.value / pixel_scale)
     assert size_pixels <= 1024, "Maximum cutout size for unWISE is 1024 pixels"
 
