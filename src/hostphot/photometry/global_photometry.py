@@ -29,7 +29,7 @@ from hostphot.processing.cleaning import remove_nan
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir
 from hostphot.photometry.photometry_utils import magnitude_calculation
-from hostphot.photometry.image_utils import get_image_gain, adapt_aperture
+from hostphot.photometry.image_utils import get_image_gain, adapt_aperture, get_image_exptime
 from hostphot.surveys_utils import (
     get_survey_filters,
     check_filters_validity,
@@ -41,14 +41,14 @@ from hostphot.surveys_utils import (
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 from photutils.aperture import aperture_photometry, EllipticalAperture
+from photutils.utils import calc_total_error
 
 sep.set_sub_object_limit(1e4)
 
-
 def kron_flux(
     data: np.ndarray,
-    err: float,
-    gain: float,
+    bkg: float,
+    exptime: float,
     objects: np.ndarray,
     kronrad: float,
     scale: float,
@@ -58,7 +58,7 @@ def kron_flux(
     Parameters
     ----------
     data: Data of an image.
-    err: Background error of the images.
+    bkg: Background error of the images.
     gain: Gain value.
     objects: Objects detected with `sep.extract()`.
     kronrad: Kron radius.
@@ -74,6 +74,8 @@ def kron_flux(
         objects["theta"] -= np.pi
     elif objects["theta"] < -np.pi / 2:
         objects["theta"] += np.pi
+        
+    error = calc_total_error(data, bkg, exptime)
 
     positions = np.array([objects["x"], objects["y"]]).T
     aperture = EllipticalAperture(positions, 
@@ -81,8 +83,7 @@ def kron_flux(
                                     objects["b"][0] * scale * kronrad,
                                     objects["theta"][0]
                                     )
-    aperture_photometry(data, aperture, err)
-    phot_table = aperture_photometry(data, aperture, err)
+    phot_table = aperture_photometry(data, aperture, error=error)
     flux = phot_table["aperture_sum"].value[0]
     flux_err = phot_table["aperture_sum_err"].value[0]
 
@@ -230,23 +231,23 @@ def extract_aperture(
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
-    bkg_rms = bkg.back()  # bkg.back()   bkg.globalrms
+    #bkg_rms = bkg.back()  # bkg.back()   bkg.globalrms
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
-        data_sub = np.copy(data - bkg)
+        data_sub = np.copy(data - bkg.back())
     else:
         data_sub = np.copy(data)
 
     # background error
-    if survey in ["LegacySurvey"]:
-        invvar_map = hdu[1].data
-        error = np.sqrt(1 / invvar_map)
-    else:
-        error = bkg_rms
+    #if survey in ["LegacySurvey"]:
+    #    invvar_map = hdu[1].data
+    #    error = np.sqrt(1 / invvar_map)
+    #else:
+    #    error = bkg_rms
 
     # extract galaxy
     gal_obj, _ = extract_objects(
         data_sub,
-        bkg_rms,
+        bkg.globalrms,
         host_ra,
         host_dec,
         threshold,
@@ -255,8 +256,12 @@ def extract_aperture(
         deblend_cont,
     )
     if optimize_kronrad:
-        gain = 1  # doesn't matter here
-        opt_res = optimize_kron_flux(data_sub, error, gain, gal_obj, eps)
+        exptime = get_image_exptime(header, survey)
+        if survey in ["PanSTARRS", "VISTA", "UKIDSS"]:
+            _exptime = 1
+        else:
+            _exptime = exptime
+        opt_res = optimize_kron_flux(data_sub, bkg.rms(), _exptime, gal_obj, eps)
         _, _, kronrad, scale = opt_res
     else:
         scale = 2.5
@@ -434,6 +439,9 @@ def photometry(
     header = hdu[0].header
     data = hdu[0].data
     gain = get_image_gain(header, survey)
+    exptime = get_image_exptime(header, survey)
+    if survey=="PanSTARRS":
+        exptime = 1
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
@@ -441,18 +449,19 @@ def photometry(
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
-    bkg_rms = bkg.back()  # bkg.back()
+    #bkg = background.back()
+    #bkg_rms = background.globalrms() 
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
-        data_sub = np.copy(data - bkg)
+        data_sub = np.copy(data - bkg.back())
     else:
         data_sub = np.copy(data)
 
     # background error
-    if survey in ["LegacySurvey"]:
-        invvar_map = hdu[1].data
-        error = np.sqrt(1 / invvar_map)
-    else:
-        error = bkg_rms
+    #if survey in ["LegacySurvey"]:
+    #    invvar_map = hdu[1].data
+    #    error = np.sqrt(1 / invvar_map)
+    #else:
+    #    error = bkg_rms
 
     if (ref_filt is None) | (ref_survey is None) | (common_aperture is False):
         # independent photometry for each filter
@@ -500,14 +509,13 @@ def photometry(
             gal_obj, conv_factor = adapt_aperture(
                 gal_obj, master_img_wcs, img_wcs, flip_
             )
-        else:
-            # dealing with the same survey
-            conv_factor = 1
-        #print(conv_factor)
-        #kronrad *= conv_factor
 
+    if survey in ["PanSTARRS", "VISTA", "UKIDSS"]:
+        _exptime = 1
+    else:
+        _exptime = exptime
     flux, flux_err = kron_flux(
-        data_sub, error, gain, gal_obj, kronrad, scale
+        data_sub, bkg.rms(), _exptime, gal_obj, kronrad, scale
     )
     flux, flux_err = flux[0], flux_err[0]
     
@@ -520,7 +528,7 @@ def photometry(
         filt,
         ap_area,
         header,
-        bkg_rms,
+        bkg.globalrms,
     )
 
     if correct_extinction is True:

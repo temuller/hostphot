@@ -260,7 +260,7 @@ def uncertainty_calculation(
         k_z = 1.7  # kernel smoothing factor
         n_f = ap_area  # number of frame pixels in the aperture; aprox. as aperture area
         n_c = 4 * n_f  # number of coadd pixels in the aperture
-        sigma_c = np.std(bkg_rms)  # coadd noise; assumed to be ~background noise
+        sigma_c = bkg_rms  # coadd noise; assumed to be ~background noise
 
         SNR = S / np.sqrt(
             S / (gain * N_c)
@@ -268,6 +268,11 @@ def uncertainty_calculation(
             + (n_c * 0.024 * sigma_c) ** 2
         )
         mag_err = 1.0857 / SNR
+        
+        # How Blast does it
+        #n_pix = ap_area
+        #error = np.sqrt(flux_err / (10 * 6) + 4 * n_pix * 1.7**2.0 * bkg_rms ** 2)
+        #mag_err = 1.0857 * error / flux
 
     elif "WISE" in survey:
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
@@ -283,15 +288,16 @@ def uncertainty_calculation(
         pixel_scale_ratios = {"W1": 2, "W2": 2, "W3": 2, "W4": 4}
         Sin_Sout = pixel_scale_ratios[filt]
         F_corr = N_p * Sin_Sout**2
-
-        k = 1
-        N_A = N_B = ap_area
-        sigma_conf = flux_err  # assumed to be the error in the aperture sum
+        
+        k = np.pi / 2
+        N_A = ap_area
+        N_B = N_A / 10
+        sigma_conf = bkg_rms  # assumed to be ~bkg
         sigma_src = np.sqrt(
-            f_apcor**2 * F_corr * (flux_err**2 + k * (N_A**2) / N_B * bkg_rms**2)
-            + sigma_conf**2
+            f_apcor ** 2 * F_corr * (bkg_rms ** 2 + k * (N_A ** 2) / N_B * bkg_rms ** 2)
+            + sigma_conf ** 2
         )
-
+        
         mag_err = np.sqrt(1.179 * sigma_src**2 / F_src**2)
 
         # add uncertainty from the ZP
