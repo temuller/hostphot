@@ -99,7 +99,7 @@ def get_image_readnoise(header: fits.Header, survey: str) -> float:
     readnoise: Read noise value.
     """
     check_survey_validity(survey)
-    if survey == "PS1":
+    if survey == "PanSTARRS":
         readnoise = header["HIERARCH CELL.READNOISE"]
     elif survey == "DES":
         # see https://arxiv.org/pdf/0810.3600.pdf
@@ -155,7 +155,7 @@ def get_image_exptime(header: fits.Header, survey: str) -> float:
     exptime: Exposure time in seconds.
     """
     check_survey_validity(survey)
-    if survey in ["PS1", "DES", "SDSS", "GALEX", "VISTA", "Spitzer", "HST", "SkyMapper"]:
+    if survey in ["PanSTARRS", "DES", "SDSS", "GALEX", "VISTA", "Spitzer", "HST", "SkyMapper"]:
         exptime = float(header["EXPTIME"])
     elif survey == "WISE":
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/
