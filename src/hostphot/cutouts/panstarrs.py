@@ -22,7 +22,7 @@ def query_ps1(ra: float, dec: float, size: float | u.Quantity = 3, filters: Opti
     table: Astropy table with the results.
     """
     # check filters
-    survey = "PS1"
+    survey = "PanSTARRS"
     check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
@@ -59,7 +59,7 @@ def get_PS1_urls(ra: float, dec: float, size: float | u.Quantity = 3, filters: O
     url_list: List of URLs for the fits images.
     """
     # check filters
-    survey = "PS1"
+    survey = "PanSTARRS"
     check_filters_validity(filters, survey)
     if filters is None:
         filters = get_survey_filters(survey)
@@ -102,7 +102,7 @@ def get_PanSTARRS_images(ra: float, dec: float, size: float | u.Quantity = 3, fi
     fits_files: List of fits images.
     """
     # check filters
-    survey = "PS1"
+    survey = "PanSTARRS"
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)

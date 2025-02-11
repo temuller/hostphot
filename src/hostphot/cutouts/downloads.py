@@ -48,7 +48,7 @@ def download_images(
     >>> from hostphot.cutouts import download_images
     >>> name = 'SN2004eo'
     >>> host_ra, host_dec = 308.2092, 9.92755  # coords of host galaxy of SN2004eo
-    >>> survey = 'PaSTARRS'
+    >>> survey = 'PanSTARRS'
     >>> download_images(name, host_ra, host_dec, survey=survey)
     """
     input_params = locals()  # dictionary
