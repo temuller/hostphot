@@ -58,6 +58,7 @@ def plot_sed(
     exclude: list = None,
     save_plot: bool = True,
     outfile: str | Path = None,
+    plot_flux: bool = False,
 ) -> None:
     """Plots the SED of an object.
 
@@ -118,9 +119,7 @@ def plot_sed(
         return None
 
     # start plotting
-    fig, ax = plt.subplots(figsize=(12, 8))
-    ax.invert_yaxis()  # for magnitude plot
-
+    fig, ax = plt.subplots(figsize=(12, 6))
     for file in phot_files:
         survey = file.parts[-2]
         filters = get_survey_filters(survey)
@@ -173,41 +172,59 @@ def plot_sed(
         phot_err = np.array(phot_err)
 
         # NaN mask
-        print(file)
-        print(phot, phot_err)
         mask = ~np.isnan(phot) * phot_err > 0
         waves = waves[mask]
         phot = phot[mask]
         phot_err = phot_err[mask]
         valid_filters = np.array(valid_filters)[mask]
+        label = f'{survey}\n{", ".join(filt for filt in valid_filters)}'
 
-        lims = phot / phot_err < 3  # upper limits;inverted for magnitude plots
-        phot_err[lims] = 1  # for visualization
-        label = f'{survey} ({", ".join(filt for filt in valid_filters)})'
-        ax.errorbar(
-            waves,
-            phot,
-            yerr=phot_err,
-            marker="o",
-            ms=10,
-            ls="dashed",
-            lw=3,
-            c=colours[survey],
-            mec="k",
-            capsize=6,
-            label=label,
-            lolims=lims,
-        )
+        if plot_flux is False:
+            lims = phot_err > 1  # upper limits; inverted for magnitude plots
+            phot_err[lims] = 0.3  # for visualization
+            ax.errorbar(
+                waves,
+                phot,
+                yerr=phot_err,
+                marker="o",
+                ms=10,
+                ls="dashed",
+                lw=3,
+                c=colours[survey],
+                mec="k",
+                capsize=6,
+                label=label,
+                lolims=lims,
+            )
+        else:
+            flux = 10 ** (-0.4 * (phot - 23.9))
+            flux_err = np.abs(flux * 0.4 * np.log(10) * phot_err)
+            ax.errorbar(
+                waves,
+                flux,
+                yerr=flux_err,
+                marker="o",
+                ms=10,
+                ls="dashed",
+                lw=3,
+                c=colours[survey],
+                mec="k",
+                capsize=6,
+                label=label,
+            )
 
     if len(phot_files) > 4:
         ncol = 2
     else:
         ncol = 1
 
+    if plot_flux is False:
+        ax.invert_yaxis()  # for magnitude plot
+        ax.set_ylabel("Magnitude (AB)", fontsize=24, font=font_family)
+    else:
+        ax.set_ylabel("Flux (mJy)", fontsize=24, font=font_family)
     ax.set_xlabel(xlabel, fontsize=24, font=font_family)
-    ax.set_ylabel("Magnitude (AB)", fontsize=24, font=font_family)
-    ax.set_title(title, fontsize=28#, font=font_family
-                 )
+    ax.set_title(title, fontsize=28, fontfamily=font_family)
 
     for label in ax.get_xticklabels():
         label.set_fontproperties(font_family)
@@ -216,16 +233,18 @@ def plot_sed(
     ax.tick_params(labelsize=20)
 
     ax.legend(
-        ncol=ncol, fancybox=True, framealpha=1, prop={"size": 16, "family": font_family}
+        ncol=ncol, fancybox=True, framealpha=0.7, prop={"size": 14, "family": font_family}
     )
     ax.set_xscale("log")
     # format ticks
+    """
     ticks = np.array([2e3, 4e3, 9e3, 2e4, 4e4, 9e4, 2e5, 4e5, 9e5])
     start, end = ax.get_xlim()
     mask = (ticks >= start) & (ticks <= end)
     ax.set_xticks(ticks[mask])
     formatter = ticker.ScalarFormatter(useMathText=True)
     ax.get_xaxis().set_major_formatter(formatter)
+    """
 
     if save_plot is True:
         if outfile is None:
