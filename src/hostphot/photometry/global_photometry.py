@@ -23,13 +23,16 @@ import sep_pjw as sep
 from astropy.wcs import WCS
 from astropy.io import fits
 
+from photutils.utils import calc_total_error
+from photutils.aperture import aperture_photometry, EllipticalAperture
+
 from hostphot._constants import workdir
 from hostphot.processing.objects_detection import extract_objects, plot_detected_objects
 from hostphot.processing.cleaning import remove_nan
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir
 from hostphot.photometry.photometry_utils import magnitude_calculation
-from hostphot.photometry.image_utils import get_image_gain, adapt_aperture, get_image_exptime
+from hostphot.photometry.image_utils import adapt_aperture, get_image_exptime
 from hostphot.surveys_utils import (
     get_survey_filters,
     check_filters_validity,
@@ -40,8 +43,6 @@ from hostphot.surveys_utils import (
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
-from photutils.aperture import aperture_photometry, EllipticalAperture
-from photutils.utils import calc_total_error
 
 sep.set_sub_object_limit(1e4)
 
@@ -52,14 +53,14 @@ def kron_flux(
     objects: np.ndarray,
     kronrad: float,
     scale: float,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[float, float]:
     """Calculates the Kron flux.
 
     Parameters
     ----------
     data: Data of an image.
     bkg: Background error of the images.
-    gain: Gain value.
+    exptime: Exposure time.
     objects: Objects detected with `sep.extract()`.
     kronrad: Kron radius.
     scale: Scale of the Kron radius.
@@ -76,7 +77,6 @@ def kron_flux(
         objects["theta"] += np.pi
         
     error = calc_total_error(data, bkg, exptime)
-
     positions = np.array([objects["x"], objects["y"]]).T
     aperture = EllipticalAperture(positions, 
                                     objects["a"][0] * scale * kronrad, 
@@ -87,22 +87,22 @@ def kron_flux(
     flux = phot_table["aperture_sum"].value[0]
     flux_err = phot_table["aperture_sum_err"].value[0]
 
-    return [flux], [flux_err]
+    return flux, flux_err
 
 
-def optimize_kron_flux(
-    data: np.ndarray, err: float, gain: float, objects: np.ndarray, eps: float = 0.001
+def optimize_aperture(
+    data: np.ndarray, bkg: float, exptime: float, objects: np.ndarray, eps: float = 0.001
 ) -> tuple[float, float, float, float]:
     """Optimizes the Kron flux by iteration over different scales.
 
-    The stop condition is met when the change in flux between iterations
+    The stop condition is met when the fractional change in flux between iterations
     is less that ``eps``.
 
     Parameters
     ----------
     data: Data of an image.
-    err: Background error of the images.
-    gain: Gain value.
+    bkg: Background error of the images.
+    exptime: Exposure time.
     objects: Objects detected with :func:`sep.extract()`.
     eps: Minimum percent change in flux allowed between iterations.
 
@@ -125,12 +125,10 @@ def optimize_kron_flux(
     kronrad = kronrad[0]
 
     opt_flux = 0.0
-    # iterate over scale
+    # iterate over scales
     scales = np.arange(1, 10, 0.01)
     for scale in scales:
-        flux, flux_err = kron_flux(data, err, gain, objects, kronrad, scale)
-        flux, flux_err = flux[0], flux_err[0]
-
+        flux, flux_err = kron_flux(data, bkg, exptime, objects, kronrad, scale)
         calc_eps = np.abs(opt_flux - flux) / flux
         opt_flux, opt_flux_err = flux, flux_err
         opt_scale = scale
@@ -162,7 +160,7 @@ def extract_aperture(
     deblend_cont: float = 0.005,
     save_plots: bool = True,
     save_aperture_params: bool = True,
-):
+) -> tuple[np.ndarray, WCS, float, float, bool]:
     """Calculates the aperture for a given galaxy.
 
     Parameters
@@ -197,18 +195,13 @@ def extract_aperture(
 
     Returns
     -------
-    gal_obj: array
-        Galaxy object.
-    img_wcs: WCS
-        Image's WCS.
-    kronrad: float
-        Kron radius.
-    scale: float
-        Scale for the Kron radius.
-    flip: bool
-        Whether to flip the orientation of the
-        aperture.
+    gal_obj: Galaxy object.
+    wcs: Image's WCS.
+    kronrad: Kron radius.
+    scale: Scale for the Kron radius.
+    flip: Whether to flip the orientation of the aperture.
     """
+    # initial checks
     check_survey_validity(survey)
     check_work_dir(workdir)
     obj_dir = Path(workdir, name)
@@ -220,29 +213,22 @@ def extract_aperture(
         filt = "".join(f for f in filt)
     fits_file = obj_dir / survey / f"{survey}_{filt}{suffix}.fits"
 
+    # image information
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
-
     header = hdu[0].header
     data = hdu[0].data
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
-        img_wcs = WCS(header, naxis=2)
+        wcs = WCS(header, naxis=2)
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
-    #bkg_rms = bkg.back()  # bkg.back()   bkg.globalrms
+    # background subtraction, if needed
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg.back())
     else:
         data_sub = np.copy(data)
-
-    # background error
-    #if survey in ["LegacySurvey"]:
-    #    invvar_map = hdu[1].data
-    #    error = np.sqrt(1 / invvar_map)
-    #else:
-    #    error = bkg_rms
 
     # extract galaxy
     gal_obj, _ = extract_objects(
@@ -251,7 +237,7 @@ def extract_aperture(
         host_ra,
         host_dec,
         threshold,
-        img_wcs,
+        wcs,
         gal_dist_thresh,
         deblend_cont,
     )
@@ -261,7 +247,7 @@ def extract_aperture(
             _exptime = 1
         else:
             _exptime = exptime
-        opt_res = optimize_kron_flux(data_sub, bkg.rms(), _exptime, gal_obj, eps)
+        opt_res = optimize_aperture(data_sub, bkg.rms(), _exptime, gal_obj, eps)
         _, _, kronrad, scale = opt_res
     else:
         scale = 2.5
@@ -307,7 +293,7 @@ def extract_aperture(
         gal_df.to_csv(outfile, index=False)
     hdu.close()
 
-    return gal_obj, img_wcs, kronrad, scale, flip
+    return gal_obj, wcs, kronrad, scale, flip
 
 
 def load_aperture_params(
@@ -324,7 +310,7 @@ def load_aperture_params(
 
     Returns
     -------
-    gal_obj, nongal_objs, img_wcs, sigma, r, flip: Mask parameters.
+    gal_obj, nongal_objs, wcs, sigma, r, flip: Mask parameters.
     """
     if isinstance(filt, list):
         filt = "".join(f for f in filt)
@@ -347,9 +333,9 @@ def load_aperture_params(
     hdu = fits.open(fits_file)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
-        img_wcs = WCS(hdu[0].header, naxis=2)
+        wcs = WCS(hdu[0].header, naxis=2)
 
-    return gal_obj, img_wcs, kronrad, scale, flip
+    return gal_obj, wcs, kronrad, scale, flip
 
 
 def photometry(
@@ -424,6 +410,7 @@ def photometry(
     flux_err: Total flux error on the aperture flux.
     zp: Zeropoint.
     """
+    # initial checks
     check_survey_validity(survey)
     check_work_dir(workdir)
     obj_dir = Path(workdir, name)
@@ -433,39 +420,31 @@ def photometry(
         suffix = ""
     fits_file = obj_dir / survey / f"{survey}_{filt}{suffix}.fits"
 
+    # image information
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
-
     header = hdu[0].header
     data = hdu[0].data
-    gain = get_image_gain(header, survey)
     exptime = get_image_exptime(header, survey)
-    if survey=="PanSTARRS":
-        exptime = 1
-
+    if survey in ["PanSTARRS", "VISTA", "UKIDSS"]:
+        _exptime = 1
+    else:
+        _exptime = exptime
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
-        img_wcs = WCS(header, naxis=2)
+        wcs = WCS(header, naxis=2)
 
     data = data.astype(np.float64)
     bkg = sep.Background(data)
-    #bkg = background.back()
-    #bkg_rms = background.globalrms() 
+    # background subtraction, if needed
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg.back())
     else:
         data_sub = np.copy(data)
 
-    # background error
-    #if survey in ["LegacySurvey"]:
-    #    invvar_map = hdu[1].data
-    #    error = np.sqrt(1 / invvar_map)
-    #else:
-    #    error = bkg_rms
-
     if (ref_filt is None) | (ref_survey is None) | (common_aperture is False):
         # independent photometry for each filter
-        gal_obj, img_wcs, kronrad, scale, _ = extract_aperture(
+        gal_obj, wcs, kronrad, scale, _ = extract_aperture(
             name,
             host_ra,
             host_dec,
@@ -486,12 +465,13 @@ def photometry(
     elif ((common_aperture is True) & (ref_filt is None)) | (
         (common_aperture is True) & (ref_survey is None)
     ):
+        # error
         raise ValueError(
             "Reference filter(s) 'ref_filt' and survey 'ref_survey' must be given for common aperture photometry"
         )
     else:
         # common aperture photometry
-        gal_obj, master_img_wcs, kronrad, scale, flip2 = load_aperture_params(
+        gal_obj, master_wcs, kronrad, scale, flip2 = load_aperture_params(
             name, ref_filt, ref_survey
         )
         if survey != ref_survey:
@@ -504,20 +484,14 @@ def photometry(
                 flip_ = False
             else:
                 flip_ = True
-
             # factor used for scaling the Kron radius between different pixel-scales / surveys
             gal_obj, conv_factor = adapt_aperture(
-                gal_obj, master_img_wcs, img_wcs, flip_
+                gal_obj, master_wcs, wcs, flip_
             )
-
-    if survey in ["PanSTARRS", "VISTA", "UKIDSS"]:
-        _exptime = 1
-    else:
-        _exptime = exptime
+    # get Kron flux
     flux, flux_err = kron_flux(
         data_sub, bkg.rms(), _exptime, gal_obj, kronrad, scale
     )
-    flux, flux_err = flux[0], flux_err[0]
     
     # aperture area for an ellipse (or circle)
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
@@ -629,14 +603,21 @@ def multi_band_phot(
 
     Examples
     --------
-    >>> import hostphot.global_photometry as gp
+    >>> from hostphot.photometry import global_photometry as gp
     >>> name = 'SN2004eo'
     >>> host_ra, host_dec = 308.2092, 9.92755  # coords of host galaxy of SN2004eo
     >>> ra, dec =  308.22579, 9.92853 # coords of SN2004eo
-    >>> results = gp.multi_band_phot(name, host_ra, host_dec,
-                            survey=survey, ra=ra, dec=dec,
-                            use_mask=True, common_aperture=True,
-                            ref_filt='riz', save_plots=True)
+    >>> results = gp.multi_band_phot(name, 
+                                     host_ra, 
+                                     host_dec, 
+                                     survey=survey, 
+                                     ra=ra, 
+                                     dec=dec, 
+                                     use_mask=True,
+                                     common_aperture=True, 
+                                     ref_filt='riz',
+                                     ref_survey='PanSTARRS', 
+                                     save_plots=True)
     """
     input_params = locals()  # dictionary
     check_survey_validity(survey)
