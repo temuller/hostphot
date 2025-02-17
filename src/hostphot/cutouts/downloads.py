@@ -93,7 +93,7 @@ def download_images(
 
     # download the images
     get_images = getattr(survey_module, f"get_{survey}_images")  # this is a function
-    if survey in ["SDSS", "GALEX", "unWISE", "LegacySurvey", "VISTA"]:
+    if survey in ["SDSS", "GALEX", "unWISE", "LegacySurvey"]:
         hdu_list = get_images(ra, dec, size, filters, version)
     else:
         hdu_list = get_images(ra, dec, size, filters)
