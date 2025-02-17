@@ -25,8 +25,10 @@ def get_LegacySurvey_images(ra: float, dec: float, size: float | u.Quantity = 3,
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
+    if isinstance(filters, list):
+        filters = "".join(filter for filter in filters)
 
-    pixel_scale = survey_pixel_scale(survey)
+    pixel_scale = survey_pixel_scale(survey, "g")  # same pixel scale for all filters
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec).value
     else:
