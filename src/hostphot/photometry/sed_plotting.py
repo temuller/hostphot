@@ -31,19 +31,20 @@ colours = {
 }
 
 
-def get_eff_wave(filt: str, survey: str) -> float:
+def get_eff_wave(filt: str, survey: str, version: str=None) -> float:
     """Obtains the effective wavelength of a filter.
 
     Parameters
     ----------
     filt: Filter name.
     survey: Survey name.
+    version: Survey version.
 
     Returns
     -------
     eff_wave: Effective wavelength in angstroms.
     """
-    wave, trans = extract_filter(filt, survey)
+    wave, trans = extract_filter(filt, survey, version)
     eff_wave = np.sum(wave * trans) / np.sum(trans)
 
     return eff_wave
@@ -148,7 +149,10 @@ def plot_sed(
                 continue
 
             # get photometry
-            wave = get_eff_wave(filt, survey)
+            version = None
+            if survey == "LegacySurvey":
+                version = "DECam"
+            wave = get_eff_wave(filt, survey, version)
             mag = phot_df[filt_str].values[0] + mag_sys_conv[filt]
             mag_err = phot_df[filt_err_str].values[0]
             waves.append(wave)
