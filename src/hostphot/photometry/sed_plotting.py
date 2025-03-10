@@ -89,7 +89,6 @@ def plot_sed(
     if phot_type == "local":
         assert radius is not None, "radius must be given with local photometry"
 
-    global colours
     obj_path = Path(workdir, name)
     phot_files = [file for file in obj_path.rglob(f"*{phot_type}_photometry.csv")]
 
