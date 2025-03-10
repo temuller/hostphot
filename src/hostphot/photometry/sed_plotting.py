@@ -14,7 +14,7 @@ filters_config = load_yml(filters_file)
 #config_file = path.joinpath("filters", "config.txt")
 #config_df = pd.read_csv(config_file, sep="\\s+")
 
-
+"""
 colours = {
     "GALEX": "purple",
     "PanSTARRS": "green",
@@ -29,7 +29,7 @@ colours = {
     "VISTA": "coral",
     "UKIDSS": "darkgoldenrod",
 }
-
+"""
 
 def get_eff_wave(filt: str, survey: str, version: str=None) -> float:
     """Obtains the effective wavelength of a filter.
@@ -55,6 +55,7 @@ def plot_sed(
     phot_type: str = "global",
     z: Optional[float] = None,
     radius: str | int | float = None,
+    ap_units: str = "kpc",
     include: list = None,
     exclude: list = None,
     save_plot: bool = True,
@@ -72,6 +73,7 @@ def plot_sed(
     z: Redshift of the object, by default ``None``. If given, corrects
         for time dilation.
     radius : Radius for the local photometry, by default ``None``.
+    ap_units: Aperture untis for the local photometry.
     include: List of surveys to include in the plot. Cannot be given together
         with '``exclude``.
     exclude: List of surveys to exclude from the plot. Cannot be given together
@@ -122,16 +124,18 @@ def plot_sed(
     # start plotting
     fig, ax = plt.subplots(figsize=(12, 6))
     for file in phot_files:
+        phot_df = pd.read_csv(file)
         survey = file.parts[-2]
         filters = get_survey_filters(survey)
 
         # Vega to AB
-        mag_sys_conv = {filt: filters_config[survey][filt]["Vega_to_AB"] 
-                        for filt in filters}
+        ab_offset = {filt: filters_config[survey][filt]["AB_offset"] 
+                     for filt in filters}
 
         # adapt name for local photometry
         if phot_type == "local":
-            title = fr"{name} - {phot_type} SED (r $= {radius}$ kpc)"
+            ap_units = phot_df.ap_units.values[0]
+            title = fr"{name} - {phot_type} SED (r $= {radius}$ {ap_units})"
             ext = f"_{radius}"
         elif phot_type == "global":
             title = f"{name} - {phot_type} SED"
@@ -139,7 +143,7 @@ def plot_sed(
         else:
             raise ValueError(f"Invalid photometry type: {phot_type}")
 
-        phot_df = pd.read_csv(file)
+        
         waves, phot, phot_err = [], [], []
         valid_filters = []
         for filt in filters:
@@ -147,13 +151,13 @@ def plot_sed(
             filt_err_str = filt + ext + "_err"
             if filt_str not in phot_df.columns:
                 continue
-
+            
             # get photometry
             version = None
             if survey == "LegacySurvey":
                 version = "DECam"
             wave = get_eff_wave(filt, survey, version)
-            mag = phot_df[filt_str].values[0] + mag_sys_conv[filt]
+            mag = phot_df[filt_str].values[0] + ab_offset[filt]
             mag_err = phot_df[filt_err_str].values[0]
             waves.append(wave)
             phot.append(mag)
@@ -163,7 +167,7 @@ def plot_sed(
         if z is not None:
             # correct for time dilation
             waves = np.array(waves) / (1 + z)
-            phot = np.array(phot) - 2.5 * np.log10((1 + z))
+            phot = np.array(phot) #- 2.5 * np.log10((1 + z))
             xlabel = r"Rest Wavelength ($\AA$)"
             if ")" in title:
                 title = title.replace(")", fr" @ $z={z}$)")
@@ -174,6 +178,7 @@ def plot_sed(
             phot = np.array(phot)
             xlabel = r"Observed Wavelength ($\AA$)"
         phot_err = np.array(phot_err)
+        print(survey, phot)
 
         # NaN mask
         mask = ~np.isnan(phot) * phot_err > 0
@@ -194,7 +199,7 @@ def plot_sed(
                 ms=10,
                 ls="dashed",
                 lw=3,
-                c=colours[survey],
+                #c=colours[survey],
                 mec="k",
                 capsize=6,
                 label=label,
@@ -211,7 +216,7 @@ def plot_sed(
                 ms=10,
                 ls="dashed",
                 lw=3,
-                c=colours[survey],
+                #c=colours[survey],
                 mec="k",
                 capsize=6,
                 label=label,
