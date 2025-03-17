@@ -33,7 +33,7 @@ def get_UKIDSS_images(ra: float, dec: float, size: float=3, filters: str='ZYJHK'
     database = 'UKIDSSDR11PLUS'
     # programme = 'LAS'  # ['UDS', 'GCS', 'GPS', 'DXS', 'LAS']
     
-    survey_pixel_scale(survey)
+    survey_pixel_scale(survey, "H")  # same scale for all pixels, except J for LAS
     if isinstance(size, (float, int)):
         size = (size * u.arcmin)
 
