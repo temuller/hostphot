@@ -65,7 +65,7 @@ def download_images(
     # save input parameters
     if save_input is True:
         inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
-        inputs_df.to_csv(survey_dir / "cutouts_input.csv", index=False)
+        inputs_df.to_csv(survey_dir / "input_cutouts.csv", index=False)
 
     # check existing images
     if overwrite is False:
