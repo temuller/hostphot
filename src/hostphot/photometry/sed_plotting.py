@@ -90,7 +90,7 @@ def plot_sed(
         assert radius is not None, "radius must be given with local photometry"
 
     obj_path = Path(workdir, name)
-    phot_files = [file for file in obj_path.rglob(f"*{phot_type}_photometry.csv")]
+    phot_files = [file for file in obj_path.rglob(f"*/{phot_type}_photometry.csv")]
 
     if include is not None and exclude is not None:
         raise ValueError("'inlcude' cannot be given together with 'exclude'!")
@@ -177,7 +177,6 @@ def plot_sed(
             phot = np.array(phot)
             xlabel = r"Observed Wavelength ($\AA$)"
         phot_err = np.array(phot_err)
-        print(survey, phot)
 
         # NaN mask
         mask = ~np.isnan(phot) * phot_err > 0
@@ -228,7 +227,7 @@ def plot_sed(
 
     if plot_flux is False:
         ax.invert_yaxis()  # for magnitude plot
-        ax.set_ylabel("Magnitude (AB)", fontsize=24, font=font_family)
+        ax.set_ylabel("AB Magnitude", fontsize=24, font=font_family)
     else:
         ax.set_ylabel("Flux (mJy)", fontsize=24, font=font_family)
     ax.set_xlabel(xlabel, fontsize=24, font=font_family)
@@ -259,5 +258,6 @@ def plot_sed(
             obj_dir = Path(workdir, name)
             basename = f"sed_{phot_type}.jpg"
             outfile = obj_dir / basename
+        plt.tight_layout()
         plt.savefig(outfile)
     plt.show()

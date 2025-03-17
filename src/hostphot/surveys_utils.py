@@ -1,6 +1,5 @@
 import yaml
 import numpy as np
-import pandas as pd
 from pathlib import Path
 from typing import Optional
 
@@ -9,13 +8,18 @@ import hostphot
 hostphot_path = Path(hostphot.__path__[0])
 filters_file = hostphot_path.joinpath("filters", "filters.yml")
 
-#config_file = hostphot_path.joinpath("filters", "config.txt")
-#config_df = pd.read_csv(config_file, sep="\\s+")
-
 # surveys that need background subtraction
-bkg_surveys = ["2MASS", "WISE", "VISTA", "SkyMapper", "UKIDSS"]
+bkg_surveys = ["2MASS", 
+               "WISE", 
+               "VISTA", 
+               "SkyMapper", 
+               "UKIDSS",
+               ]
 # surveys which are flipped respect to most others
-flipped_surveys = ["DES", "VISTA", "UKIDSS"]
+flipped_surveys = ["DES", 
+                   "VISTA", 
+                   "UKIDSS",
+                   ]
 
 def load_yml(file: str) -> dict:
     """Simply loads a YAML file.
@@ -55,11 +59,8 @@ def get_survey_filters(survey: str) -> str | list:
     if survey in ["HST", "JWST"]:
         # For HST, the filter needs to be specified
         return None
-
     filters_config = load_yml(filters_file)
     filters = list(filters_config[survey].keys())
-    #if "," in filters:
-    #    filters = filters.split(",")
     return filters
 
 
@@ -77,17 +78,8 @@ def survey_zp(survey: str, filt: str) -> str | dict:
     """
     check_survey_validity(survey)
     check_filters_validity([filt], survey)
-
     filters_config = load_yml(filters_file)
     zp = filters_config[survey][filt]["zeropoint"]
-
-    #if zp == "header":
-    #    return zp
-    #if "," in zps:
-    #    zps = zps.split(",")
-    #    zp_dict = {filt: float(zp) for filt, zp in zip(filters, zps)}
-    #else:
-    #    zp_dict = {filt: float(zps) for filt in filters}
     return zp
 
 
@@ -134,6 +126,24 @@ def survey_pixel_scale(survey: str, filt: Optional[str] = None) -> float:
         return pixel_scale
     """
     return float(pixel_scale)
+
+
+def survey_pixel_units(survey: str, filt: str) -> str:
+    """Returns the pixel units for a given survey.
+
+    Parameters
+    ----------
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
+
+    Returns
+    -------
+    pixel_units: Pixel units (e.g. ``counts`` or ``counts/second``).
+    """
+    check_survey_validity(survey)
+    check_filters_validity([filt], survey)
+    filters_config = load_yml(filters_file)
+    pixel_units = filters_config[survey][filt]["pixel_units"]
+    return pixel_units
 
 
 def check_filters_validity(filters: str | list, survey: str) -> None:
