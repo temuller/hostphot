@@ -19,7 +19,7 @@ import pandas as pd
 from pathlib import Path
 from typing import Optional
 
-import sep_pjw as sep
+import sep
 from astropy.wcs import WCS
 from astropy.io import fits
 
@@ -35,6 +35,7 @@ from hostphot.photometry.photometry_utils import magnitude_calculation
 from hostphot.photometry.image_utils import adapt_aperture, get_image_exptime
 from hostphot.surveys_utils import (
     get_survey_filters,
+    survey_pixel_units,
     check_filters_validity,
     check_survey_validity,
     flipped_surveys,
@@ -243,7 +244,12 @@ def extract_aperture(
     )
     if optimize_kronrad:
         exptime = get_image_exptime(header, survey)
-        if survey in ["PanSTARRS", "VISTA", "UKIDSS"]:
+        try:
+            pixel_units = survey_pixel_units(survey, filt)
+        except:
+            # probably a coadd, so only need one filter
+            pixel_units = survey_pixel_units(survey, filt[0])
+        if pixel_units == "counts":
             _exptime = 1
         else:
             _exptime = exptime
@@ -426,7 +432,8 @@ def photometry(
     header = hdu[0].header
     data = hdu[0].data
     exptime = get_image_exptime(header, survey)
-    if survey in ["PanSTARRS", "VISTA", "UKIDSS"]:
+    pixel_units = survey_pixel_units(survey, filt)
+    if pixel_units == "counts":
         _exptime = 1
     else:
         _exptime = exptime
@@ -633,7 +640,7 @@ def multi_band_phot(
     # save input parameters
     if save_input is True:
         inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
-        outfile = Path(workdir, name, survey, "global_phot_input.csv")
+        outfile = Path(workdir, name, survey, "input_global_photometry.csv")
         inputs_df.to_csv(outfile, index=False)
 
     results_dict = {

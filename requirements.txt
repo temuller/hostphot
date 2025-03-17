@@ -12,5 +12,5 @@ extinction
 sfdmap2
 mocpy
 pyvo
-sep-pjw
+sep
 pytest

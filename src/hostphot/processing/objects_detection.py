@@ -10,7 +10,7 @@ from astropy.coordinates import SkyCoord
 from astroquery.gaia import Gaia
 from astroquery.mast import Catalogs
 
-import sep_pjw as sep
+import sep
 from hostphot._constants import font_family
 from hostphot.utils import suppress_stdout
 
@@ -242,7 +242,7 @@ def plot_detected_objects(
             edgecolor="k",
             facecolor="aqua",
             marker="*",
-            s=200,
+            s=250,
             label="SN",
         )
 
@@ -255,7 +255,7 @@ def plot_detected_objects(
             facecolor="m",
             alpha=0.7,
             marker="P",
-            s=200,
+            s=250,
             label="Galaxy position",
         )
     fig.show_ellipses(

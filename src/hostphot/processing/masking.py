@@ -6,8 +6,7 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import aplpy
 
-
-import sep_pjw as sep
+import sep
 from astropy.io import fits
 from astropy import wcs
 from astropy.coordinates import concatenate
@@ -168,7 +167,7 @@ def create_mask(
     # save input parameters
     if save_input is True:
         inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
-        inputs_df.to_csv(obj_dir / survey / f"masking_input_{filt}.csv", index=False)
+        inputs_df.to_csv(obj_dir / survey / "input_masking_parameters.csv", index=False)
 
     if (ref_filt is None) & (ref_survey is None):
         # extract objects
@@ -234,7 +233,7 @@ def create_mask(
         objects_df["flip"] = flip
         objects_df["filt"] = filt
         objects_df["survey"] = survey
-        outfile = obj_dir / survey / f"mask_params_{filt}.csv"
+        outfile = obj_dir / survey / f"mask_parameters_{filt}.csv"
         objects_df.to_csv(outfile, index=False)
 
     if save_plots is True:
@@ -275,7 +274,7 @@ def load_mask_params(
     if isinstance(filt, list):
         filt = ''.join(f for f in filt)
     obj_dir = Path(workdir, name)
-    mask_params_file = obj_dir / survey / f"mask_params_{filt}.csv"
+    mask_params_file = obj_dir / survey / f"mask_parameters_{filt}.csv"
     objects_df = pd.read_csv(mask_params_file)
     
     # split parameters
@@ -366,7 +365,7 @@ def plot_masked_image(
         facecolor="m",
         alpha=0.7,
         marker="P",
-        s=200,
+        s=250,
         label="Given galaxy",
     )
     fig2.show_markers(
@@ -376,7 +375,7 @@ def plot_masked_image(
         facecolor="r",
         alpha=0.7,
         marker="X",
-        s=200,
+        s=250,
         label="Identified galaxy",
         coords_frame="pixel",
     )
@@ -415,13 +414,17 @@ def plot_masked_image(
                 edgecolor="k",
                 facecolor="aqua",
                 marker="*",
-                s=200,
+                s=250,
                 label="SN",
             )
 
     fig2.ax.legend(
         fancybox=True, framealpha=1, prop={"size": 20, "family": font_family}
     )
+    # show sources indeces
+    for i, (x, y) in enumerate(zip(objects["x"], objects["y"])):
+        # the host galaxy has index one
+        fig2.ax.text(x, y, i+2, fontsize=14, color="orangered")
     # title
     if title is not None:
         length = len(title) - 2

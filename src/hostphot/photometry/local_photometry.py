@@ -21,7 +21,7 @@ from typing import Optional
 import matplotlib.pyplot as plt
 
 import aplpy
-import sep_pjw as sep
+import sep
 from photutils.aperture import aperture_photometry, CircularAperture
 from photutils.utils import calc_total_error
 
@@ -38,6 +38,7 @@ from hostphot.photometry.image_utils import get_image_exptime
 from hostphot.photometry.photometry_utils import magnitude_calculation
 from hostphot.surveys_utils import (
     get_survey_filters,
+    survey_pixel_units,
     check_filters_validity,
     check_survey_validity,
     survey_pixel_scale,
@@ -46,6 +47,8 @@ from hostphot.surveys_utils import (
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
+
+from photutils.background import Background2D, SExtractorBackground
 
 plt.rcParams["mathtext.fontset"] = "cm"
 
@@ -190,7 +193,8 @@ def photometry(
     z: float,
     filt: str,
     survey: str,
-    ap_radii: int | float = 1,
+    ap_radii: int | float | list = 1,
+    ap_units: str = "kpc",
     bkg_sub: Optional[bool] = None,
     use_mask: bool = True,
     correct_extinction: bool = True,
@@ -207,7 +211,8 @@ def photometry(
         of the aperture.
     filt: Filter to use to load the fits file.
     survey: Survey to use for the zero-points and pixel scale.
-    ap_radii: Physical size of the aperture in kpc.
+    ap_radii: Aperture size.
+    ap_units: Aperture size units. Either ``kpc`` or ``arcsec``.
     bkg_sub: If ``True``, the image gets background subtracted. By default, only
         the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
@@ -228,6 +233,7 @@ def photometry(
     # initial checks
     check_survey_validity(survey)
     check_work_dir(workdir)
+    assert ap_units in ["kpc", "arcsec"], "not valid aperture size units"
     obj_dir = Path(workdir, name)
     if use_mask:
         suffix = "_masked"
@@ -241,8 +247,9 @@ def photometry(
     header = hdu[0].header
     data = hdu[0].data
     exptime = get_image_exptime(header, survey)
-    if survey in ["PanSTARRS", "VISTA", "UKIDSS"]:
-            _exptime = 1
+    pixel_units = survey_pixel_units(survey, filt)
+    if pixel_units == "counts":
+        _exptime = 1
     else:
         _exptime = exptime
     with warnings.catch_warnings():
@@ -250,10 +257,14 @@ def photometry(
         wcs = WCS(header, naxis=2)
 
     data = data.astype(np.float64)
+    #box_size = int(0.1 * np.sqrt(data.size))
+    #bkg = SExtractorBackground(sigma_clip=None)
+    #bkg = Background2D(data, box_size=box_size, bkg_estimator=bkg)
     bkg = sep.Background(data)
     # background subtraction, if needed
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg)
+        #data_sub = np.copy(data - bkg.background)
     else:
         data_sub = np.copy(data)
 
@@ -271,13 +282,17 @@ def photometry(
 
     mags, mags_err = [], []
     fluxes, fluxes_err = [], []
-    px, py = wcs.wcs_world2pix(ra, dec, 1)  # object's coordinates
+    px, py = wcs.wcs_world2pix(ra, dec, 0)  # object's coordinates
 
     for ap_radius in ap_radii:
         # aperture photometry
-        radius_arcsec = calc_aperture_size(z, ap_radius)
+        if ap_units == "kpc":
+            radius_arcsec = calc_aperture_size(z, ap_radius)
+        else:
+            radius_arcsec = ap_radius
         radius_pix = radius_arcsec / pixel_scale
         flux, flux_err = extract_aperture_flux(data_sub, bkg.rms(), _exptime, px, py, radius_pix)
+        #flux, flux_err = extract_aperture_flux(data_sub, bkg.background_rms, _exptime, px, py, radius_pix)
 
         ap_area = np.pi * (radius_pix**2)
         mag, mag_err, flux, flux_err, zp = magnitude_calculation(
@@ -288,6 +303,7 @@ def photometry(
             ap_area,
             header,
             bkg.globalrms,
+            #np.median(bkg.background_rms),
         )
 
         if correct_extinction is True:
@@ -301,8 +317,11 @@ def photometry(
         fluxes_err.append(flux_err)
 
         if save_plots:
-            outfile = obj_dir / survey / f"local_{survey}_{filt}_{ap_radius}kpc.jpg"
-            title = rf"{name}: {survey}-${filt}$|r$={ap_radius}$ kpc @ $z={z}$"
+            outfile = obj_dir / survey / f"local_{survey}_{filt}_{ap_radius}{ap_units}.jpg"
+            if ap_units == "kpc":
+                title = rf"{name}: {survey}-${filt}$|r$={ap_radius}$ {ap_units} @ $z={z}$"
+            else:
+                title = rf"{name}: {survey}-${filt}$|r$={ap_radius}$ {ap_units}"
             plot_aperture(hdu, px, py, radius_pix, title, outfile)
     hdu.close()
 
@@ -316,7 +335,8 @@ def multi_band_phot(
     z: float,
     filters: Optional[str | list] = None,
     survey: str = "PanSTARRS",
-    ap_radii: int | float = 1,
+    ap_radii: int | float | list = 1,
+    ap_units: str = "kpc",
     bkg_sub: Optional[bool] = None,
     use_mask: bool = True,
     correct_extinction: bool = True,
@@ -337,7 +357,8 @@ def multi_band_phot(
     filters: Filters to use to load the fits files. If ``None`` use all
         the filters of the given survey.
     survey: Survey to use for the zero-points and pixel scale.
-    ap_radii: Physical size of the aperture in kpc.
+    ap_radii: Aperture size.
+    ap_units: Aperture size units. Either ``kpc`` or ``arcsec``.
     bkg_sub: If ``True``, the image gets background subtracted. By default, only
         the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
@@ -381,11 +402,12 @@ def multi_band_phot(
         check_filters_validity(filters, survey)
     if survey in ["HST", "JWST"]:
         filters = [filters]
+    assert ap_units in ["kpc", "arcsec"], "not valid aperture size units"
 
     # save input parameters
     if save_input is True:
         inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
-        outfile = Path(workdir, name, survey, "local_phot_input.csv")
+        outfile = Path(workdir, name, survey, "input_local_photometry.csv")
         inputs_df.to_csv(outfile, index=False)
 
     # turn int/float into a list for consistency
@@ -398,6 +420,7 @@ def multi_band_phot(
         "dec": dec,
         "redshift": z,
         "survey": survey,
+        "ap_units": ap_units,
     }
     # calculate photometry
     for filt in filters:
@@ -410,6 +433,7 @@ def multi_band_phot(
                 filt,
                 survey,
                 ap_radii,
+                ap_units,
                 bkg_sub,
                 use_mask,
                 correct_extinction,

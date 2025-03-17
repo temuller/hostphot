@@ -11,6 +11,7 @@ import hostphot
 from hostphot.surveys_utils import (
     check_survey_validity,
     check_filters_validity,
+    survey_pixel_units,
     survey_zp,
 )
 from hostphot.photometry.image_utils import (
@@ -258,21 +259,17 @@ def uncertainty_calculation(
         S = flux
         N_c = 6  # number of coadd pixels
         k_z = 1.7  # kernel smoothing factor
+        gain = 10  # typical gain in e-/dn
         n_f = ap_area  # number of frame pixels in the aperture; aprox. as aperture area
         n_c = 4 * n_f  # number of coadd pixels in the aperture
         sigma_c = bkg_rms  # coadd noise; assumed to be ~background noise
 
         SNR = S / np.sqrt(
             S / (gain * N_c)
-            + n_c * (2 * k_z * sigma_c) ** 2
-            + (n_c * 0.024 * sigma_c) ** 2
+            + 4 * n_c * k_z ** 2 * sigma_c ** 2
         )
         mag_err = 1.0857 / SNR
-        
-        # How Blast does it
-        #n_pix = ap_area
-        #error = np.sqrt(flux_err / (10 * 6) + 4 * n_pix * 1.7**2.0 * bkg_rms ** 2)
-        #mag_err = 1.0857 * error / flux
+
 
     elif "WISE" in survey:
         # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
@@ -444,7 +441,8 @@ def magnitude_calculation(
         bkg_rms,
     )
 
-    if survey in ["PanSTARRS", "VISTA", "UKIDSS"]:
+    pixel_units = survey_pixel_units(survey, filt)
+    if pixel_units == "counts" and survey!="2MASS":
         # flux needs to be in units of counts per second
         # but only after the error propagation
         exptime = get_image_exptime(header, survey)

@@ -168,7 +168,7 @@ def get_image_exptime(header: fits.Header, survey: str) -> float:
         # https://iopscience.iop.org/article/10.1086/498708/pdf
         exptime = 7.8
     elif survey == "LegacySurvey":
-        exptime = 1.0  # Not used
+        exptime = 1.0  # ???
     elif survey == "SPLUS":
         exptime = header["TEXPOSED"]
     elif survey == "UKIDSS":
@@ -268,11 +268,10 @@ def adapt_aperture(
         sky_apertures = apertures.to_sky(img_wcs)
 
         new_apertures = sky_apertures.to_pixel(img_wcs2)
-        new_center = new_apertures.positions
-        obj["x"], obj["y"] = new_center
+        obj["x"], obj["y"] = new_apertures.positions
         obj["a"] = new_apertures.a
         obj["b"] = new_apertures.b
-        obj["theta"] = new_apertures.theta
+        obj["theta"] = new_apertures.theta.value
 
         if flip is True:
             # flip aperture orientation
