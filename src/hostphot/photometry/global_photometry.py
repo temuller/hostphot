@@ -519,7 +519,8 @@ def photometry(
 
     if save_plots is True:
         outfile = obj_dir / survey / f"global_{survey}_{filt}.jpg"
-        title = f"{name}: {survey}-${filt}$"
+        filt_ = filt.replace("_", "-")
+        title = f"{name}: {survey}-${filt_}$"
         plot_detected_objects(
             hdu,
             gal_obj,

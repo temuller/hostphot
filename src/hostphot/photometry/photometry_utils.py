@@ -58,18 +58,18 @@ def get_HST_err(filt: str, header: fits.Header) -> float:
     """
     global hostphot_path
 
-    # split instrument and filter
+    # split detector and filter
     filt_split = filt.split("_")
     filt = filt_split[-1]
-    instrument = filt_split[-2]
+    detector = filt_split[-2]
 
-    if instrument == "UVIS":
+    if detector == "UVIS":
         # APERTURE usually points to UVIS2
-        instrument = header["APERTURE"]
+        detector = header["APERTURE"]
 
     # get uncertainty file
-    err_file = hostphot_path.joinpath("filters", "HST", f"{instrument}_err.txt")
-    err_df = pd.read_csv(err_file, delim_whitespace=True)
+    err_file = hostphot_path.joinpath("filters", "HST", f"{detector}_err.txt")
+    err_df = pd.read_csv(err_file, sep="\\s+")
     filt_err_df = err_df[err_df.Filter == filt]
     # error propagation
     flux = filt_err_df.PHOTFLAM.values[0]
@@ -497,10 +497,13 @@ def extract_filter(
         elif version == "DECam":
             filt_file = filters_path / f"DECAM_{filt}.dat"
     elif survey == "HST":
-        if "UVIS" in filt:
+        detector = filt.split("_")[1]
+        if detector == "UVIS":
             # Usually UVIS2 is used, but there is no large difference
-            filt = filt.replace("UVIS", "UVIS2")
-        filt_file = [file for file in filters_path.rglob("*{filt}*")][0]
+            filt_ = filt.replace("UVIS", "UVIS2")
+        else:
+            filt_ = filt
+        filt_file = [file for file in filters_path.rglob(f"*{filt_}*")][0]
     elif survey == "JWST":
         filt_file = filters_path / f"{filt}.dat"
     else:

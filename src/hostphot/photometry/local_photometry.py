@@ -318,10 +318,11 @@ def photometry(
 
         if save_plots:
             outfile = obj_dir / survey / f"local_{survey}_{filt}_{ap_radius}{ap_units}.jpg"
+            filt_ = filt.replace("_", "-")
             if ap_units == "kpc":
-                title = rf"{name}: {survey}-${filt}$|r$={ap_radius}$ {ap_units} @ $z={z}$"
+                title = rf"{name}: {survey}-${filt_}$|r$={ap_radius}$ {ap_units} @ $z={z}$"
             else:
-                title = rf"{name}: {survey}-${filt}$|r$={ap_radius}$ {ap_units}"
+                title = rf"{name}: {survey}-${filt_}$|r$={ap_radius}$ {ap_units}"
             plot_aperture(hdu, px, py, radius_pix, title, outfile)
     hdu.close()
 
@@ -400,8 +401,8 @@ def multi_band_phot(
         filters = get_survey_filters(survey)
     else:
         check_filters_validity(filters, survey)
-    if survey in ["HST", "JWST"]:
-        filters = [filters]
+    #if survey in ["HST", "JWST"]:
+    #     filters = [filters]
     assert ap_units in ["kpc", "arcsec"], "not valid aperture size units"
 
     # save input parameters

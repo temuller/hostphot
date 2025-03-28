@@ -11,8 +11,9 @@ from astropy.coordinates import SkyCoord
 
 from pyvo.dal import sia
 from astroquery.esa.hubble import ESAHubble  # HST
-esahubble = ESAHubble()
 
+from hostphot._constants import workdir
+from hostphot.utils import check_work_dir
 from hostphot.surveys_utils import check_HST_filters
 
 import warnings
@@ -31,7 +32,7 @@ def update_HST_header(hdu: fits.hdu.ImageHDU) -> None:
     # MAST-archive images have the info on hdu[1]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
-        if "PHOTFLAM" not in hdu[0].header:
+        if "PHOTPLAM" not in hdu[0].header:
             # MAST image: move things to hdu[0] to homogenise
             img_wcs = wcs.WCS(hdu[1].header)
             hdu[0].header.update(img_wcs.to_header())
@@ -65,7 +66,7 @@ def set_HST_image(file: str, filt: str, name: str) -> None:
     """
     # check output directory
     check_work_dir(workdir)
-    obj_dir = Path(workdir, name)
+    obj_dir = Path(workdir, name, "HST")
     if obj_dir.is_dir() is False:
         obj_dir.mkdir()
     # update file and save file
@@ -75,7 +76,7 @@ def set_HST_image(file: str, filt: str, name: str) -> None:
     hdu.writeto(outfile, overwrite=True)
 
 def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3, 
-                        filt: str) -> list[fits.ImageHDU]:
+                        filt: str = "WFC3_UVIS_F225W") -> list[fits.ImageHDU]:
     """Downloads a set of HST fits images for a given set
     of coordinates and filters using the MAST archive.
 
@@ -90,7 +91,7 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
     ------
     hdu_list: List with fits image for the given filter. ``None`` is returned if no image is found.
     """
-    global esahubble
+    esahubble = ESAHubble()
     esahubble.get_status_messages()
     check_HST_filters(filt)
 
@@ -119,7 +120,7 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
     version = None
     if version == "HLA":
         # This does not seem to be faster
-        fov = 0.2  # field-of-view win degrees
+        fov = 0.2  # field-of-view in degrees
         access_url = " https://hla.stsci.edu/cgi-bin/hlaSIAP.cgi"
         svc = sia.SIAService(access_url)
         imgs_table = svc.search(

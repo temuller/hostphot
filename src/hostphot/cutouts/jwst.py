@@ -1,7 +1,11 @@
 import numpy as np
 from pathlib import Path
+
+from astropy import wcs
 from astropy.io import fits
 
+from hostphot._constants import workdir
+from hostphot.utils import check_work_dir
 from hostphot.surveys_utils import check_JWST_filters
 
 import warnings
@@ -48,7 +52,7 @@ def set_JWST_image(file: str, filt: str, name: str) -> None:
     """
     # check output directory
     check_work_dir(workdir)
-    obj_dir = Path(workdir, name)
+    obj_dir = Path(workdir, name, "JWST")
     if obj_dir.is_dir() is False:
         obj_dir.mkdir()
     # update header and save file

@@ -24,6 +24,7 @@ flipped_surveys = ["DES",
 # add warnings for the users
 survey_warnings = {"SkyMapper": "WARNING: The photometric calibration of SkyMapper is not trustworthy at the moment (DR4)!",
                    "VISTA": "WARNING: The photometric calibration of VISTA is currently not correct (might be a HostPhot problem)!",
+                   "UKIDS": "WARNING: The photometric calibration of UKIDS is currently not correct (might be a HostPhot problem)!",
                    }
 
 def load_yml(file: str) -> dict:
@@ -163,9 +164,17 @@ def check_filters_validity(filters: str | list, survey: str) -> None:
     survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
     """
     if survey == "HST":
-        check_HST_filters(filters)
+        if isinstance(filters, list):
+            for filt in filters:
+                check_HST_filters(filt)
+        else:
+            check_HST_filters(filters)
     elif survey == "JWST":
-        check_JWST_filters(filters)
+        if isinstance(filters, list):
+            for filt in filters:
+                check_JWST_filters(filt)
+        else:
+            check_JWST_filters(filters)
     else:
         valid_filters = get_survey_filters(survey)
         for filt in filters:
@@ -188,12 +197,15 @@ def check_HST_filters(filt: str) -> None:
         raise ValueError(f"'{filt}' is not a valid HST filter.")
     # For UVIS, only the filters of UVIS1 are used as the
     # detector 2 is scaled to match detector 1
-    if "UVIS" in filt:
-        filt = filt.replace("UVIS", "UVIS1")
+    detector = filt.split("_")[1]
+    if detector == "UVIS":
+        filt_ = filt.replace("UVIS", "UVIS1")
+    else:
+        filt_ = filt
     global hostphot_path
     filters_dir = hostphot_path / "filters/HST"
     hst_filters = [file.name.split(".")[0] for file in filters_dir.rglob("*.dat")]
-    assert filt in hst_filters, f"Not a valid HST filter ({filt}): {hst_filters}"
+    assert filt_ in hst_filters, f"Not a valid HST filter ({filt_}): {hst_filters}"
 
 
 def check_JWST_filters(filt: str) -> None:
@@ -253,9 +265,11 @@ def extract_filter(
     elif survey == "HST":
         if "UVIS" in filt:
             # Usually UVIS2 is used, but there is no large difference
-            filt = filt.replace("UVIS", "UVIS2")
+            filt_ = filt.replace("UVIS", "UVIS2")
+        else:
+            filt_ = filt
         filt_file = [
-            file for file in Path(filters_path, "HST").rglob("*.dat") if filt in file
+            file for file in Path(filters_path, "HST").rglob("*.dat") if filt_ in file
         ][0]
     elif survey == "JWST":
         filt_file = filters_path / f"{filt}.dat"

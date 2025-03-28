@@ -396,13 +396,13 @@ UKIDSS:
     magnitude_system: "Vega"
     AB_offset: 1.900
 HST:
-  WFC3_UVIS:
+  WFC3_UVIS_F275W:
     zeropoint: "header"
     pixel_scale: 0.04
     pixel_units: "counts/second"  # ???
     magnitude_system: "AB"
     AB_offset: 0.0
-  WFC3_IR:
+  WFC3_IR_F125W:
     zeropoint: "header"
     pixel_scale: 0.13
     pixel_units: "counts/second"
