@@ -80,7 +80,7 @@ def get_Spitzer_images(ra: float, dec: float, size: float | u.Quantity = 3,
     hdu_list = []
     for filt, file in files_dict.items():
         if file is not None:
-            hdu = fits.open(line)
+            hdu = fits.open(file)
             hdu[0].header["MAGZP"] = hdu[0].header["ZPAB"]
             hdu_list.append(hdu)
         else:
