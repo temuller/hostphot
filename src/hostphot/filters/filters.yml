@@ -195,7 +195,8 @@ LegacySurvey:
 Spitzer:
   IRAC.1:
     zeropoint: "header"
-    pixel_scale: 0.6
+    # scale of the mosaic https://irsa.ipac.caltech.edu/data/SPITZER/docs/irac/iracinstrumenthandbook/54/
+    pixel_scale: 0.6  
     pixel_units: "counts/second" # is this correct ????
     magnitude_system: "AB"
     AB_offset: 0.0
