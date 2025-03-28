@@ -2,6 +2,7 @@ import yaml
 import numpy as np
 from pathlib import Path
 from typing import Optional
+import warnings
 
 import hostphot
 
@@ -20,6 +21,10 @@ flipped_surveys = ["DES",
                    "VISTA", 
                    "UKIDSS",
                    ]
+# add warnings for the users
+survey_warnings = {"SkyMapper": "WARNING: The photometric calibration of SkyMapper is not trustworthy at the moment (DR4)!",
+                   "VISTA": "WARNING: The photometric calibration of VISTA is currently not correct (might be a HostPhot problem)!",
+                   }
 
 def load_yml(file: str) -> dict:
     """Simply loads a YAML file.
@@ -42,6 +47,8 @@ def check_survey_validity(survey: str) -> None:
     filters_config = load_yml(filters_file)
     surveys = list(filters_config.keys())
     assert survey in surveys, f"Survey '{survey}' not in {surveys}"
+    if survey in survey_warnings.keys():
+        warnings.warn(survey_warnings[survey])
 
 
 def get_survey_filters(survey: str) -> str | list:
