@@ -15,5 +15,5 @@ dependencies:
   - pytest
   - pip
   - pip:
-    - sep-pjw
+    - sep
     - sfdmap2
