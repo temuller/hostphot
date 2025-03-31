@@ -24,7 +24,7 @@ HostPhot is being actively developed in `a public repository on GitHub
     :target: https://github.com/temuller/hostphot/blob/master/LICENSE
 .. image:: https://github.com/temuller/hostphot/actions/workflows/main.yml/badge.svg
     :target: https://github.com/temuller/hostphot/actions/workflows/main.yml
-.. image:: https://img.shields.io/badge/Python-3.8%2B-blue
+.. image:: https://img.shields.io/badge/Python-3.9%2B-blue
     :target: Python Version
 .. image:: https://img.shields.io/pypi/v/hostphot?label=PyPI&logo=pypi&logoColor=white
     :target: https://pypi.org/project/hostphot/
@@ -45,10 +45,8 @@ HostPhot is being actively developed in `a public repository on GitHub
    :caption: Examples
 
    examples/work_dir.rst
-   examples/cutouts_example.rst
-   examples/preprocessing.rst
-   examples/photometry_example.rst
-   examples/test_full.ipynb
+   examples/hostphot_basic_example.ipynb
+   examples/hostphot_complete_demo.ipynb
    examples/hst_and_jwst_example.ipynb
    examples/sed_plotting.ipynb
    
@@ -110,5 +108,5 @@ License & Attribution
 Copyright 2022 Tomás E. Müller Bravo.
 
 HostPhot is being developed by `Tomás E. Müller Bravo <https://temuller.github.io/>`_ in a
-`public GitHub repository <https://github.com/hostphot/piscola>`_.
+`public GitHub repository <https://github.com/temuller/hostphot>`_.
 The source code is made available under the terms of the MIT license.

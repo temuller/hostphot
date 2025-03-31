@@ -3,5 +3,5 @@
 SED Plotting
 ============
 
-.. automodule:: hostphot.sed_plotting
-   :members:
+.. autofunction:: hostphot.photometry.sed_plotting.plot_sed
+.. autofunction:: hostphot.photometry.sed_plotting.get_eff_wave

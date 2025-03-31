@@ -3,5 +3,5 @@
 Dust (extinction correction)
 ============================
 
-.. automodule:: hostphot.dust
+.. automodule:: hostphot.photometry.dust
    :members:
