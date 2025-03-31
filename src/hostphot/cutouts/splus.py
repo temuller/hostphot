@@ -71,7 +71,6 @@ def get_SPLUS_images(ra: float, dec: float, size: float | u.Quantity = 3,
     -------
     hdu_list: List of fits images.
     """
-    global hostphot_path
     survey = "SPLUS"
     if filters is None:
         filters = get_survey_filters(survey)

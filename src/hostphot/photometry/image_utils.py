@@ -194,8 +194,6 @@ def correct_HST_aperture(filt: str, ap_area: float, header: fits.Header) -> floa
     -------
     correction: Aperture correction (encircled energy fraction).
     """
-    global hostphot_path
-
     # split instrument and filter
     filt_split = filt.split("_")
     filt = filt_split[-1]

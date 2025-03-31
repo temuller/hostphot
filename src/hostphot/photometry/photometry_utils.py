@@ -56,8 +56,6 @@ def get_HST_err(filt: str, header: fits.Header) -> float:
     -------
     mag_err: Magnitude error on PHOTFLAM.
     """
-    global hostphot_path
-
     # split detector and filter
     filt_split = filt.split("_")
     filt = filt_split[-1]
@@ -473,8 +471,6 @@ def extract_filter(
     wave: Wavelength range of the filter.
     transmission: Transmission function.
     """
-    global hostphot_path
-
     check_survey_validity(survey)
     if survey in ["HST", "JWST"]:
         check_filters_validity(filt, survey)

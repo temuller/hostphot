@@ -10,32 +10,35 @@ hostphot_path = Path(hostphot.__path__[0])
 filters_file = hostphot_path.joinpath("filters", "filters.yml")
 
 # surveys that need background subtraction
-bkg_surveys = ["2MASS", 
-               "WISE", 
-               "VISTA", 
-               "SkyMapper", 
-               "UKIDSS",
-               ]
+bkg_surveys = [
+    "2MASS",
+    "WISE",
+    "VISTA",
+    "SkyMapper",
+    "UKIDSS",
+]
 # surveys which are flipped respect to most others
-flipped_surveys = ["DES", 
-                   "VISTA", 
-                   "UKIDSS",
-                   ]
+flipped_surveys = [
+    "DES",
+    "VISTA",
+    "UKIDSS",
+]
 # add warnings for the users
-survey_warnings = {"SkyMapper": "WARNING: The photometric calibration of SkyMapper is not trustworthy at the moment (DR4)!",
-                   "VISTA": "WARNING: The photometric calibration of VISTA is currently not correct (might be a HostPhot problem)!",
-                   "UKIDS": "WARNING: The photometric calibration of UKIDS is currently not correct (might be a HostPhot problem)!",
-                   }
+survey_warnings = {
+    "SkyMapper": "WARNING: The photometric calibration of SkyMapper is not trustworthy at the moment (DR4)!",
+    "VISTA": "WARNING: The photometric calibration of VISTA is currently not correct (might be a HostPhot problem)!",
+    "UKIDS": "WARNING: The photometric calibration of UKIDS is currently not correct (might be a HostPhot problem)!",
+}
+
 
 def load_yml(file: str) -> dict:
-    """Simply loads a YAML file.
-    """
+    """Simply loads a YAML file."""
     with open(file) as stream:
         try:
-            return (yaml.safe_load(stream))
+            return yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
-            
+
 
 def check_survey_validity(survey: str) -> None:
     """Check whether the given survey is whithin the valid
@@ -106,34 +109,8 @@ def survey_pixel_scale(survey: str, filt: Optional[str] = None) -> float:
     """
     check_survey_validity(survey)
     filters_config = load_yml(filters_file)
-    pixel_scale = filters_config[survey][filt]["pixel_scale"]
-    """
-    # some surveys have multiple scales (separated by ',') depending on the instrument
-    if len(pixel_scale.split(",")) > 1:
-        if survey in ["HST", "JWST"]:
-            filters = filt  # needs to be explicitly specified
-        else:
-            filters = get_survey_filters(survey)
-        pixel_scale_dict = {
-            f: float(ps) for f, ps in zip(filters, pixel_scale.split(","))
-        }
-        if filt in pixel_scale_dict.keys():
-            pixel_scale = pixel_scale_dict[filt]
-        elif survey == "HST":
-            if "UVIS" in filt:
-                pixel_scale = list(pixel_scale_dict.values())[0]
-            elif "IR" in filt:
-                pixel_scale = list(pixel_scale_dict.values())[1]
-            else:
-                raise ValueError(f"Not a valid HST filter: {filt}")
-        else:
-            print(f"No pixel scale found for filter {filt}.")
-            filt_used = list(pixel_scale_dict.keys())[0]
-            print(f"Using the pixel scale of filter {filt_used} ({survey}).")
-            pixel_scale = list(pixel_scale_dict.values())[0]
-        return pixel_scale
-    """
-    return float(pixel_scale)
+    pixel_scale = float(filters_config[survey][filt]["pixel_scale"])
+    return pixel_scale
 
 
 def survey_pixel_units(survey: str, filt: str) -> str:
@@ -202,7 +179,6 @@ def check_HST_filters(filt: str) -> None:
         filt_ = filt.replace("UVIS", "UVIS1")
     else:
         filt_ = filt
-    global hostphot_path
     filters_dir = hostphot_path / "filters/HST"
     hst_filters = [file.name.split(".")[0] for file in filters_dir.rglob("*.dat")]
     assert filt_ in hst_filters, f"Not a valid HST filter ({filt_}): {hst_filters}"
@@ -219,7 +195,6 @@ def check_JWST_filters(filt: str) -> None:
     """
     if filt is None:
         raise ValueError(f"'{filt}' is not a valid JWST filter.")
-    global hostphot_path
     filters_dir = hostphot_path / "filters/JWST"
     jwst_filters = [file.name.split(".")[0] for file in filters_dir.rglob("*.dat")]
     assert filt in jwst_filters, f"Not a valid JWST filter ({filt}): {jwst_filters}"
@@ -243,7 +218,6 @@ def extract_filter(
     wave: Wavelength range of the filter.
     transmission: Transmission function.
     """
-    global hostphot_path
     check_survey_validity(survey)
     if survey in ["HST", "JWST"]:
         check_filters_validity(filt, survey)
