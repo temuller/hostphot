@@ -1,6 +1,6 @@
 import unittest
-import warnings
-from hostphot.cutouts import download_images
+from pathlib import Path
+from hostphot.cutouts import download_images, set_HST_image, set_JWST_image
 
 
 class TestHostPhot(unittest.TestCase):
@@ -106,6 +106,22 @@ class TestHostPhot(unittest.TestCase):
         name = "UKIDSS_test"
         ra, dec = 359.5918320, +0.1964120
         download_images(name, ra, dec, overwrite=True, survey="UKIDSS")
+        
+    def test_cutouts_HST(self):
+        name = "HST_test"
+        filt = 'WFC3_UVIS_F275W'
+        file = "tests/hst_16741_2v_wfc3_uvis_f275w_iepo2v_drc.fits"
+        if Path(file).exists():
+            # this test only runs locally as the file is too large
+            set_HST_image(file, filt, name)
+        
+    def test_cutouts_JWST(self):
+        name = "JWST_test"
+        filt = 'NIRCam_F090W'
+        file = "tests/jw01685-c1008_t004_nircam_clear-f090w_i2d.fits"
+        if Path(file).exists():
+            # this test only runs locally as the file is too large
+            set_JWST_image(file, filt, name)
 
 
 if __name__ == "__main__":

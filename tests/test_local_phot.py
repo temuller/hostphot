@@ -19,14 +19,14 @@ class TestHostPhot(unittest.TestCase):
             ra,
             dec,
             z,
-            survey="PS1",
+            survey=survey,
             filters="grizy",
             ap_radii=ap_radii,
             use_mask=False,
-            save_plots=True,
+            save_plots=False,
             raise_exception=True,
         )
-        mags = [phot[filt] for filt in ["g_4", "r_4", "i_4", "z_4"]]
+        mags = [phot[filt][0] for filt in ["g_4", "r_4", "i_4", "z_4"]]
         # pre-calculated magnitudes
         ref_mags = [12.26, 11.89, 11.72, 11.57]
 

@@ -23,9 +23,9 @@ class TestHostPhot(unittest.TestCase):
             save_plots=False,
             raise_exception=True,
         )
-        mags = [phot[filt] for filt in "griz"]
-        # griz SIMBAD reference magnitudes of the host galaxy of SN 2002fk
-        ref_mags = [12.155, 11.508, 11.205, 10.979]
+        mags = [phot[filt][0] for filt in "griz"]
+        # griz reference magnitudes compared to Blast
+        ref_mags = [11.684, 11.353, 11.215, 11.073]
 
         err_msg = (
             "Large difference between calculated and reference magnitudes"
