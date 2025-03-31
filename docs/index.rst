@@ -24,7 +24,7 @@ HostPhot is being actively developed in `a public repository on GitHub
     :target: https://github.com/temuller/hostphot/blob/master/LICENSE
 .. image:: https://github.com/temuller/hostphot/actions/workflows/main.yml/badge.svg
     :target: https://github.com/temuller/hostphot/actions/workflows/main.yml
-.. image:: https://img.shields.io/badge/Python-3.9%2B-blue
+.. image:: https://img.shields.io/badge/Python-3.10%2B-blue
     :target: Python Version
 .. image:: https://img.shields.io/pypi/v/hostphot?label=PyPI&logo=pypi&logoColor=white
     :target: https://pypi.org/project/hostphot/

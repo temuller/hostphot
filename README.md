@@ -8,7 +8,7 @@ Global and local photometry of galaxies hosting supernovae or other transients
 [![Documentation Status](https://readthedocs.org/projects/hostphot/badge/?version=latest)](https://hostphot.readthedocs.io/en/latest/?badge=latest)
 [![license](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://github.com/temuller/hostphot/blob/master/LICENSE)
 [![Tests and Publish](https://github.com/temuller/hostphot/actions/workflows/main.yml/badge.svg)](https://github.com/temuller/hostphot/actions/workflows/main.yml)
-![Python Version](https://img.shields.io/badge/Python-3.8%2B-blue)
+![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue)
 [![PyPI](https://img.shields.io/pypi/v/hostphot?label=PyPI&logo=pypi&logoColor=white)](https://pypi.org/project/hostphot/)
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.04508/status.svg)](https://doi.org/10.21105/joss.04508)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6992139.svg)](https://doi.org/10.5281/zenodo.6992139)
@@ -43,14 +43,14 @@ pytest -v
 
 ### Cutouts
 
-This module allows you to download image cutouts from different surveys (e.g. `PS1`):
+This module allows you to download image cutouts from different surveys (e.g. `PanSTARRS`):
 
 ```python
 from hostphot.cutouts import download_images
 
 name = 'SN2004eo'
 host_ra, host_dec = 308.2092, 9.92755  # coords of host galaxy of SN2004eo
-survey = 'PS1'
+survey = 'PanSTARRS'
 download_images(name, host_ra, host_dec, survey=survey)
 ```
 
@@ -66,7 +66,7 @@ coadd_images(name, filters=coadd_filters, survey=survey)  # creates a new fits f
 ```
 
 ```python
-from hostphot.image_masking import create_mask
+from hostphot.processing.masking import create_mask
 
 # one can extract the mask parameters from the coadd
 # this also creates new fits files
@@ -87,7 +87,7 @@ Local photometry can be obtained for multiple circular apertures:
 
 
 ```python
-import hostphot.local_photometry as lp
+import hostphot.photometry.local_photometry as lp
 
 ap_radii = [3, 4]  # aperture radii in units of kpc
 ra, dec =  308.22579, 9.92853 # coords of SN2004eo
@@ -106,7 +106,7 @@ If the results return `NaN` values, this means that the flux is below the detect
 Global photometry can be obtained in a similar way to local photometry, using common aperture:
 
 ```python
-import hostphot.global_photometry as gp
+import hostphot.photometry.global_photometry as gp
 
 results = gp.multi_band_phot(name, host_ra, host_dec, 
                              survey=survey, ra=ra, dec=dec,
