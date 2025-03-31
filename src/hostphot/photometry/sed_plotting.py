@@ -11,25 +11,7 @@ from hostphot.surveys_utils import get_survey_filters, filters_file, load_yml, e
 
 path = Path(hostphot.__path__[0])
 filters_config = load_yml(filters_file)
-#config_file = path.joinpath("filters", "config.txt")
-#config_df = pd.read_csv(config_file, sep="\\s+")
 
-"""
-colours = {
-    "GALEX": "purple",
-    "PanSTARRS": "green",
-    "SDSS": "blue",
-    "DES": "lightblue",
-    "SkyMapper": "slateblue",
-    "SPLUS": "lime",
-    "LegacySurvey": "gold",
-    "2MASS": "red",
-    "unWISE": "brown",
-    "WISE": "black",
-    "VISTA": "coral",
-    "UKIDSS": "darkgoldenrod",
-}
-"""
 
 def get_eff_wave(filt: str, survey: str, version: str=None) -> float:
     """Obtains the effective wavelength of a filter.
