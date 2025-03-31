@@ -68,7 +68,7 @@ def set_HST_image(file: str, filt: str, name: str) -> None:
     check_work_dir(workdir)
     obj_dir = Path(workdir, name, "HST")
     if obj_dir.is_dir() is False:
-        obj_dir.mkdir()
+        obj_dir.mkdir(parents=True, exist_ok=True)
     # update file and save file
     hdu = fits.open(file)
     update_HST_header(hdu)
