@@ -3,5 +3,5 @@
 Image Masking
 =============
 
-.. automodule:: hostphot.image_masking
+.. automodule:: hostphot.processing.masking
    :members:

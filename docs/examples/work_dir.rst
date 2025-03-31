@@ -14,7 +14,7 @@ HostPhot relies on the same working directory accross different modules and func
 
 .. code:: python
 	
-	Hostphot version: 2.5.0
+	Hostphot version: 3.0.0
 	Working directory: images
 	
 	

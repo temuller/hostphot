@@ -11,6 +11,6 @@ workdir = os.getenv("workdir", "images")
 font_family = 'serif'
 font_families = findSystemFonts(fontpaths=None, fontext='ttf')
 for family in font_families:
-    if 'GFSArtemisia' in family:
-        font_family = "GFS Artemisia"
+    if 'P052' in family:
+        font_family = "P052"
         break

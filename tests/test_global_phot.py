@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from hostphot.cutouts import download_images
-import hostphot.global_photometry as gp
+from hostphot.photometry import global_photometry as gp
 
 
 class TestHostPhot(unittest.TestCase):
@@ -9,23 +9,23 @@ class TestHostPhot(unittest.TestCase):
         sn_name = "2002fk"
         host_ra = 50.527333
         host_dec = -15.400056
-        survey = "PS1"
+        survey = "PanSTARRS"
 
-        download_images(sn_name, host_ra, host_dec, survey=survey)
+        download_images(sn_name, host_ra, host_dec, survey=survey, overwrite=False)
         phot = gp.multi_band_phot(
             sn_name,
             host_ra,
             host_dec,
             survey=survey,
             use_mask=False,
-            common_aperture=False,
+            common_aperture=False, 
             optimize_kronrad=True,
-            save_plots=True,
+            save_plots=False,
             raise_exception=True,
         )
-        mags = [phot[filt] for filt in "griz"]
-        # griz SIMBAD reference magnitudes of the host galaxy of SN 2002fk
-        ref_mags = [12.155, 11.508, 11.205, 10.979]
+        mags = [phot[filt][0] for filt in "griz"]
+        # griz reference magnitudes compared to Blast
+        ref_mags = [11.684, 11.353, 11.215, 11.073]
 
         err_msg = (
             "Large difference between calculated and reference magnitudes"

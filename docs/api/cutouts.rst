@@ -5,6 +5,6 @@ Cutouts
 
 Everything related to cutouts is documented bellow:
 
-.. automodule:: hostphot.cutouts
+.. automodule:: hostphot.cutouts.downloads
    :members:
 

@@ -3,5 +3,5 @@
 Coadd Images
 ============
 
-.. automodule:: hostphot.coadd
+.. automodule:: hostphot.processing.coadd
    :members:

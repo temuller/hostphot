@@ -5,7 +5,7 @@ Local Photometry
 
 Everything related to local photometry is documented bellow:
 
-.. automodule:: hostphot.local_photometry
+.. automodule:: hostphot.photometry.local_photometry
    :members:
 
 

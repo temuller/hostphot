@@ -5,5 +5,5 @@ Global Photometry
 
 Everything related to global photometry is documented bellow:
 
-.. automodule:: hostphot.global_photometry
+.. automodule:: hostphot.photometry.global_photometry
    :members:

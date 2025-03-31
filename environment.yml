@@ -1,0 +1,19 @@
+name: test
+dependencies:
+  - python=>3.13
+  - numpy
+  - pandas
+  - matplotlib
+  - aplpy
+  - python-dotenv
+  - astropy
+  - reproject
+  - photutils
+  - astroquery
+  - extinction
+  - pyvo
+  - pytest
+  - pip
+  - pip:
+    - sep
+    - sfdmap2
