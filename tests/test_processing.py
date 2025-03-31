@@ -7,12 +7,12 @@ from hostphot.processing import create_mask
 class TestHostPhot(unittest.TestCase):
     def test_processing(self):
         coadd_filters = "riz"
-        survey = "PS1"
+        survey = "PanSTARRS"
         sn_name = "2002fk"
         host_ra = 50.527333
         host_dec = -15.400056
 
-        #download_images(sn_name, host_ra, host_dec, survey=survey)
+        download_images(sn_name, host_ra, host_dec, survey=survey, overwrite=False)
 
         # coadd
         coadd_images(sn_name, coadd_filters, survey)

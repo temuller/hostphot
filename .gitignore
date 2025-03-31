@@ -5,6 +5,7 @@ PS1.jpg
 SDSS.jpg
 docs/examples/images/
 docs/examples/hst_16741_2v_wfc3_uvis_f275w_iepo2v_drc.fits
+tests/*.fits
 
 *__pycache__*
 *egg*

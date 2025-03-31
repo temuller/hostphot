@@ -41,7 +41,7 @@ HostPhot is being actively developed in `a public repository on GitHub
    setup/installation.rst
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Examples
 
    examples/work_dir.rst

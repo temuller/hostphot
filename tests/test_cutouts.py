@@ -11,9 +11,9 @@ class TestHostPhot(unittest.TestCase):
         self.ra = 50.527333
         self.dec = -15.400056
 
-    def test_cutouts_PS1(self):
+    def test_cutouts_PanSTARRS(self):
         download_images(
-            self.sn_name, self.ra, self.dec, overwrite=True, survey="PS1"
+            self.sn_name, self.ra, self.dec, overwrite=True, survey="PanSTARRS"
         )
 
     def test_cutouts_DES(self):
@@ -87,12 +87,6 @@ class TestHostPhot(unittest.TestCase):
                 survey="VISTA",
                 version=version,
             )
-            #except Exception as exc:
-            #    warnings.warn(
-            #        "The VISTA SCIENCE ARCHIVE might be having issues..."
-            #    )
-            #    print(f"Skipping the test for {version}...")
-            #    print(exc)
 
     def test_cutouts_SkyMapper(self):
         download_images(

@@ -9,9 +9,9 @@ class TestHostPhot(unittest.TestCase):
         sn_name = "2002fk"
         host_ra = 50.527333
         host_dec = -15.400056
-        survey = "PS1"
+        survey = "PanSTARRS"
 
-        #download_images(sn_name, host_ra, host_dec, survey=survey)
+        download_images(sn_name, host_ra, host_dec, survey=survey, overwrite=False)
         phot = gp.multi_band_phot(
             sn_name,
             host_ra,
