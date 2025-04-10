@@ -77,13 +77,16 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
     }
     survey_url = "&".join([f"{key}={val}" for key, val in survey_dict.items()])
     url = base_url + survey_url
+    print(url)
     results = urllib.request.urlopen(url).read()
     links = re.findall('href="(http://.*?)"', results.decode("utf-8"))
     
+    """
     # find url for each filter (None if not found)
     urls_dict = {filt: None for filt in filters}
     for filt in filters:
         for link in links:
+            print(link)
             url = link.replace("getImage", "getFImage", 1)
             if f"band={filt}" in url:
                 urls_dict[filt] = url
@@ -93,6 +96,49 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
     for filt, url in urls_dict.items():
         if url is not None:
             hdu = fits.open(url)
+            hdu[0].data = hdu[1].data
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", AstropyWarning)
+                img_wcs = wcs.WCS(hdu[1].header)
+                hdu[0].header.update(img_wcs.to_header())
+            # add some keywords to the PHU
+            hdu[0].header['EXPTIME'] = hdu[1].header['EXPTIME']
+            hdu[0].header['MAGZRR'] = hdu[1].header['MAGZRR']
+            # calculate effective ZP (considering atmospheric extinction)
+            # calculate extinction first
+            airmass = (hdu[1].header['HIERARCH ESO TEL AIRM START'] + hdu[1].header['HIERARCH ESO TEL AIRM END'])/2
+            ext_coeff = hdu[1].header['EXTINCT']
+            extinction = ext_coeff*(airmass - 1)
+            # calculate effective ZP
+            zp = hdu[1].header['MAGZPT']
+            hdu[0].header['MAGZP'] = zp - extinction
+            hdu_list.append(hdu)
+        else:
+            hdu_list.append(None)
+    return hdu_list
+    """
+    
+    # find url for each filter (None if not found)
+    urls_dict = {filt: [] for filt in filters}
+    for filt in filters:
+        for link in links:
+            print(link)
+            url = link.replace("getImage", "getFImage", 1)
+            if f"band={filt}" in url:
+                urls_dict[filt].append(url)
+    
+    hdu_list = []
+    for filt, url_list in urls_dict.items():
+        if len(url_list) > 0:
+            exptime = 0
+            # select image with longest exposure
+            for url in url_list:
+                hdu_ = fits.open(url)
+                if hdu_[1].header["EXPTIME"] > exptime:
+                    exptime = hdu_[1].header["EXPTIME"]
+                    hdu = hdu_
+                else:
+                    hdu_.close()
             hdu[0].data = hdu[1].data
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", AstropyWarning)
