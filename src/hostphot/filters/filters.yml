@@ -370,7 +370,7 @@ UKIDSS:
     pixel_scale: 0.4
     pixel_units: "counts"
     magnitude_system: "Vega"
-    AB_offset: 0.528
+    AB_offset: 0.528  # table 7 of http://www.ukidss.org/technical/photom/hewett-ukidss.pdf
   Y:
     zeropoint: "header"
     pixel_scale: 0.4
