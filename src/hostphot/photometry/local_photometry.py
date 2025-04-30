@@ -33,7 +33,7 @@ from astropy.cosmology import FlatLambdaCDM, Cosmology
 from hostphot._constants import workdir, font_family
 from hostphot.processing.cleaning import remove_nan
 from hostphot.photometry.dust import calc_extinction
-from hostphot.utils import check_work_dir, suppress_stdout
+from hostphot.utils import check_work_dir, suppress_stdout, store_input
 from hostphot.photometry.image_utils import get_image_exptime
 from hostphot.photometry.photometry_utils import magnitude_calculation
 from hostphot.surveys_utils import (
@@ -407,9 +407,8 @@ def multi_band_phot(
 
     # save input parameters
     if save_input is True:
-        inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
-        outfile = Path(workdir, name, survey, "input_local_photometry.csv")
-        inputs_df.to_csv(outfile, index=False)
+        inputs_file = Path(workdir, name, survey, "input_local_photometry.csv")
+        store_input(input_params, inputs_file)
 
     # turn int/float into a list for consistency
     if isinstance(ap_radii, (float, int)):

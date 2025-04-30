@@ -30,7 +30,7 @@ from hostphot._constants import workdir
 from hostphot.processing.objects_detection import extract_objects, plot_detected_objects
 from hostphot.processing.cleaning import remove_nan
 from hostphot.photometry.dust import calc_extinction
-from hostphot.utils import check_work_dir
+from hostphot.utils import check_work_dir, store_input
 from hostphot.photometry.photometry_utils import magnitude_calculation
 from hostphot.photometry.image_utils import adapt_aperture, get_image_exptime
 from hostphot.surveys_utils import (
@@ -640,9 +640,8 @@ def multi_band_phot(
 
     # save input parameters
     if save_input is True:
-        inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
-        outfile = Path(workdir, name, survey, "input_global_photometry.csv")
-        inputs_df.to_csv(outfile, index=False)
+        inputs_file = Path(workdir, name, survey, "input_global_photometry.csv")
+        store_input(input_params, inputs_file)
 
     results_dict = {
         "name": name,

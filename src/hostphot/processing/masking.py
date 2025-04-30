@@ -24,7 +24,7 @@ from .objects_detection import (
     find_catalog_objects,
     cross_match,
 )
-from hostphot.utils import suppress_stdout
+from hostphot.utils import suppress_stdout, store_input
 from hostphot.photometry.image_utils import adapt_aperture
 from hostphot.surveys_utils import (
     check_survey_validity,
@@ -166,8 +166,8 @@ def create_mask(
 
     # save input parameters
     if save_input is True:
-        inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
-        inputs_df.to_csv(obj_dir / survey / "input_masking_parameters.csv", index=False)
+        inputs_file = obj_dir / survey / "input_masking_parameters.csv"
+        store_input(input_params, inputs_file)
 
     if (ref_filt is None) & (ref_survey is None):
         # extract objects
