@@ -184,6 +184,10 @@ def get_image_exptime(header: fits.Header, survey: str) -> float:
 def correct_HST_aperture(filt: str, ap_area: float, header: fits.Header) -> float:
     """Get the aperture correction for the given configuration.
 
+    see: https://hst-docs.stsci.edu/wfc3dhb/chapter-9-wfc3-data-analysis/9-1-photometry
+         https://www.stsci.edu/hst/instrumentation/acs/data-analysis/zeropoints
+         https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/uvis-photometric-calibration
+    
     Parameters
     ----------
     filt: HST filter, e.g. ``WFC3_UVIS_F225W``.
@@ -202,6 +206,11 @@ def correct_HST_aperture(filt: str, ap_area: float, header: fits.Header) -> floa
     if instrument == "UVIS":
         # either UVIS1 or UVIS2
         instrument = header["APERTURE"]
+        # some images have a different APERTURE value
+        # see: https://hst-docs.stsci.edu/wfc3ihb/chapter-6-uvis-imaging-with-wfc3/6-4-uvis-field-geometry
+        # not sure if this is the correct solution
+        if instrument == "UVIS-CENTER":
+            instrument = "UVIS2"
 
     # assuming circular aperture
     # for an ellipse, this would take the average of the axes
