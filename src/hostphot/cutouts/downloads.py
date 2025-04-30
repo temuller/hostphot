@@ -105,8 +105,9 @@ def download_images(
             continue  # skip missing filter/image
         # get output file name
         if survey == "HST":
-            inst = version.replace("/", "_")
-            outfile = Path(survey_dir, f"{survey}_{inst}_{filters}.fits")
+            #inst = version.replace("/", "_")
+            #outfile = Path(survey_dir, f"{survey}_{inst}_{filters}.fits")
+            outfile = Path(survey_dir, f"{survey}_{filt}.fits")
         else:
             outfile = Path(survey_dir, f"{survey}_{filt}.fits")
         if overwrite is True or outfile.is_file() is False:

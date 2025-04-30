@@ -9,11 +9,10 @@ import astropy.units as u
 from astropy.io import fits
 from astropy.coordinates import SkyCoord
 
-from pyvo.dal import sia
 from astroquery.esa.hubble import ESAHubble  # HST
 
 from hostphot._constants import workdir
-from hostphot.utils import check_work_dir
+from hostphot.utils import check_work_dir, suppress_stdout
 from hostphot.surveys_utils import check_HST_filters
 
 import warnings
@@ -76,7 +75,7 @@ def set_HST_image(file: str, filt: str, name: str) -> None:
     hdu.writeto(outfile, overwrite=True)
 
 def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3, 
-                        filt: str = "WFC3_UVIS_F225W") -> list[fits.ImageHDU]:
+                        filters: list = ["WFC3_UVIS_F225W"]) -> list[fits.ImageHDU]:
     """Downloads a set of HST fits images for a given set
     of coordinates and filters using the MAST archive.
 
@@ -85,7 +84,7 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
     ra: Right ascension in degrees.
     dec: Declination in degrees.
     size: Image size. If a float is given, the units are assumed to be arcmin.
-    filt: Filter to use, e.g. ``WFC3_UVIS_F225W``.
+    filters: Filters to use, e.g. ``WFC3_UVIS_F225W``.
 
     Return
     ------
@@ -93,19 +92,7 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
     """
     esahubble = ESAHubble()
     esahubble.get_status_messages()
-    check_HST_filters(filt)
-
-    # separate the instrument name from the actual filter
-    split_filt = filt.split("_")
-    if len(split_filt) == 2:
-        filt = split_filt[-1]
-        instrument = split_filt[0]
-    elif len(split_filt) == 3:
-        filt = split_filt[-1]
-        instrument = f"{split_filt[0]}/{split_filt[1]}"
-    else:
-        raise ValueError(f"Incorrect filter name: {filt}")
-
+    
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec)
     else:
@@ -117,42 +104,41 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
             ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
         )
 
-    version = None
-    if version == "HLA":
-        # This does not seem to be faster
-        fov = 0.2  # field-of-view in degrees
-        access_url = " https://hla.stsci.edu/cgi-bin/hlaSIAP.cgi"
-        svc = sia.SIAService(access_url)
-        imgs_table = svc.search(
-            (ra, dec), (fov / np.cos(dec * np.pi / 180), fov), verbosity=2
-        )
-        obs_df = pd.DataFrame(imgs_table)
-        obs_df = obs_df[obs_df.Mode == "IMAGE"]
-        obs_df = obs_df[obs_df.Format.str.endswith("fits")]
-        obs_df = obs_df[obs_df.Detector == instrument]
-        obs_df = obs_df[obs_df.Spectral_Elt == filt]
-        obs_df = obs_df[obs_df.ExpTime == obs_df.ExpTime.max()]
-        hdu = fits.open(obs_df.URL.values[0])
-    else:
+    with suppress_stdout():
         result = esahubble.cone_search_criteria(
             radius=3,
             coordinates=coords,
             calibration_level="PRODUCT",
             data_product_type="image",
-            instrument_name=instrument,
-            filters=filt,
+            #instrument_name=instrument,
+            #filters=filt,
             async_job=True,
         )
 
-        obs_df = result.to_pandas()
-        obs_df = obs_df[obs_df["filter"] == filt]
+    results_df = result.to_pandas()
+    hdu_list = []
+    for filt in filters:
+        check_HST_filters(filt)
+        # separate the instrument name from the actual filter
+        split_filt = filt.split("_")
+        if len(split_filt) == 2:
+            filt = split_filt[-1]
+            instrument = split_filt[0]
+        elif len(split_filt) == 3:
+            filt = split_filt[-1]
+            instrument = f"{split_filt[0]}/{split_filt[1]}"
+        else:
+            raise ValueError(f"Incorrect filter name: {filt}")
+
+        # filter by filter and instrument
+        obs_df = results_df[results_df["filter"] == filt]
+        obs_df = obs_df[obs_df.instrument_name == instrument]
         # get only exposures shorter than one hour
         obs_df = obs_df[obs_df.exposure_duration < 3600]
         obs_df.sort_values(
             by=["exposure_duration"], ascending=False, inplace=True
         )
 
-        print("Looking for HST images...")
         filename = f"HST_tmp_{ra}_{dec}"  # the extension is added below
         for obs_id in obs_df.observation_id:
             try:
@@ -168,13 +154,9 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
         temp_file = Path(f"{filename}.fits.gz")
         if temp_file.is_file() is False:
             return None
-        temp_dir = Path(filename)  # same name as the extensionless file above
-        with zipfile.ZipFile(temp_file, "r") as zip_ref:
-            zip_ref.extractall(temp_dir)
-            fits_file = [file for file in temp_dir.rglob("*.gz")][0]
-        hdu = fits.open(fits_file)
-        # remove the temporary files and directory
+        hdu = fits.open(temp_file)
+        # remove the temporary files
         temp_file.unlink()
-        shutil.rmtree(temp_dir, ignore_errors=True)
-    update_HST_header(hdu)
-    return [hdu]
+        update_HST_header(hdu)
+        hdu_list.append(hdu)
+    return hdu_list
