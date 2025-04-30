@@ -395,35 +395,724 @@ UKIDSS:
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 1.900
+# HST pixel scales from https://hst-docs.stsci.edu/wfc3ihb/chapter-1-introduction-to-wfc3/1-3-key-features-of-wfc3#:~:text=Key%20features%20of%20WFC3%20include,V=29.2%20(ABMAG).
 HST:
-  WFC3_UVIS_F275W:
-    zeropoint: "header"
-    pixel_scale: 0.04
-    pixel_units: "counts/second"  # ???
-    magnitude_system: "AB"
+  WFC3_IR_F098M:
     AB_offset: 0.0
-  WFC3_IR_F125W:
-    zeropoint: "header"
+    magnitude_system: AB
     pixel_scale: 0.13
-    pixel_units: "counts/second"
-    magnitude_system: "AB"
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F105W:
     AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F110W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F125W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F126N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F127M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F128N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F130N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F132N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F139M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F140W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F153M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F160W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F164N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_IR_F167N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.13
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F200LP:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F218W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F225W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F275W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F280N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F300X:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F336W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F343N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F350LP:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F373N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F390M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F390W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F395N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F410M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F438W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F467M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F469N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F475W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F475X:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F487N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F502N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F547M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F555W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F600LP:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F606W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F621M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F625W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F631N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F645N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F656N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F657N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F658N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F665N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F673N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F680N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F689M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F763M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F775W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F814W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F845M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F850LP:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_F953N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ232N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ243N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ378N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ387N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ422M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ436N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ437N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ492N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ508N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ575N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ619N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ634N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ672N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ674N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ727N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ750N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ889N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ906N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ924N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+  WFC3_UVIS_FQ937N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.04
+    pixel_units: counts/second
+    zeropoint: header
+# pixel scales taken from:
+# https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument#JWSTMidInfraredInstrument-Imager
+# https://jwst-docs.stsci.edu/jwst-near-infrared-camera#gsc.tab=0
 JWST:
+  MIRI_F1000W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  MIRI_F1065C:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  MIRI_F1130W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  MIRI_F1140C:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  MIRI_F1280W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  MIRI_F1500W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  MIRI_F1550C:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  MIRI_F1800W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  MIRI_F2100W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  MIRI_F2300C:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  MIRI_F2550W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  MIRI_F560W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  MIRI_F770W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.11
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F070W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.031
+    pixel_units: counts/second
+    zeropoint: header
   NIRCam_F090W:
-    zeropoint: "header"
-    pixel_scale: 0.031
-    pixel_units: "counts/second"
-    magnitude_system: "AB"
     AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.031
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F115W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.031
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F140M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.031
+    pixel_units: counts/second
+    zeropoint: header
   NIRCam_F150W:
-    zeropoint: "header"
+    AB_offset: 0.0
+    magnitude_system: AB
     pixel_scale: 0.031
-    pixel_units: "counts/second"
-    magnitude_system: "AB"
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F150W2:
     AB_offset: 0.0
-  NIRCam_F277W:
-    zeropoint: "header"
+    magnitude_system: AB
+    pixel_scale: 0.031
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F162M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.031
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F164N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.031
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F182M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.031
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F187N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.031
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F200W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.031
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F210M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.031
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F212N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.031
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F250M:
+    AB_offset: 0.0
+    magnitude_system: AB
     pixel_scale: 0.063
-    pixel_units: "counts/second"
-    magnitude_system: "AB"
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F277W:
     AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F300M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F322W2:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F323N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F335M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F356W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F360M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F405N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F410M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F430M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F444W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F460M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F466N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F470N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+  NIRCam_F480M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.063
+    pixel_units: counts/second
+    zeropoint: header
+
