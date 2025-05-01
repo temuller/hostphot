@@ -102,7 +102,8 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
         coords = SkyCoord(
             ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
         )
-
+    
+    # query observations at the given coordinates
     with suppress_stdout():
         result = esahubble.cone_search_criteria(
             radius=3,
@@ -113,8 +114,8 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
             #filters=filt,
             async_job=True,
         )
-
     results_df = result.to_pandas()
+    
     hdu_list = []
     for filt in filters:
         check_HST_filters(filt)
@@ -128,7 +129,6 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
             instrument = f"{split_filt[0]}/{split_filt[1]}"
         else:
             raise ValueError(f"Incorrect filter name: {filt}")
-
         # filter by filter and instrument
         obs_df = results_df[results_df["filter"] == filt]
         obs_df = obs_df[obs_df.instrument_name == instrument]
@@ -138,6 +138,7 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
             by=["exposure_duration"], ascending=False, inplace=True
         )
 
+        # start download 
         filename = f"HST_tmp_{ra}_{dec}"  # the extension is added below
         for obs_id in obs_df.observation_id:
             try:
@@ -153,9 +154,11 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
         temp_file = Path(f"{filename}.fits.gz")
         if temp_file.is_file() is False:
             hdu_list.append(None)
+            continue
         hdu = fits.open(temp_file)
         # remove the temporary files
         temp_file.unlink()
+        # add necessary information to the header
         update_HST_header(hdu)
         hdu_list.append(hdu)
     # HST images are large so need to be trimmed
