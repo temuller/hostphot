@@ -69,6 +69,8 @@ def get_HST_err(filt: str, header: fits.Header) -> float:
         # not sure if this is the correct solution
         if instrument == "UVIS-CENTER":
             instrument = "UVIS2"
+        if instrument == "UVIS":
+            instrument = "UVIS1"
 
     # get uncertainty file
     err_file = hostphot_path.joinpath("filters", "HST", f"{instrument}_err.txt")

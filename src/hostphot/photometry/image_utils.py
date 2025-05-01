@@ -211,6 +211,8 @@ def correct_HST_aperture(filt: str, ap_area: float, header: fits.Header) -> floa
         # not sure if this is the correct solution
         if instrument == "UVIS-CENTER":
             instrument = "UVIS2"
+        if instrument == "UVIS":
+            instrument = "UVIS1"
 
     # assuming circular aperture
     # for an ellipse, this would take the average of the axes

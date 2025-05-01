@@ -1,7 +1,6 @@
 import numpy as np
 from pathlib import Path
 
-from astropy import wcs
 import astropy.units as u
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -32,7 +31,7 @@ def update_HST_header(hdu: fits.hdu.ImageHDU) -> None:
         warnings.simplefilter("ignore", AstropyWarning)
         if "PHOTPLAM" not in hdu[0].header:
             # MAST image: move things to hdu[0] to homogenise
-            img_wcs = wcs.WCS(hdu[1].header)
+            img_wcs = WCS(hdu[1].header)
             hdu[0].header.update(img_wcs.to_header())
             hdu[0].header["PHOTFLAM"] = hdu[1].header["PHOTFLAM"]
             hdu[0].header["PHOTPLAM"] = hdu[1].header["PHOTPLAM"]
@@ -64,6 +63,7 @@ def set_HST_image(file: str, filt: str, name: str) -> None:
     """
     # check output directory
     check_work_dir(workdir)
+    check_HST_filters(filt)
     obj_dir = Path(workdir, name, "HST")
     if obj_dir.is_dir() is False:
         obj_dir.mkdir(parents=True, exist_ok=True)
@@ -76,7 +76,7 @@ def set_HST_image(file: str, filt: str, name: str) -> None:
 def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3, 
                         filters: list = ["WFC3_UVIS_F225W"]) -> list[fits.ImageHDU]:
     """Downloads a set of HST fits images for a given set
-    of coordinates and filters using the MAST archive.
+    of coordinates and filters using astroquery.
 
     Parameters
     ----------
