@@ -1,19 +1,18 @@
-import shutil
-import zipfile
 import numpy as np
-import pandas as pd
 from pathlib import Path
 
 from astropy import wcs
 import astropy.units as u
 from astropy.io import fits
+from astropy.wcs import WCS
+from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 
 from astroquery.esa.hubble import ESAHubble  # HST
 
 from hostphot._constants import workdir
 from hostphot.utils import check_work_dir, suppress_stdout
-from hostphot.surveys_utils import check_HST_filters
+from hostphot.surveys_utils import check_HST_filters, survey_pixel_scale
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -153,10 +152,22 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
                 pass
         temp_file = Path(f"{filename}.fits.gz")
         if temp_file.is_file() is False:
-            return None
+            hdu_list.append(None)
         hdu = fits.open(temp_file)
         # remove the temporary files
         temp_file.unlink()
         update_HST_header(hdu)
         hdu_list.append(hdu)
+    # HST images are large so need to be trimmed
+    for hdu, filt in zip(hdu_list, filters):
+        if hdu is None:
+            continue
+        pixel_scale = survey_pixel_scale("HST", filt)  # same pixel scale for all filters
+        size_pixels = int(size_arcsec / pixel_scale)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", AstropyWarning)
+            img_wcs = WCS(hdu[0].header)
+        trimmed_data = Cutout2D(hdu[0].data, coords, size_pixels, img_wcs)
+        hdu[0].data = trimmed_data.data
+        hdu[0].header.update(trimmed_data.wcs.to_header())
     return hdu_list
