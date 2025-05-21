@@ -246,7 +246,8 @@ def extract_filter(
             file for file in Path(filters_path, "HST").rglob("*.dat") if filt_ in file
         ][0]
     elif survey == "JWST":
-        filt_file = filters_path / f"{filt}.dat"
+        detector = filt.split("_")[0]
+        filt_file = filters_path / f"{detector}/{filt}.dat"
     else:
         filt_file = filters_path / f"{survey}_{filt}.dat"
     wave, transmission = np.loadtxt(filt_file).T

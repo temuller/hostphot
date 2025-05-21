@@ -280,7 +280,7 @@ def adapt_aperture(
         obj["x"], obj["y"] = new_apertures.positions
         obj["a"] = new_apertures.a
         obj["b"] = new_apertures.b
-        obj["theta"] = new_apertures.theta.value
+        obj["theta"] = new_apertures.theta
 
         if flip is True:
             # flip aperture orientation

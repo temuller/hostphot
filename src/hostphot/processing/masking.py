@@ -214,7 +214,11 @@ def create_mask(
             )
             sigma /= conv_factor
 
-    masked_data = mask_image(data_sub, nongal_objs, r=r, sigma=sigma)
+    #masked_data = mask_image(data_sub, nongal_objs, r=r, sigma=sigma)
+    if len(nongal_objs) > 0:
+        masked_data = mask_image(data_sub, nongal_objs, r=r, sigma=sigma)
+    else:
+        masked_data = data_sub.copy()
     masked_hdu = deepcopy(hdu)
     masked_hdu[0].data = masked_data
     outfile = obj_dir / survey / f"{survey}_{filt}_masked.fits"
