@@ -178,6 +178,7 @@ v3.0.0
 * The download of VISTA images now automatically chooses the survey with overlap for the given coordinates, prioritising the survey with deeper coverage.
 * The user experience is kept approximately consistent with previous versions, but there are some changes
 * Download of HST images is now working!
+* Adding download of JWST images!
 ___
 v2.10.0
 * Adding JWST! (few NIRCam filters for now - thanks to Lisa Kelsey for this addition)
