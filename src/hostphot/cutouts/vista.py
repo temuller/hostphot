@@ -71,7 +71,8 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
         "dec": dec,
         "sys": "J",
         "filterID": "all",
-        "size": size,  # in arcmin
+        "xsize": size,  # in arcmin
+        "ysize": size,  # in arcmin
         "obsType": "object",
         "frameType": "tilestack",
     }
