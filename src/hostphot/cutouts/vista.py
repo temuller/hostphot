@@ -71,7 +71,8 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
         "dec": dec,
         "sys": "J",
         "filterID": "all",
-        "size": size,  # in arcmin
+        "xsize": size,  # in arcmin
+        "ysize": size,  # in arcmin
         "obsType": "object",
         "frameType": "tilestack",
     }
@@ -81,18 +82,25 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
     links = re.findall('href="(http://.*?)"', results.decode("utf-8"))
     
     # find url for each filter (None if not found)
-    urls_dict = {filt: None for filt in filters}
+    urls_dict = {filt: [] for filt in filters}
     for filt in filters:
         for link in links:
             url = link.replace("getImage", "getFImage", 1)
             if f"band={filt}" in url:
-                urls_dict[filt] = url
-                break
+                urls_dict[filt].append(url)
     
     hdu_list = []
-    for filt, url in urls_dict.items():
-        if url is not None:
-            hdu = fits.open(url)
+    for filt, url_list in urls_dict.items():
+        if len(url_list) > 0:
+            exptime = 0
+            # select image with longest exposure
+            for url in url_list:
+                hdu_ = fits.open(url)
+                if hdu_[1].header["EXPTIME"] > exptime:
+                    exptime = hdu_[1].header["EXPTIME"]
+                    hdu = hdu_
+                else:
+                    hdu_.close()
             hdu[0].data = hdu[1].data
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", AstropyWarning)

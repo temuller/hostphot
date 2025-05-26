@@ -1,9 +1,11 @@
 import os
 import sys
+import pandas as pd
 from pathlib import Path
-from contextlib import contextmanager
 import matplotlib.image as img
 import matplotlib.pyplot as plt
+from contextlib import contextmanager
+from datetime import datetime, timezone
 
 import aplpy
 from astropy.io import fits
@@ -39,6 +41,23 @@ def suppress_stdout():
             yield
         finally:
             sys.stdout = old_stdout
+            
+def store_input(input_params: dict, inputs_file: Path) -> None:
+    """Stores the input parameters of a function.
+
+    Parameters
+    ----------
+    inputs_params: the parameters of a function.
+    inputs_file: where to store the parameters.
+    """
+    # save input parameters
+    now = datetime.now(timezone.utc).isoformat()
+    input_params.update({"timestamp": now})
+    inputs_df = pd.DataFrame([input_params])
+    if inputs_file.exists():
+        inputs_df.to_csv(inputs_file, index=False, mode="a", header=False)
+    else:
+        inputs_df.to_csv(inputs_file, index=False)
         
             
 def plot_fits(fits_file: str | Path | list[fits.ImageHDU], ext: int = 0) -> None:

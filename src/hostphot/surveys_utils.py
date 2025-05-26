@@ -27,7 +27,7 @@ flipped_surveys = [
 survey_warnings = {
     "SkyMapper": "WARNING: The photometric calibration of SkyMapper is not trustworthy at the moment (DR4)!",
     "VISTA": "WARNING: The photometric calibration of VISTA is currently not correct (might be a HostPhot problem)!",
-    "UKIDS": "WARNING: The photometric calibration of UKIDS is currently not correct (might be a HostPhot problem)!",
+    "UKIDSS": "WARNING: The photometric calibration of UKIDSS is currently under revision",
 }
 
 
@@ -246,7 +246,8 @@ def extract_filter(
             file for file in Path(filters_path, "HST").rglob("*.dat") if filt_ in file
         ][0]
     elif survey == "JWST":
-        filt_file = filters_path / f"{filt}.dat"
+        detector = filt.split("_")[0]
+        filt_file = filters_path / f"{detector}/{filt}.dat"
     else:
         filt_file = filters_path / f"{survey}_{filt}.dat"
     wave, transmission = np.loadtxt(filt_file).T

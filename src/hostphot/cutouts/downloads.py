@@ -5,7 +5,7 @@ import astropy.units as u
 from typing import Optional
 
 from hostphot._constants import workdir
-from hostphot.utils import check_work_dir
+from hostphot.utils import check_work_dir, store_input
 from hostphot.surveys_utils import (
     get_survey_filters,
     check_survey_validity,
@@ -64,8 +64,8 @@ def download_images(
 
     # save input parameters
     if save_input is True:
-        inputs_df = pd.DataFrame({key: [value] for key, value in input_params.items()})
-        inputs_df.to_csv(survey_dir / "input_cutouts.csv", index=False)
+        inputs_file = survey_dir / "input_cutouts.csv"
+        store_input(input_params, inputs_file)
 
     # check existing images
     if overwrite is False:
@@ -105,8 +105,9 @@ def download_images(
             continue  # skip missing filter/image
         # get output file name
         if survey == "HST":
-            inst = version.replace("/", "_")
-            outfile = Path(survey_dir, f"{survey}_{inst}_{filters}.fits")
+            #inst = version.replace("/", "_")
+            #outfile = Path(survey_dir, f"{survey}_{inst}_{filters}.fits")
+            outfile = Path(survey_dir, f"{survey}_{filt}.fits")
         else:
             outfile = Path(survey_dir, f"{survey}_{filt}.fits")
         if overwrite is True or outfile.is_file() is False:

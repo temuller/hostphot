@@ -56,17 +56,24 @@ def get_HST_err(filt: str, header: fits.Header) -> float:
     -------
     mag_err: Magnitude error on PHOTFLAM.
     """
-    # split detector and filter
+    # split instrument and filter
     filt_split = filt.split("_")
     filt = filt_split[-1]
-    detector = filt_split[-2]
+    instrument = filt_split[-2]
 
-    if detector == "UVIS":
+    if instrument == "UVIS":
         # APERTURE usually points to UVIS2
-        detector = header["APERTURE"]
+        instrument = header["APERTURE"]
+        # some images have a different APERTURE value
+        # see: https://hst-docs.stsci.edu/wfc3ihb/chapter-6-uvis-imaging-with-wfc3/6-4-uvis-field-geometry
+        # not sure if this is the correct solution
+        if instrument == "UVIS-CENTER":
+            instrument = "UVIS2"
+        if instrument == "UVIS":
+            instrument = "UVIS1"
 
     # get uncertainty file
-    err_file = hostphot_path.joinpath("filters", "HST", f"{detector}_err.txt")
+    err_file = hostphot_path.joinpath("filters", "HST", f"{instrument}_err.txt")
     err_df = pd.read_csv(err_file, sep="\\s+")
     filt_err_df = err_df[err_df.Filter == filt]
     # error propagation
