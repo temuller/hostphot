@@ -11,6 +11,7 @@ from astropy.nddata import Cutout2D
 from astroquery.skyview import SkyView
 from astropy.coordinates import SkyCoord
 
+from hostphot.utils import open_fits_from_url
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -68,7 +69,7 @@ def get_WISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
         else:
             img_url = filt_df.access_url.values[0]
             t_expt = filt_df.t_exptime.values[0]
-            hdu = fits.open(img_url)
+            hdu = open_fits_from_url(img_url)
             hdu[0].header["EXPTIME"] = t_expt
             # create cutout
             wcs = WCS(hdu[0].header)
@@ -228,7 +229,6 @@ def _get_WISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
             url = Path(
                 base_url, coadd_url, band_url + "?" + params_url
             )
-            print(url)
-            hdu = fits.open(url)
+            hdu = open_fits_from_url(url)
             hdu_list.append(hdu)
     return hdu_list

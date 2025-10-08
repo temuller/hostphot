@@ -167,6 +167,11 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 ```
 
 ## What's new!
+v3.1.0
+* Using DES DR2 instead of DR1
+* Downloading images, for some surveys, trying to avoid timeout errors.
+* Adapting global aperture even if the survey is the same as the reference (mainly to avoid issues with JWST).
+* Fixing/adding features from different issues, mainly for HST/JWST (#8, #9, #10, #11 - thanks Lisa!).
 v3.0.0
 * Major internal restructuring of the code
     * Convert the cutouts into a module with each survey as a different submodule

@@ -9,6 +9,7 @@ from astropy.io import fits
 
 import hostphot
 hostphot_path = Path(hostphot.__path__[0])
+from hostphot.utils import open_fits_from_url
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 def get_SPLUS_urls(ra: float, dec: float, fov: float | u.Quantity = 3, 
@@ -88,7 +89,7 @@ def get_SPLUS_images(ra: float, dec: float, size: float | u.Quantity = 3,
         if url is None:
             hdu_list.append(None)
         else:
-            hdu = fits.open(url)
+            hdu = open_fits_from_url(url)
             # add zeropoint
             # file from https://splus.cloud/documentation/dr2_3
             zps_file = hostphot_path.joinpath('filters', 'SPLUS', 'iDR3_zps.cat')

@@ -6,6 +6,7 @@ from pyvo.dal import sia
 from astropy.io import fits
 from astropy import units as u
 
+from hostphot.utils import open_fits_from_url
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 
@@ -30,7 +31,7 @@ def get_DES_urls(ra: float, dec: float, fov: float, filters: str="grizY") -> tup
         filters = get_survey_filters("DES")
     check_filters_validity(filters, "DES")
     # get field-of-view table
-    des_access_url = "https://datalab.noirlab.edu/sia/des_dr1"
+    des_access_url = "https://datalab.noirlab.edu/sia/des_dr2"
     svc = sia.SIAService(des_access_url)
     imgs_table = svc.search(
         (ra, dec), (fov / np.cos(dec * np.pi / 180), fov), verbosity=2
@@ -101,12 +102,15 @@ def get_DES_images(ra: float, dec: float, size: float | u.Quantity = 3, filters:
     hdu_list = []
     for url, url_w in zip(url_list, url_w_list):
         # combine image+weights on a single fits file
-        image_hdu = fits.open(url)
+        #image_hdu = fits.open(url, timeout=120)
+        image_hdu = open_fits_from_url(url)
         hdu = fits.PrimaryHDU(image_hdu[0].data, header=image_hdu[0].header)
         if url_w is None:
             hdu_sublist = fits.HDUList([hdu])
         else:
-            weight_hdu = fits.open(url_w)
+            print(url_w)
+            #weight_hdu = fits.open(url_w, timeout=120)
+            weight_hdu = open_fits_from_url(url_w)
             hdu_err = fits.ImageHDU(
                 weight_hdu[0].data, header=weight_hdu[0].header
             )

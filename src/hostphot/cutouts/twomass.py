@@ -9,6 +9,7 @@ from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 
+from hostphot.utils import open_fits_from_url
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
     
@@ -63,7 +64,7 @@ def get_2MASS_images(
         for line in response.content.decode("utf-8").split("<TD><![CDATA["):
             if re.match(f"https://irsa.*{filter.lower()}i.*fits", line.split("]]>")[0]):
                 fitsurl = line.split("]]")[0]
-                fits_image = fits.open(fitsurl, cache=None)
+                fits_image = open_fits_from_url(fitsurl)
                 wcs = WCS(fits_image[0].header)
                 if coords.contained_by(wcs):
                     break
