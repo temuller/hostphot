@@ -166,26 +166,32 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 } 
 ```
 
-## What's new!
+## What's new
+
 v3.1.0
+
 * Using DES DR2 instead of DR1
 * Downloading images, for some surveys, trying to avoid timeout errors.
 * Adapting global aperture even if the survey is the same as the reference (mainly to avoid issues with JWST).
-* Fixing/adding features from different issues, mainly for HST/JWST (#8, #9, #10, #11 - thanks Lisa!).
+* Fixing/adding features from different issues, mainly for HST/JWST ([#8](https://github.com/temuller/hostphot/issues/8), [#9](https://github.com/temuller/hostphot/issues/9), [#10](https://github.com/temuller/hostphot/issues/10), [#11](https://github.com/temuller/hostphot/issues/11) - thanks Lisa!).
+
 v3.0.0
-* Major internal restructuring of the code
-    * Convert the cutouts into a module with each survey as a different submodule
-    * Storage of input parameters (with timestamps)
-    * Storage of output parameters in a more friendly format
-    * Restructuring of output files
-* Fix the VISTA SCIENCE ARCHIVE url for downloading VISTA images
+
+* Major internal restructuring of the code:
+  * Convert the cutouts into a module with each survey as a different submodule
+  * Storage of input parameters (with timestamps)
+  * Storage of output parameters in a more friendly format
+  * Restructuring of output files
+* Fix the VISTA SCIENCE ARCHIVE url for downloading VISTA images.
 * Fix issue with VISTA image size when downloading cuouts
 * The download of VISTA images now automatically chooses the survey with overlap for the given coordinates, prioritising the survey with deeper coverage.
 * The user experience is kept approximately consistent with previous versions, but there are some changes
 * Download of HST images is now working!
 * Adding download of JWST images!
+
 ___
 v2.10.0
+
 * Adding JWST! (few NIRCam filters for now - thanks to Lisa Kelsey for this addition)
 * SkyMapper upgrade from DR2 to DR4 (note that there is still a problem with the photometric calibration of extended sources)
 * Fix HST functions, which includes working with Drizzlepac images
@@ -194,11 +200,13 @@ v2.10.0
 * Close some fits images that were previously kept opened
 
 v2.9.0
+
 * Fixing issue when applying/propagating common-mask parameters (e.g. from a coadd) to other images
 * Updated error propagation for Legacy Survey with inverse-variance maps (using it as a weight mask now)
 * Bumping up the DR version of VIKING and VIDEO for VISTA
 
 v2.8.0
+
 * Fix SED plotting with negative or too large values/errors, and improve plotting aesthetics
 * Fix problem downloading some 2MASS images giving internal server error (no image overlap)
 * Adding UKIDSS, SPLUS and SkyMapper surveys. WARNINGS: SkyMapper photometry (DR2) is not very accurate with extended sources!
@@ -213,31 +221,38 @@ v2.8.0
 * Kron radius is no longer "optimized", just the scale, which doesn't have any effect in practice for the user
 
 v2.7.1
+
 * Adding SED plotting
-* Fixed plotting angle of masked object 
+* Fixed plotting angle of masked object
 
 v2.7.0
+
 * MAJOR BUG: Convertion factor between different pixel scales fixed (it was previously inverted). This affects the common aperture photometry between different surveys!
 * Moving font family to `_constant.py` file
 
 v2.6.2
+
 * Prettier plots (now using `aplpy`), but also more informative!
-* Scale of the apertures for the masks is now a parameter (`r`) 
+* Scale of the apertures for the masks is now a parameter (`r`)
 * Raise exception is now `True` by default when calculating photometry
 
 v2.6.1
+
 * 2MASS cutouts improved (picking largest image)
 
 v2.6.0:
+
 * HST (WFC3 only - pseudo-trial) included
 * 2MASS cutouts fixed (it now downloads the image closest to the given coordinates)
 
 v2.5.1:
+
 * Using sfdmap2 instead of sfdmap to avoid issues with numpy version (requires Python>=3.9)
 
 v2.5.0:
+
 * Systematic error floor added to PS1 photometry
-* Added missing uncertainties in the error budget of DES (~5 mmag) 
+* Added missing uncertainties in the error budget of DES (~5 mmag)
 * Flux/counts have been added to output photometry
 * GALEX now downloads images with largest exposure time by default
 * Fixed image realignment/orientation between different surveys when using common apertures (for masking and global photometry)
@@ -249,15 +264,16 @@ v2.5.0:
 * Other minor bugs fixed
 
 v2.4.0:
+
 * Fixed and improved GALEX cutouts
 * Better galaxy identification
 * Better output plots for masked images
 * Option to return NaN or raise an exception when getting photometry
 
 v2.3.2:
-* Improved download of GALEX images (download even if they seem to be just background noise)
 
+* Improved download of GALEX images (download even if they seem to be just background noise)
 
 ## Acknowledgements
 
-I thank Yuchen LIU for helping me adding Spitzer as part of AstroHackWeek 2022.
+I thank Yuchen LIU for helping me adding Spitzer as part of AstroHackWeek 2022. I also thank Lisa Kelsay for helping add HST and JWST.
