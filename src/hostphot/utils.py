@@ -1,6 +1,8 @@
 import os
 import sys
+import requests
 import pandas as pd
+from io import BytesIO
 from pathlib import Path
 import matplotlib.image as img
 import matplotlib.pyplot as plt
@@ -27,6 +29,22 @@ def check_work_dir(wokrdir: str | Path) -> None:
     if work_path.is_dir() is False:
         work_path.mkdir(parents=True)
 
+
+def open_fits_from_url(url: str) -> fits.hdu:
+    """Opens a FITS file from a URL.
+
+    Parameters
+    ----------
+    url: Link to the file.
+
+    Returns
+    -------
+    hdu: FITS image.
+    """
+    r = requests.get(url, timeout=120)
+    r.raise_for_status()
+    hdu = fits.open(BytesIO(r.content))
+    return hdu
 
 @contextmanager
 def suppress_stdout():

@@ -2,6 +2,7 @@ import astropy.units as u
 from astropy.io import fits
 from typing import Optional
 
+from hostphot.utils import open_fits_from_url
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 def get_LegacySurvey_images(ra: float, dec: float, size: float | u.Quantity = 3, 
@@ -42,7 +43,7 @@ def get_LegacySurvey_images(ra: float, dec: float, size: float | u.Quantity = 3,
     params = f"ra={ra}&dec={dec}&layer=ls-{version}&pixscale={pixel_scale}&bands={filters}&size={size_pixels}&invvar"
     url = base_url + params
 
-    master_hdu = fits.open(url)
+    master_hdu = open_fits_from_url(url)
     master_header = master_hdu[0].header
     master_header_invvar = master_hdu[1].header
 

@@ -5,6 +5,7 @@ import astropy.units as u
 from astropy.io import fits
 
 from pyvo.dal import sia
+from hostphot.utils import open_fits_from_url
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 def get_SkyMapper_urls(ra: float, dec: float, fov: float | u.Quantity = 3, 
@@ -86,7 +87,7 @@ def get_SkyMapper_images(ra: float, dec: float, size: float | u.Quantity = 3,
         if url is None:
             hdu_list.append(None)
         else:
-            hdu = fits.open(url)
+            hdu = open_fits_from_url(url)
             # add zeropoint
             hdu[0].header['MAGZP'] = hdu[0].header['ZPAPPROX']
             hdu_list.append(hdu)

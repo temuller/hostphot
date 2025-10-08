@@ -196,23 +196,22 @@ def create_mask(
             name, ref_filt, ref_survey
         )
 
-        if survey != ref_survey:
-            # cross-survey mask: need to adapt some values
-            # flipping images
-            if survey in flipped_surveys:
-                flip = True
-            else:
-                flip = False
-            if flip == flip2:
-                flip_ = False
-            else:
-                flip_ = True
-            # adapt sizes
-            gal_obj, _ = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
-            nongal_objs, conv_factor = adapt_aperture(
-                nongal_objs, master_img_wcs, img_wcs, flip_
-            )
-            sigma /= conv_factor
+        # cross-survey mask: need to adapt some values
+        # flipping images
+        if survey in flipped_surveys:
+            flip = True
+        else:
+            flip = False
+        if flip == flip2:
+            flip_ = False
+        else:
+            flip_ = True
+        # adapt sizes
+        gal_obj, _ = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
+        nongal_objs, conv_factor = adapt_aperture(
+            nongal_objs, master_img_wcs, img_wcs, flip_
+        )
+        sigma /= conv_factor
 
     #masked_data = mask_image(data_sub, nongal_objs, r=r, sigma=sigma)
     if len(nongal_objs) > 0:

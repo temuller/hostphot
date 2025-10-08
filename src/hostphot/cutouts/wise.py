@@ -11,6 +11,7 @@ from astropy.nddata import Cutout2D
 from astroquery.skyview import SkyView
 from astropy.coordinates import SkyCoord
 
+from hostphot.utils import open_fits_from_url
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -68,7 +69,7 @@ def get_WISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
         else:
             img_url = filt_df.access_url.values[0]
             t_expt = filt_df.t_exptime.values[0]
-            hdu = fits.open(img_url)
+            hdu = open_fits_from_url(img_url)
             hdu[0].header["EXPTIME"] = t_expt
             # create cutout
             wcs = WCS(hdu[0].header)
@@ -169,66 +170,4 @@ def get_used_image(header: fits.header.Header) -> str:
     """
     image_line = header["HISTORY"][-3]
     used_image = image_line.split("/")[-1].split("-")[0]
-
     return used_image
-
-def _get_WISE_images(ra: float, dec: float, size: float | u.Quantity = 3, 
-                    filters: Optional[str] = None) -> list[fits.ImageHDU]:
-    """Downloads a set of WISE fits images for a given set
-    of coordinates and filters.
-
-    Parameters
-    ----------
-    ra: Right ascension in degrees.
-    dec: Declination in degrees.
-    size: Image size. If a float is given, the units are assumed to be arcmin.
-    filters: Filters to use. If ``None``, uses all WISE filters.
-
-    Return
-    ------
-    hdu_list: List with fits images for the given filters. ``None`` is returned if no image is found.
-    """
-    survey = "WISE"
-    if filters is None:
-        filters = get_survey_filters(survey)
-    check_filters_validity(filters, survey)
-
-    if isinstance(size, (float, int)):
-        size_arcsec = (size * u.arcmin).to(u.arcsec)
-    else:
-        size_arcsec = size.to(u.arcsec)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", AstropyWarning)
-        coords = SkyCoord(
-            ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
-        )
-        # just to get the original image used
-        skyview_fits = SkyView.get_images(
-            position=coords,
-            coordinates="icrs",
-            pixels="100",
-            survey="WISE 3.4",
-        )
-        header = skyview_fits[0][0].header
-        coadd_id = get_used_image(header)
-        coadd_id1 = coadd_id[:4]
-        coadd_id2 = coadd_id1[:2]
-
-        # for more info: https://irsa.ipac.caltech.edu/ibe/docs/wise/allwise/p3am_cdd/#sample_code
-        base_url = (
-            "http://irsa.ipac.caltech.edu/ibe/data/wise/allwise/p3am_cdd/"
-        )
-        coadd_url = Path(coadd_id2, coadd_id1, coadd_id)
-        params_url = f"center={ra},{dec}&size={size_arcsec.value}arcsec&gzip=0"  # center and size of the image
-        hdu_list = []
-        for filt in filters:
-            i = filt[-1]
-            band_url = f"{coadd_id}-w{i}-int-3.fits"
-            url = Path(
-                base_url, coadd_url, band_url + "?" + params_url
-            )
-            print(url)
-            hdu = fits.open(url)
-            hdu_list.append(hdu)
-    return hdu_list

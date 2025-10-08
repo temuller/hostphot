@@ -8,6 +8,7 @@ from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 from astroquery.mast import Observations
 
+from hostphot.utils import open_fits_from_url
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -92,7 +93,7 @@ def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3,
             hdu_list = []
             for file in files:
                 try:
-                    hdu = fits.open(file)
+                    hdu = open_fits_from_url(file)
                     hdu_list.append(hdu)
                 except:
                     pass

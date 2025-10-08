@@ -5,6 +5,7 @@ from astropy.io import fits
 from astropy import units as u
 from astropy.table import Table
 
+from hostphot.utils import open_fits_from_url
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 def query_ps1(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> Table:
@@ -111,6 +112,6 @@ def get_PanSTARRS_images(ra: float, dec: float, size: float | u.Quantity = 3, fi
     # download FITS images
     hdu_list = []
     for url, filt in zip(fits_url, filters):
-        hdu = fits.open(url)
+        hdu = open_fits_from_url(url)
         hdu_list.append(hdu)
     return hdu_list
