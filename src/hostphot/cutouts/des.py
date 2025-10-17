@@ -102,14 +102,12 @@ def get_DES_images(ra: float, dec: float, size: float | u.Quantity = 3, filters:
     hdu_list = []
     for url, url_w in zip(url_list, url_w_list):
         # combine image+weights on a single fits file
-        #image_hdu = fits.open(url, timeout=120)
         image_hdu = open_fits_from_url(url)
         hdu = fits.PrimaryHDU(image_hdu[0].data, header=image_hdu[0].header)
         if url_w is None:
             hdu_sublist = fits.HDUList([hdu])
         else:
             print(url_w)
-            #weight_hdu = fits.open(url_w, timeout=120)
             weight_hdu = open_fits_from_url(url_w)
             hdu_err = fits.ImageHDU(
                 weight_hdu[0].data, header=weight_hdu[0].header
