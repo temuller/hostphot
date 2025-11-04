@@ -168,6 +168,11 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 ## What's new
 
+v3.1.1
+
+* Fixing minor bug when calculating dust extinction for Legacy Survey (Issue [#12](https://github.com/temuller/hostphot/issues/12))
+* Saving input for aperture extraction
+
 v3.1.0
 
 * Using DES DR2 instead of DR1

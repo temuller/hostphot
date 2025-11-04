@@ -32,7 +32,7 @@ def _download_dustmaps():
     maps_files = dust_files + mask_files
     existing_files = [file.is_file() for file in maps_files]
 
-    if not all(existing_files) == True:
+    if not all(existing_files):
         # download dust maps
         sfdmaps_url = "https://github.com/kbarbary/sfddata/archive/master.tar.gz"
         response = requests.get(sfdmaps_url)
@@ -124,8 +124,8 @@ def calc_extinction(
 
     Parameters
     ----------
-    filter_wave: Filter's wavelength range.
-    filter_response: Filter's response function.
+    filt: Filter name.
+    survvey: Survey name.
     ra: Right ascension.
     dec: Declinationin degrees.
     scaling: Calibration of the Milky Way dust maps. Either ``0.86``
@@ -144,7 +144,8 @@ def calc_extinction(
         # https://datalab.noirlab.edu/ls/bass.php
         # declination above ~32 and above the galactic plane
         gal_coords = SkyCoord(ra=ra * u.degree, dec=dec * u.degree, frame="icrs")
-        if (dec > 32.375) and (gal_coords.b.value > 0):
+        b_gal = gal_coords.galactic.b.value
+        if (dec > 32.375) and (b_gal > 0):
             version = "BASS+MzLS"
         else:
             version = "DECam"

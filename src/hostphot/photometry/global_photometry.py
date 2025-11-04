@@ -161,6 +161,7 @@ def extract_aperture(
     deblend_cont: float = 0.005,
     save_plots: bool = True,
     save_aperture_params: bool = True,
+    save_input: bool = True,
 ) -> tuple[np.ndarray, WCS, float, float, bool]:
     """Calculates the aperture for a given galaxy.
 
@@ -193,6 +194,7 @@ def extract_aperture(
         To entirely disable deblending, set to 1.0.
     save_plots: If `True`, the mask and galaxy aperture figures are saved.
     save_aperture_params: If `True`, the extracted mask parameters are saved into a pickle file.
+    save_input: Whether to save the input parameters.
 
     Returns
     -------
@@ -202,6 +204,11 @@ def extract_aperture(
     scale: Scale for the Kron radius.
     flip: Whether to flip the orientation of the aperture.
     """
+    input_params = locals()  # dictionary
+    # save input parameters
+    if save_input is True:
+        inputs_file = Path(workdir, name, survey, "input_aperture_parameters.csv")
+        store_input(input_params, inputs_file)
     # initial checks
     check_survey_validity(survey)
     check_work_dir(workdir)
