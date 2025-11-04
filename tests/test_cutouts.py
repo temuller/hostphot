@@ -1,7 +1,9 @@
+import pytest
+import warnings
 import unittest
 from pathlib import Path
 from hostphot.cutouts import download_images, set_HST_image, set_JWST_image
-
+from pyvo.dal import DALServiceError
 
 class TestHostPhot(unittest.TestCase):
     def __init__(self, *args, **kwargs):
@@ -74,8 +76,6 @@ class TestHostPhot(unittest.TestCase):
             "VIDEO": [36.1, -5],
             "VIKING": [220.5, 0.0],
         }
-
-        
         for version, coords in surveys.items():
             ra, dec = coords
             #try:
@@ -89,13 +89,17 @@ class TestHostPhot(unittest.TestCase):
             )
 
     def test_cutouts_SkyMapper(self):
-        download_images(
-            self.sn_name,
-            self.ra,
-            self.dec,
-            overwrite=True,
-            survey="SkyMapper",
-        )
+        try:
+            download_images(
+                self.sn_name,
+                self.ra,
+                self.dec,
+                overwrite=True,
+                survey="SkyMapper",
+            )
+        except DALServiceError as e:
+            warnings.warn(f"SkyMapper SIAP service failed: {e}", RuntimeWarning)
+            pytest.skip("SkyMapper SIAP service unavailable or returned 500")
 
     def test_cutouts_SPLUS(self):
         name = "SPLUS_test"
