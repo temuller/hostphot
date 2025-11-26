@@ -164,9 +164,10 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 ## What's new
 
-v3.x.x
+v3.1.2
 
 * Fixing download of GALEX images (issue introduced in v3.1.0 when trying to avoid timeout error - [#13](https://github.com/temuller/hostphot/issues/13)).
+* Also storing the coordinates of detected objects in RA,DEC and the ellipse parameters a/b in degrees.
 
 v3.1.1
 
