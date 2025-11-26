@@ -7,12 +7,14 @@ from astropy import wcs
 from astropy.io import fits
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from astropy.wcs.utils import proj_plane_pixel_scales
+
 from astroquery.gaia import Gaia
 from astroquery.mast import Catalogs
 
 import sep
 from hostphot._constants import font_family
-from hostphot.utils import suppress_stdout
+from hostphot.utils import suppress_stdout, add_fields
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -68,6 +70,19 @@ def extract_objects(
         ra=host_ra, dec=host_dec, unit=(u.degree, u.degree), frame="icrs"
     )
     objs_coords = img_wcs.pixel_to_world(objects["x"], objects["y"])
+    # add coordinates and ellipse a/b in degrees
+    sx, sy = proj_plane_pixel_scales(img_wcs)  # degrees per pixel
+    a_deg, b_deg = objects["a"] * sx, objects["b"] * sy
+    objects = add_fields(objects, 
+                         names=["ra", "dec", "a_deg", "b_deg"], 
+                         dtypes=["f8", "f8", "f8", "f8"], 
+                         data=[objs_coords.ra.value, 
+                               objs_coords.dec.value,
+                               a_deg, 
+                               b_deg
+                               ]
+                         )
+    
     distances = host_coords.separation(objs_coords).to(u.arcsec)
     dist_arcsec = distances.value
 

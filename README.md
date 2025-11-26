@@ -1,6 +1,4 @@
-<p align="center">
-	<img src="docs/hostphot_logo.png" alt="drawing" width="300"/>
-</p>
+<p align="center"><img src="docs/hostphot_logo.png" alt="drawing" width="300"/></p>
 
 Global and local photometry of galaxies hosting supernovae or other transients
 
@@ -14,9 +12,9 @@ Global and local photometry of galaxies hosting supernovae or other transients
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6992139.svg)](https://doi.org/10.5281/zenodo.6992139)
 [![Coverage](https://raw.githubusercontent.com/temuller/hostphot/main/coverage.svg)](https://raw.githubusercontent.com/temuller/hostphot/main/coverage.svg)
 
-
 Read the full documentation at [hostphot.readthedocs.io](https://hostphot.readthedocs.io/en/latest/). It is recommended to read the **Further Information** section to understand how HostPhot works.
 ___
+
 ## Conda environment
 
 It is recommended to create an environment before installing HostPhot:
@@ -85,7 +83,6 @@ If the user is not happy with the result of the masking, there are a few paramet
 
 Local photometry can be obtained for multiple circular apertures:
 
-
 ```python
 import hostphot.photometry.local_photometry as lp
 
@@ -122,30 +119,29 @@ by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
 
 This is the list of surveys in HostPhot:
 
-  * DES
-  * PS1
-  * SDSS
-  * GALEX
-  * 2MASS
-  * WISE
-  * unWISE
-  * Legacy Survey
-  * Spitzer (SEIP)
-  * VISTA (VHS, VIDEO, VIKING)
-  * HST (WFC3 only)
-  * SkyMapper (not well calibrated for extended sources)
-  * SPLUS
-  * UKIDSS
-  * JWST (NIRCam only)
+* DES
+* PS1
+* SDSS
+* GALEX
+* 2MASS
+* WISE
+* unWISE
+* Legacy Survey
+* Spitzer (SEIP)
+* VISTA (VHS, VIDEO, VIKING)
+* HST (WFC3 only)
+* SkyMapper (not well calibrated for extended sources)
+* SPLUS
+* UKIDSS
+* JWST (NIRCam only)
 
 ## Contributing
 
-To contribute, either open an issue or send a pull request (prefered option). You can also contact me directly (check my profile: https://github.com/temuller).
+To contribute, either open an issue or send a pull request (prefered option). You can also contact me directly (check my profile: [https://github.com/temuller](https://github.com/temuller)).
 
 ### Adding other surveys
 
 If you wish a survey to be added to HostPhot, there are a couple of ways of doing it. 1) You can do a pull request, following the same structure as used for the surveys that are already implemented, or 2) open an issue asking for a survey to be added. Either way, there are a fews things needed to add a survey: where to download the images from (e.g., using `astroquery`), zero-points to convert the images's flux/counts values into magnitudes, the magnitude system (e.g. AB, Vega), the pixel scaling of the images (in units of arcsec/pixel), the filters transmission functions and any other piece of information necessary to properly estimate magnitudes, errors, etc. If you open an issue asking for a survey to be added, please include all this information. For more information, please check the [Adding New Surveys](https://hostphot.readthedocs.io/en/latest/further_information/adding_surveys.html) section of the documentation.
-
 
 ## Citing HostPhot
 
@@ -168,6 +164,11 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 ## What's new
 
+v3.1.2
+
+* Fixing download of GALEX images (issue introduced in v3.1.0 when trying to avoid timeout error - [#13](https://github.com/temuller/hostphot/issues/13)).
+* Also storing the coordinates of detected objects in RA,DEC and the ellipse parameters a/b in degrees.
+
 v3.1.1
 
 * Fixing minor bug when calculating dust extinction for Legacy Survey (Issue [#12](https://github.com/temuller/hostphot/issues/12))
@@ -176,7 +177,7 @@ v3.1.1
 v3.1.0
 
 * Using DES DR2 instead of DR1
-* Downloading images, for some surveys, trying to avoid timeout errors.
+* Avoid timeout errors when downloading image cutouts for some surveys.
 * Adapting global aperture even if the survey is the same as the reference (mainly to avoid issues with JWST).
 * Fixing/adding features from different issues, mainly for HST/JWST ([#8](https://github.com/temuller/hostphot/issues/8), [#9](https://github.com/temuller/hostphot/issues/9), [#10](https://github.com/temuller/hostphot/issues/10), [#11](https://github.com/temuller/hostphot/issues/11) - thanks Lisa!).
 

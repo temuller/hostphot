@@ -1,6 +1,7 @@
 import os
 import sys
 import requests
+import numpy as np
 import pandas as pd
 from io import BytesIO
 from pathlib import Path
@@ -8,6 +9,7 @@ import matplotlib.image as img
 import matplotlib.pyplot as plt
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from numpy.lib import recfunctions as rfn
 
 import aplpy
 from astropy.io import fits
@@ -45,6 +47,31 @@ def open_fits_from_url(url: str) -> fits.hdu:
     r.raise_for_status()
     hdu = fits.open(BytesIO(r.content))
     return hdu
+
+def add_fields(arr: np.ndarray, names: str | list, dtypes: str | list, data: np.ndarray) -> np.ndarray:
+    """Add new fields to a NumPy structured array.
+
+    Parameters
+    ----------
+    arr: Original structured array.
+    names: Name(s) of the new fields.
+    dtype: Dtype(s) of the new fields (e.g. 'f8', 'i4').
+    data: Data for the new fields.
+
+    Returns
+    -------
+    new_arr: New structured array with added fields.
+    """
+    if isinstance(names, str):
+        names = [names]
+    if isinstance(dtypes, (str, np.dtype)):
+        dtypes = [dtypes]
+    if not isinstance(data, (list, tuple)):
+        data = [data]
+        
+    new_arr = rfn.append_fields(arr, names, data, dtypes=dtypes, usemask=False)
+
+    return new_arr
 
 @contextmanager
 def suppress_stdout():

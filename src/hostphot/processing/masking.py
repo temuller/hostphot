@@ -213,7 +213,6 @@ def create_mask(
         )
         sigma /= conv_factor
 
-    #masked_data = mask_image(data_sub, nongal_objs, r=r, sigma=sigma)
     if len(nongal_objs) > 0:
         masked_data = mask_image(data_sub, nongal_objs, r=r, sigma=sigma)
     else:
