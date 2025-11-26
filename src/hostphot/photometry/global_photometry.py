@@ -488,20 +488,19 @@ def photometry(
         gal_obj, master_wcs, kronrad, scale, flip2 = load_aperture_params(
             name, ref_filt, ref_survey
         )
-        if survey != ref_survey:
-            # adapt different surveys
-            if survey in flipped_surveys:
-                flip = True
-            else:
-                flip = False
-            if flip == flip2:
-                flip_ = False
-            else:
-                flip_ = True
-            # factor used for scaling the Kron radius between different pixel-scales / surveys
-            gal_obj, conv_factor = adapt_aperture(
-                gal_obj, master_wcs, wcs, flip_
-            )
+        # adapt ellipses between surveys
+        if survey in flipped_surveys:
+            flip = True
+        else:
+            flip = False
+        if flip == flip2:
+            flip_ = False
+        else:
+            flip_ = True
+        # factor used for scaling the Kron radius between different pixel-scales / surveys
+        gal_obj, conv_factor = adapt_aperture(
+            gal_obj, master_wcs, wcs, flip_
+        )
     # get Kron flux
     flux, flux_err = kron_flux(
         data_sub, bkg.rms(), _exptime, gal_obj, kronrad, scale
@@ -659,32 +658,6 @@ def multi_band_phot(
 
     if ref_survey is None:
         ref_survey = survey
-    """
-    if (common_aperture is True) & (ref_filt is not None):
-        # use common aperture
-        _ = extract_aperture(
-            name,
-            host_ra,
-            host_dec,
-            ref_filt,
-            ref_survey,
-            ra=ra,
-            dec=dec,
-            bkg_sub=bkg_sub,
-            threshold=threshold,
-            use_mask=use_mask,
-            optimize_kronrad=optimize_kronrad,
-            eps=eps,
-            gal_dist_thresh=gal_dist_thresh,
-            deblend_cont=deblend_cont,
-            save_plots=save_plots,
-            save_aperture_params=True,
-        )
-    elif (common_aperture is True) & (ref_filt is None):
-        raise ValueError(
-            "Reference filter(s) 'ref_filt' must be given for common aperture"
-        )
-    """
 
     for filt in filters:
         try:
