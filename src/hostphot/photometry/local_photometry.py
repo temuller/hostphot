@@ -35,7 +35,8 @@ from hostphot.processing.cleaning import remove_nan
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, suppress_stdout, store_input
 from hostphot.photometry.image_utils import get_image_exptime
-from hostphot.photometry.photometry_utils import magnitude_calculation
+from hostphot.photometry.photometry_utils import (magnitude_calculation, 
+                                                  extract_legacy_flux)
 from hostphot.surveys_utils import (
     get_survey_filters,
     survey_pixel_units,
@@ -291,8 +292,17 @@ def photometry(
         else:
             radius_arcsec = ap_radius
         radius_pix = radius_arcsec / pixel_scale
-        flux, flux_err = extract_aperture_flux(data_sub, bkg.rms(), _exptime, px, py, radius_pix)
-        #flux, flux_err = extract_aperture_flux(data_sub, bkg.background_rms, _exptime, px, py, radius_pix)
+        if survey == "LegacySurvey" and len(hdu) > 1 and hdu[1].data is not None:
+            aperture = CircularAperture((px, py), r=radius_pix)
+            invvar = np.asarray(hdu[1].data, dtype=np.float64)
+            flux, flux_err = extract_legacy_flux(
+                data_sub,
+                invvar,
+                aperture,
+                scale_size=radius_pix,
+            )
+        else:
+            flux, flux_err = extract_aperture_flux(data_sub, bkg.rms(), _exptime, px, py, radius_pix)
 
         ap_area = np.pi * (radius_pix**2)
         mag, mag_err, flux, flux_err, zp = magnitude_calculation(
@@ -303,7 +313,6 @@ def photometry(
             ap_area,
             header,
             bkg.globalrms,
-            #np.median(bkg.background_rms),
         )
 
         if correct_extinction is True:
@@ -401,8 +410,6 @@ def multi_band_phot(
         filters = get_survey_filters(survey)
     else:
         check_filters_validity(filters, survey)
-    #if survey in ["HST", "JWST"]:
-    #     filters = [filters]
     assert ap_units in ["kpc", "arcsec"], "not valid aperture size units"
 
     # save input parameters

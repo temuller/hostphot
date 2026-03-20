@@ -164,6 +164,15 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 ## What's new
 
+v3.1.4
+
+* Fixing uncertainties in Legacy Survey - now properly including the inverse variance (thanks Lluís).
+
+v3.1.3
+
+* Adapting global aperture even for same survey.
+* Adding minimum version for some dependencies
+
 v3.1.2
 
 * Fixing download of GALEX images (issue introduced in v3.1.0 when trying to avoid timeout error - [#13](https://github.com/temuller/hostphot/issues/13)).

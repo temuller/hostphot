@@ -31,7 +31,9 @@ from hostphot.processing.objects_detection import extract_objects, plot_detected
 from hostphot.processing.cleaning import remove_nan
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, store_input
-from hostphot.photometry.photometry_utils import magnitude_calculation
+from hostphot.photometry.photometry_utils import (magnitude_calculation, 
+                                                  extract_legacy_flux,
+                                                  legacy_ellipse_params)
 from hostphot.photometry.image_utils import adapt_aperture, get_image_exptime
 from hostphot.surveys_utils import (
     get_survey_filters,
@@ -253,7 +255,7 @@ def extract_aperture(
         exptime = get_image_exptime(header, survey)
         try:
             pixel_units = survey_pixel_units(survey, filt)
-        except:
+        except Exception:
             # probably a coadd, so only need one filter
             pixel_units = survey_pixel_units(survey, filt[0])
         if pixel_units == "counts":
@@ -502,9 +504,20 @@ def photometry(
             gal_obj, master_wcs, wcs, flip_
         )
     # get Kron flux
-    flux, flux_err = kron_flux(
-        data_sub, bkg.rms(), _exptime, gal_obj, kronrad, scale
-    )
+    if survey == "LegacySurvey" and len(hdu) > 1 and hdu[1].data is not None:
+        x, y, a, b, theta = legacy_ellipse_params(gal_obj, kronrad, scale)
+        aperture = EllipticalAperture((x, y), a, b, theta)
+        invvar = np.asarray(hdu[1].data, dtype=np.float64)
+        flux, flux_err = extract_legacy_flux(
+            data_sub,
+            invvar,
+            aperture,
+            scale_size=max(a, b),
+        )
+    else:
+        flux, flux_err = kron_flux(
+            data_sub, bkg.rms(), _exptime, gal_obj, kronrad, scale
+        )
     
     # aperture area for an ellipse (or circle)
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]

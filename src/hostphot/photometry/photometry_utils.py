@@ -2,10 +2,12 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from typing import Optional
+from copy import deepcopy
 
 from astropy.io import fits
 from astropy.stats import sigma_clipped_stats
 from photutils.utils import calc_total_error
+from photutils.aperture import Aperture
 
 import hostphot
 from hostphot.surveys_utils import (
@@ -119,7 +121,6 @@ def uncertainty_calculation(
     if survey in [
         "PanSTARRS",
         "DES",
-        "LegacySurvey",
         "Spitzer",
         "VISTA",
         "SkyMapper",
@@ -549,3 +550,252 @@ def integrate_filter(
     flux_filter = int1 / int2
 
     return flux_filter
+
+# -------------
+# Legacy Survey 
+# -------------
+def _normalized_theta(theta: float) -> float:
+    """
+    Wrap ellipse position angle into the range expected by photutils/sep.
+    """
+    if theta > np.pi / 2:
+        theta -= np.pi
+    elif theta < -np.pi / 2:
+        theta += np.pi
+    return theta
+
+def legacy_ellipse_params(
+    objects: np.ndarray, kronrad: float, scale: float
+) -> tuple[float, float, float, float, float]:
+    """
+    Construct Kron-style elliptical aperture parameters for a Legacy Survey source.
+
+    The semi-major and semi-minor axes are derived from the catalog shape
+    parameters and scaled by both the Kron radius and an additional aperture
+    scaling factor.
+
+    Parameters
+    ----------
+    objects : Source catalog record containing at least the fields 'x', 'y', 'a',
+        'b', and 'theta'.
+    kronrad : Kron radius multiplier returned by source extraction.
+    scale : Additional multiplicative factor applied to the ellipse axes.
+
+    Returns
+    -------
+    x : Source centroid x-coordinate in pixels.
+    y : Source centroid y-coordinate in pixels.
+    a : Semi-major axis in pixels after Kron scaling.
+    b : Semi-minor axis in pixels after Kron scaling.
+    theta : Position angle in radians, normalized to the range expected by photutils.
+
+    Notes
+    -----
+    The returned ellipse is suitable for direct use with photutils
+    EllipticalAperture.
+    """
+    x = float(np.ravel(objects["x"])[0])
+    y = float(np.ravel(objects["y"])[0])
+    a = float(np.ravel(objects["a"])[0]) * scale * kronrad
+    b = float(np.ravel(objects["b"])[0]) * scale * kronrad
+    theta = _normalized_theta(float(np.ravel(objects["theta"])[0]))
+    return x, y, a, b, theta
+
+def legacy_aperture_weighted_sum(
+    data: np.ndarray,
+    aperture: Aperture,
+) -> tuple[float, np.ndarray, tuple[slice, slice]]:
+    """
+    Compute an exact weighted aperture sum for a generic photutils aperture.
+    
+    The aperture mask is evaluated using exact fractional pixel overlap, so each
+    pixel contributes according to its geometric overlap with the aperture.
+
+    Parameters
+    ----------
+    data : Two-dimensional image array containing flux values.
+    aperture : Any photutils aperture instance (e.g. CircularAperture,
+        EllipticalAperture).
+
+    Returns
+    -------
+    flux : Weighted aperture flux.
+    weights : Fractional pixel weights inside the aperture mask.
+    slices : Bounding-box slices corresponding to the aperture cutout.
+
+    Raises
+    ------
+    RuntimeError
+        If the aperture cutout fails or contains no valid pixels.
+    """
+    mask = aperture.to_mask(method="exact")
+    cutout = mask.cutout(data, fill_value=np.nan)
+
+    if cutout is None:
+        raise RuntimeError("aperture cutout failed")
+
+    weights = mask.data
+    valid = np.isfinite(cutout) & np.isfinite(weights)
+
+    if not np.any(valid):
+        raise RuntimeError("no valid pixels in aperture")
+
+    flux = float(np.nansum(cutout[valid] * weights[valid]))
+
+    bbox = mask.bbox
+    slices = (slice(bbox.iymin, bbox.iymax), slice(bbox.ixmin, bbox.ixmax))
+
+    return flux, weights, slices
+
+def legacy_aperture_invvar_variance(
+    invvar: np.ndarray,
+    weights: np.ndarray,
+    slices: tuple[slice, slice],
+) -> float:
+    """
+    Propagate inverse-variance pixels into aperture variance.
+
+    Variance is computed assuming independent pixels:
+
+        var = sum(weights^2 / invvar)
+
+    where weights are fractional aperture overlaps.
+
+    Parameters
+    ----------
+    invvar : Two-dimensional inverse-variance map.
+    weights : Aperture pixel weights returned by the aperture mask.
+    slices : Bounding-box slices matching the aperture footprint.
+
+    Returns
+    -------
+    Aperture variance derived from the inverse-variance map.
+
+    Raises
+    ------
+    RuntimeError
+        If no valid inverse-variance pixels are available.
+    """
+    cutout = invvar[slices]
+    valid = np.isfinite(cutout) & np.isfinite(weights) & (cutout > 0)
+
+    if not np.any(valid):
+        raise RuntimeError("no valid invvar pixels in aperture")
+
+    return float(np.nansum((weights[valid] ** 2) / cutout[valid]))
+
+def legacy_blank_aperture_rms(
+    data: np.ndarray,
+    aperture: Aperture,
+    x0: float,
+    y0: float,
+    scale_size: float,
+    n_apertures: int = 80,
+    rmin_factor: float = 2.5,
+    rmax_factor: float = 6.0,
+) -> float | None:
+    """
+    Estimate an empirical local noise floor using randomly placed blank apertures.
+
+    Apertures identical to the source aperture are placed at random positions
+    around the target, and the robust scatter of their fluxes is measured using
+    the median absolute deviation (MAD).
+
+    Parameters
+    ----------
+    data : Two-dimensional image array.
+    aperture : Template photutils aperture to replicate.
+    x0, y0 : Central source coordinates in pixels.
+    scale_size : Characteristic aperture size used to define blank-aperture placement radius.
+    n_apertures : Target number of blank apertures.
+    rmin_factor : Minimum radial offset in units of scale_size.
+    rmax_factor : Maximum radial offset in units of scale_size.
+
+    Returns
+    -------
+    Robust local 1-sigma background uncertainty, or None if too few
+    blank apertures are available.
+    """
+    rng = np.random.default_rng(12345)
+    ny, nx = data.shape
+    blank_fluxes = []
+
+    max_trials = max(400, n_apertures * 20)
+    rmin = rmin_factor * scale_size
+    rmax = rmax_factor * scale_size
+
+    for _ in range(max_trials):
+        if len(blank_fluxes) >= n_apertures:
+            break
+
+        phi = rng.uniform(0, 2 * np.pi)
+        rho = rng.uniform(rmin, rmax)
+
+        x = x0 + rho * np.cos(phi)
+        y = y0 + rho * np.sin(phi)
+
+        ap = deepcopy(aperture)
+        ap.positions = (x, y)
+
+        try:
+            flux, _, _ = legacy_aperture_weighted_sum(data, ap)
+        except Exception:
+            continue
+
+        if np.isfinite(flux):
+            blank_fluxes.append(flux)
+
+    if len(blank_fluxes) < 10:
+        return None
+
+    arr = np.asarray(blank_fluxes)
+    med = np.nanmedian(arr)
+
+    return float(1.4826 * np.nanmedian(np.abs(arr - med)))
+
+def extract_legacy_flux(
+    data: np.ndarray,
+    invvar: np.ndarray,
+    aperture: Aperture,
+    scale_size: float,
+) -> tuple[float, float]:
+    """
+    GMeasure aperture flux and uncertainty for Legacy Survey imaging.
+
+    The uncertainty combines:
+
+    1. inverse-variance propagation from the survey ivar map
+    2. empirical blank-aperture scatter
+
+    The larger of the two estimates is returned to guard against correlated
+    noise in coadded survey images.
+
+    Parameters
+    ----------
+    data : Two-dimensional flux image.
+    invvar : Two-dimensional inverse-variance map.
+    aperture : Photutils aperture defining the measurement region.
+    scale_size : Characteristic aperture size used for blank-aperture placement.
+
+    Returns
+    -------
+    flux : Aperture flux.
+    flux_err : Final 1-sigma uncertainty.
+    """
+    flux, weights, slices = legacy_aperture_weighted_sum(data, aperture)
+
+    invvar_var = legacy_aperture_invvar_variance(invvar, weights, slices)
+    invvar_err = np.sqrt(invvar_var) if invvar_var > 0 else np.nan
+
+    x0, y0 = aperture.positions
+    blank_rms = legacy_blank_aperture_rms(
+        data,
+        aperture,
+        x0,
+        y0,
+        scale_size,
+    )
+
+    total_err = invvar_err if blank_rms is None else max(invvar_err, blank_rms)
+
+    return flux, total_err
