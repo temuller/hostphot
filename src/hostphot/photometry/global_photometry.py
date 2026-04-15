@@ -31,7 +31,10 @@ from hostphot.processing.objects_detection import extract_objects, plot_detected
 from hostphot.processing.cleaning import remove_nan
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, store_input
-from hostphot.photometry.photometry_utils import magnitude_calculation
+from hostphot.photometry.photometry_utils import (
+    magnitude_calculation,
+    extract_legacy_kron_flux,
+)
 from hostphot.photometry.image_utils import adapt_aperture, get_image_exptime
 from hostphot.surveys_utils import (
     get_survey_filters,
@@ -501,10 +504,21 @@ def photometry(
         gal_obj, conv_factor = adapt_aperture(
             gal_obj, master_wcs, wcs, flip_
         )
+
     # get Kron flux
-    flux, flux_err = kron_flux(
-        data_sub, bkg.rms(), _exptime, gal_obj, kronrad, scale
-    )
+    if survey == "LegacySurvey" and len(hdu) > 1:
+        invvar = hdu[1].data
+        flux, flux_err = extract_legacy_kron_flux(
+            data_sub,
+            invvar,
+            gal_obj,
+            kronrad,
+            scale,
+        )
+    else:
+        flux, flux_err = kron_flux(
+            data_sub, bkg.rms(), _exptime, gal_obj, kronrad, scale
+        )
     
     # aperture area for an ellipse (or circle)
     ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]

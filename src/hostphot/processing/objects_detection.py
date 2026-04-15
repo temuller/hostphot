@@ -9,9 +9,6 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.wcs.utils import proj_plane_pixel_scales
 
-from astroquery.gaia import Gaia
-from astroquery.mast import Catalogs
-
 import sep
 from hostphot._constants import font_family
 from hostphot.utils import suppress_stdout, add_fields
@@ -116,6 +113,7 @@ def find_gaia_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
     -------
     gaia_coord: Coordinates of the objects found.
     """
+    from astroquery.gaia import Gaia
     Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
     Gaia.ROW_LIMIT = -1
     coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs")
@@ -157,6 +155,7 @@ def find_catalog_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
     -------
     cat_coord: Coordinates of the objects found.
     """
+    from astroquery.mast import Catalogs
     coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs")
     cat_data = Catalogs.query_criteria(
         catalog="Tic", radius=rad, coordinates=coord, objType="STAR"

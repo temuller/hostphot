@@ -84,4 +84,13 @@ def remove_nan(hdu: list[fits.ImageHDU]) -> list[fits.ImageHDU]:
     trimmed_hdu[0].data = trimmed_data.data
     trimmed_hdu[0].header = header
 
+    # trim other HDUs if they exist and have the same shape
+    if len(hdu) > 1:
+        for i in range(1, len(hdu)):
+            if hdu[i].data is not None and hdu[i].data.shape == data.shape:
+                trimmed_hdu[i].data = hdu[i].data[
+                    trimmed_data.slices_original[0],
+                    trimmed_data.slices_original[1]
+                ]
+
     return trimmed_hdu
