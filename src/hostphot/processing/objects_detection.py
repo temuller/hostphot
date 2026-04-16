@@ -15,6 +15,7 @@ from hostphot.utils import suppress_stdout, add_fields
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
+from requests.exceptions import HTTPError
 
 plt.rcParams["mathtext.fontset"] = "cm"
 
@@ -115,7 +116,7 @@ def find_gaia_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
     """
     from astroquery.gaia import Gaia
     Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
-    Gaia.ROW_LIMIT = -1
+    Gaia.ROW_LIMIT = 1000  # avoid heavy queries
     coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs")
     width = u.Quantity(rad, u.deg)
     height = u.Quantity(rad, u.deg)
@@ -124,11 +125,14 @@ def find_gaia_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
             gaia_cat = Gaia.query_object_async(
                 coordinate=coord, width=width, height=height
             )
-    except Exception as exc:
-        print(exc)
-        print("No objects found with Gaia DR3, switching to DR2")
-        Gaia.MAIN_GAIA_TABLE = "gaiadr2.gaia_source"
-        gaia_cat = Gaia.query_object_async(coordinate=coord, width=width, height=height)
+    except HTTPError:
+        print("Gaia DR3 failed, trying DR2")
+        try:
+            Gaia.MAIN_GAIA_TABLE = "gaiadr2.gaia_source"
+            gaia_cat = Gaia.query_object_async(coordinate=coord, width=width, height=height)
+        except HTTPError:
+            print("Gaia DR2 also failed — returning empty result")
+            return SkyCoord([], [], unit="deg")
 
     gaia_ra = np.array(gaia_cat["ra"].value)
     gaia_dec = np.array(gaia_cat["dec"].value)
