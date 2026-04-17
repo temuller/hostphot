@@ -447,9 +447,15 @@ def magnitude_calculation(
     )
 
     pixel_units = survey_pixel_units(survey, filt)
-    if pixel_units == "counts" and survey!="2MASS":
+    if pixel_units == "counts" and survey not in ["2MASS", "VISTA", "UKIDSS"]:
         # flux needs to be in units of counts per second
         # but only after the error propagation
+        exptime = get_image_exptime(header, survey)
+        flux /= exptime
+        flux_err /= exptime
+    elif survey in ["VISTA", "UKIDSS"]:
+        # VISTA and UKIDSS images are always in counts (not counts/second)
+        # regardless of the pixel_units config setting
         exptime = get_image_exptime(header, survey)
         flux /= exptime
         flux_err /= exptime

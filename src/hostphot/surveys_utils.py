@@ -26,8 +26,6 @@ flipped_surveys = [
 # add warnings for the users
 survey_warnings = {
     "SkyMapper": "WARNING: The photometric calibration of SkyMapper is not trustworthy at the moment (DR4)!",
-    "VISTA": "WARNING: The photometric calibration of VISTA is currently not correct (might be a HostPhot problem)!",
-    "UKIDSS": "WARNING: The photometric calibration of UKIDSS is currently under revision",
 }
 
 
