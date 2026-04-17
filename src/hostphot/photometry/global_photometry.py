@@ -333,7 +333,8 @@ def extract_aperture(
     data = data.astype(np.float64)
     bkg = sep.Background(data)
     # background subtraction, if needed
-    if (bkg_sub is None and (survey in bkg_surveys or survey == "Herschel")) or bkg_sub is True:
+    # Note: Herschel images already have background removed in HSA processing
+    if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg.back())
     else:
         data_sub = np.copy(data)
@@ -583,7 +584,8 @@ def photometry(
     data = data.astype(np.float64)
     bkg = sep.Background(data)
     # background subtraction, if needed
-    if (bkg_sub is None and (survey in bkg_surveys or survey == "Herschel")) or bkg_sub is True:
+    # Note: Herschel images already have background removed in HSA processing
+    if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         data_sub = np.copy(data - bkg.back())
     else:
         data_sub = np.copy(data)
