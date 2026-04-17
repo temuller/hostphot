@@ -127,6 +127,28 @@ class TestHostPhot(unittest.TestCase):
             # this test only runs locally as the file is too large
             set_JWST_image(file, filt, name)
 
+    def test_cutouts_Herschel(self):
+        """Test that Herschel download shows beta warning."""
+        import warnings
+        from hostphot.cutouts import download_images
+        from hostphot.surveys_utils import check_survey_validity
+
+        name = "Herschel_test"
+        ra = 148.969
+        dec = 69.683
+
+        # Test that check_survey_validity shows the warning
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            check_survey_validity("Herschel")
+
+            # Check that the beta warning was shown
+            herschel_warning = any(
+                "Herschel" in str(warning.message) and "beta" in str(warning.message).lower()
+                for warning in w
+            )
+            self.assertTrue(herschel_warning, "Herschel beta warning should be shown")
+
 
 if __name__ == "__main__":
     unittest.main()
