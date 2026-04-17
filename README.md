@@ -164,6 +164,11 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 ## What's new
 
+v3.2.0
+
+* Fixing Legacy Survey erros - now using the invvar maps for proper values
+* Adding DLR distnace to the aperture output
+
 v3.1.2
 
 * Fixing download of GALEX images (issue introduced in v3.1.0 when trying to avoid timeout error - [#13](https://github.com/temuller/hostphot/issues/13)).
