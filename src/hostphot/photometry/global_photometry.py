@@ -22,6 +22,8 @@ from typing import Optional
 import sep
 from astropy.wcs import WCS
 from astropy.io import fits
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 
 from photutils.utils import calc_total_error
 from photutils.aperture import aperture_photometry, EllipticalAperture
@@ -298,13 +300,45 @@ def extract_aperture(
         flip = False
 
     if save_aperture_params is True:
-        # save galaxy object and aperture parameters
         gal_df = pd.DataFrame(gal_obj)
         gal_df["kronrad"] = kronrad
         gal_df["scale"] = scale
         gal_df["flip"] = flip
         gal_df["filt"] = filt
         gal_df["survey"] = survey
+
+        # calculate the directional light-radius distance
+        if ra is not None and dec is not None:
+            gal_pixel_x = gal_obj["x"][0]
+            gal_pixel_y = gal_obj["y"][0]
+            gal_world = wcs.wcs_pix2world(gal_pixel_x, gal_pixel_y, 0)
+            gal_coord = SkyCoord(ra=gal_world[0] * u.deg, dec=gal_world[1] * u.deg, frame="icrs")
+            sn_coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame="icrs")
+            directional_light_radius = sn_coord.separation(gal_coord).arcsec
+
+            a_scaled = gal_obj["a"][0] * scale * kronrad
+            b_scaled = gal_obj["b"][0] * scale * kronrad
+            theta = gal_obj["theta"][0]
+
+            sn_pixel = wcs.wcs_world2pix(ra, dec, 0)
+            dx = sn_pixel[0] - gal_pixel_x
+            dy = sn_pixel[1] - gal_pixel_y
+            phi = np.arctan2(dy, dx)
+
+            # The ellipse radius in the direction to the SN is calculated using the formula: 
+            # r(φ) = (a*b) / sqrt((b*cos(φ-θ))2 + (a*sin(φ-θ))2), where ɸ is the angle from 
+            # the galaxy center to the SN position, and θ is the ellipse position angle. 
+            ellipse_radius_in_dir = (a_scaled * b_scaled) / np.sqrt(
+                (b_scaled * np.cos(phi - theta))**2 + (a_scaled * np.sin(phi - theta))**2
+            )
+
+            directional_light_radius_norm = directional_light_radius / ellipse_radius_in_dir
+
+            gal_df["dlr"] = directional_light_radius
+            gal_df["d_dlr"] = directional_light_radius_norm
+            gal_df["a_scaled"] = a_scaled
+            gal_df["b_scaled"] = b_scaled
+
         outfile = obj_dir / survey / f"aperture_parameters_{filt}.csv"
         gal_df.to_csv(outfile, index=False)
     hdu.close()
