@@ -166,6 +166,7 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 v3.2.0
 
+* VISTA and UKIDSS photometry now agree with 2MASS
 * Fixing Legacy Survey erros - now using the invvar maps for proper values
 * Adding DLR distnace to the aperture output
 
