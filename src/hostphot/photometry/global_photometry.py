@@ -21,6 +21,7 @@ from typing import Optional
 
 import sep
 from astropy.wcs import WCS
+from astropy.wcs.utils import proj_plane_pixel_area
 from astropy.io import fits
 from astropy.coordinates import SkyCoord
 import astropy.units as u
@@ -36,6 +37,9 @@ from hostphot.utils import check_work_dir, store_input
 from hostphot.photometry.photometry_utils import (
     magnitude_calculation,
     extract_legacy_kron_flux,
+    _legacy_elliptical_weighted_sum,
+    _herschel_blank_elliptical_rms,
+    _herschel_ellipse_params,
 )
 from hostphot.photometry.image_utils import adapt_aperture, get_image_exptime
 from hostphot.surveys_utils import (
@@ -51,6 +55,97 @@ import warnings
 from astropy.utils.exceptions import AstropyWarning
 
 sep.set_sub_object_limit(1e4)
+
+HERSCHEL_CALIBRATION_FRACTION = {
+    "PACS100": 0.05,
+    "PACS160": 0.05,
+    "SPIRE250": 0.06,
+    "SPIRE350": 0.06,
+    "SPIRE500": 0.06,
+}
+
+
+def _herschel_pixel_area_sr(wcs: WCS) -> float:
+    """Return projected pixel area in steradians for a Herschel map."""
+    pixel_area_deg2 = abs(float(proj_plane_pixel_area(wcs)))
+    if not np.isfinite(pixel_area_deg2) or pixel_area_deg2 <= 0:
+        raise RuntimeError("could not determine Herschel pixel area from WCS")
+    return pixel_area_deg2 * (np.pi / 180.0) ** 2
+
+
+def _herschel_data_to_jy_per_pixel(
+    data: np.ndarray, header: fits.Header, wcs: WCS
+) -> tuple[np.ndarray, str, float]:
+    """Convert Herschel image data into Jy/pixel for aperture summation."""
+    bunit = str(header.get("BUNIT", "")).strip().lower().replace(" ", "")
+    pixel_area_sr = _herschel_pixel_area_sr(wcs)
+
+    if bunit in {"jy/pixel", "jy/pix", "jy"}:
+        return data, "Jy", 1.0
+
+    if bunit == "mjy/sr":
+        factor = 1.0e6 * pixel_area_sr
+        return data * factor, "Jy", factor
+
+    if bunit == "jy/beam":
+        bmaj = header.get("BMAJ")
+        bmin = header.get("BMIN")
+        if bmaj is None or bmin is None:
+            raise RuntimeError("Herschel Jy/beam map has no BMAJ/BMIN beam keywords")
+        beam_area_sr = 1.1331 * float(bmaj) * float(bmin) * (np.pi / 180.0) ** 2
+        factor = pixel_area_sr / beam_area_sr
+        return data * factor, "Jy", factor
+
+    raise RuntimeError(f"unsupported Herschel BUNIT={header.get('BUNIT')!r}")
+
+
+def herschel_kron_flux(
+    data: np.ndarray,
+    header: fits.Header,
+    wcs: WCS,
+    objects: np.ndarray,
+    kronrad: float,
+    scale: float,
+    filt: str,
+) -> tuple[float, float, dict]:
+    """Measure Herschel Kron-aperture flux directly in Jy.
+
+    PACS selected maps are already in Jy/pixel.  SPIRE extended-source maps are
+    in MJy/sr and are converted to Jy/pixel using the WCS pixel area.  The random
+    uncertainty is estimated from nearby blank apertures and a configurable
+    absolute-calibration term is added in quadrature.
+    """
+    jy_data, flux_unit, conversion_factor = _herschel_data_to_jy_per_pixel(data, header, wcs)
+    x, y, a, b, theta = _herschel_ellipse_params(objects, kronrad, scale)
+    flux, weights, _ = _legacy_elliptical_weighted_sum(jy_data, x, y, a, b, theta)
+
+    blank_rms = _herschel_blank_elliptical_rms(jy_data, x, y, a, b, theta)
+    if blank_rms is None or not np.isfinite(blank_rms):
+        blank_rms = np.nan
+
+    cal_fraction = HERSCHEL_CALIBRATION_FRACTION.get(filt, 0.0)
+    cal_err = abs(flux) * cal_fraction
+    if np.isfinite(blank_rms):
+        flux_err = float(np.sqrt(blank_rms**2 + cal_err**2))
+    else:
+        flux_err = float(cal_err)
+
+    aperture_area_pix = float(np.nansum(weights[np.isfinite(weights)]))
+    pixel_area_sr = _herschel_pixel_area_sr(wcs)
+    aperture_area_arcsec2 = aperture_area_pix * pixel_area_sr * 206265.0**2
+    details = {
+        "flux_unit": flux_unit,
+        "input_bunit": header.get("BUNIT"),
+        "conversion_factor_to_jy_per_pixel": conversion_factor,
+        "blank_rms_jy": blank_rms,
+        "calibration_fraction": cal_fraction,
+        "calibration_err_jy": cal_err,
+        "aperture_area_pix": aperture_area_pix,
+        "aperture_area_arcsec2": aperture_area_arcsec2,
+        "snr": flux / flux_err if flux_err > 0 else np.nan,
+    }
+    return float(flux), flux_err, details
+
 
 def kron_flux(
     data: np.ndarray,
@@ -238,7 +333,7 @@ def extract_aperture(
     data = data.astype(np.float64)
     bkg = sep.Background(data)
     # background subtraction, if needed
-    if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
+    if (bkg_sub is None and (survey in bkg_surveys or survey == "Herschel")) or bkg_sub is True:
         data_sub = np.copy(data - bkg.back())
     else:
         data_sub = np.copy(data)
@@ -488,7 +583,7 @@ def photometry(
     data = data.astype(np.float64)
     bkg = sep.Background(data)
     # background subtraction, if needed
-    if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
+    if (bkg_sub is None and (survey in bkg_surveys or survey == "Herschel")) or bkg_sub is True:
         data_sub = np.copy(data - bkg.back())
     else:
         data_sub = np.copy(data)
@@ -538,6 +633,38 @@ def photometry(
         gal_obj, conv_factor = adapt_aperture(
             gal_obj, master_wcs, wcs, flip_
         )
+
+    if survey == "Herschel":
+        flux, flux_err, herschel_details = herschel_kron_flux(
+            data_sub, header, wcs, gal_obj, kronrad, scale, filt
+        )
+        zp = 3631.0
+        if flux > 0 and flux_err > 0:
+            mag = -2.5 * np.log10(flux / zp)
+            mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
+        else:
+            mag = np.nan
+            mag_err = np.nan
+        herschel_details["magnitude_system"] = "AB"
+        herschel_details["zeropoint_unit"] = "Jy"
+
+        if save_plots is True:
+            outfile = obj_dir / survey / f"global_{survey}_{filt}.jpg"
+            filt_ = filt.replace("_", "-")
+            title = f"{name}: {survey}-${filt_}$"
+            plot_detected_objects(
+                hdu,
+                gal_obj,
+                scale * kronrad,
+                ra,
+                dec,
+                host_ra,
+                host_dec,
+                title,
+                outfile,
+            )
+        hdu.close()
+        return mag, mag_err, flux, flux_err, zp, herschel_details
 
     # get Kron flux
     if survey == "LegacySurvey" and len(hdu) > 1:
@@ -688,6 +815,8 @@ def multi_band_phot(
             raise ValueError(f"For {survey}, the filter needs to be specified!")
         filters = get_survey_filters(survey)
     else:
+        if survey == "Herschel" and isinstance(filters, str):
+            filters = [filters]
         check_filters_validity(filters, survey)
     if survey in ["HST", "JWST"]:
         filters = [filters]
@@ -709,7 +838,7 @@ def multi_band_phot(
 
     for filt in filters:
         try:
-            mag, mag_err, flux, flux_err, zp = photometry(
+            phot_res = photometry(
                 name,
                 host_ra,
                 host_dec,
@@ -731,9 +860,15 @@ def multi_band_phot(
                 save_plots=save_plots,
                 save_aperture_params=save_aperture_params,
             )
+            mag, mag_err, flux, flux_err, zp = phot_res[:5]
+            extra_results = phot_res[5] if len(phot_res) > 5 else {}
             results_dict[filt] = mag
             results_dict[f"{filt}_err"] = mag_err
             results_dict[f"{filt}_flux"] = flux
+            results_dict[f"{filt}_flux_err"] = flux_err
+            results_dict[f"{filt}_zeropoint"] = zp
+            for extra_key, extra_value in extra_results.items():
+                results_dict[f"{filt}_{extra_key}"] = extra_value
             results_dict[f"{filt}_flux_err"] = flux_err
             results_dict[f"{filt}_zeropoint"] = zp
         except Exception as exc:
