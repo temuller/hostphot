@@ -26,6 +26,7 @@ flipped_surveys = [
 # add warnings for the users
 survey_warnings = {
     "SkyMapper": "WARNING: The photometric calibration of SkyMapper is not trustworthy at the moment (DR4)!",
+    "Herschel": "Herschel support is currently in beta testing. Results may not be fully validated.",
 }
 
 

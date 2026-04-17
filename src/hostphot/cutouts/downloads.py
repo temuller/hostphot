@@ -61,6 +61,8 @@ def download_images(
         survey_dir.mkdir(parents=True)
     if filters is None:
         filters = get_survey_filters(survey)
+    elif survey == "Herschel" and isinstance(filters, str):
+        filters = [filters]
 
     # save input parameters
     if save_input is True:
@@ -95,6 +97,8 @@ def download_images(
     get_images = getattr(survey_module, f"get_{survey}_images")  # this is a function
     if survey in ["SDSS", "GALEX", "unWISE", "LegacySurvey"]:
         hdu_list = get_images(ra, dec, size, filters, version)
+    elif survey == "Herschel":
+        hdu_list = get_images(ra, dec, size, filters, output_dir=survey_dir, overwrite=overwrite)
     else:
         hdu_list = get_images(ra, dec, size, filters)
     if hdu_list is None:

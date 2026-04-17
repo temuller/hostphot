@@ -1115,4 +1115,35 @@ JWST:
     pixel_scale: 0.063
     pixel_units: counts/second
     zeropoint: header
+Herschel:
+  PACS100:
+    zeropoint: 0
+    pixel_scale: 3.5
+    pixel_units: Jy/pixel
+    magnitude_system: AB
+    AB_offset: 0.0
+  PACS160:
+    zeropoint: 0
+    pixel_scale: 3.5
+    pixel_units: Jy/pixel
+    magnitude_system: AB
+    AB_offset: 0.0
+  SPIRE250:
+    zeropoint: 0
+    pixel_scale: 6.0
+    pixel_units: MJy/sr
+    magnitude_system: AB
+    AB_offset: 0.0
+  SPIRE350:
+    zeropoint: 0
+    pixel_scale: 10.0
+    pixel_units: MJy/sr
+    magnitude_system: AB
+    AB_offset: 0.0
+  SPIRE500:
+    zeropoint: 0
+    pixel_scale: 18.0
+    pixel_units: MJy/sr
+    magnitude_system: AB
+    AB_offset: 0.0
 
