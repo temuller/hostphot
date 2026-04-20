@@ -216,6 +216,7 @@ def plot_detected_objects(
     dec: Optional[float] = None,
     host_ra: Optional[float] = None,
     host_dec: Optional[float] = None,
+    add_centre: bool = False,
     title: Optional[str] = None,
     outfile: Optional[str] = None,
 ) -> None:
@@ -286,6 +287,16 @@ def plot_detected_objects(
         linewidth=3,
         edgecolor="r",
     )
+    if add_centre:
+        fig.show_markers(
+            objects["x"],
+            objects["y"],
+            edgecolor="k",
+            facecolor="red",
+            coords_frame="pixel",
+            marker="o",
+            s=50,
+        )
     # ticks
     fig.tick_labels.set_font(**{"family": font_family, "size": 18})
     fig.tick_labels.set_xformat("dd.dd")
