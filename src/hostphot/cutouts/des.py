@@ -6,7 +6,7 @@ from pyvo.dal import sia
 from astropy.io import fits
 from astropy import units as u
 
-from hostphot.utils import open_fits_from_url
+from hostphot.utils import open_fits_from_url, open_fits_from_urls
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 
@@ -99,16 +99,26 @@ def get_DES_images(ra: float, dec: float, size: float | u.Quantity = 3, filters:
     if url_list is None:
         return None
     # download images
-    hdu_list = []
+    all_urls = []
     for url, url_w in zip(url_list, url_w_list):
-        # combine image+weights on a single fits file
-        image_hdu = open_fits_from_url(url)
+        all_urls.append(url)
+        all_urls.append(url_w)
+
+    all_hdus = open_fits_from_urls(all_urls)
+
+    hdu_list = []
+    for i in range(len(url_list)):
+        image_hdu = all_hdus[2*i]
+        weight_hdu = all_hdus[2*i+1]
+
+        if image_hdu is None:
+            hdu_list.append(None)
+            continue
+
         hdu = fits.PrimaryHDU(image_hdu[0].data, header=image_hdu[0].header)
-        if url_w is None:
+        if weight_hdu is None:
             hdu_sublist = fits.HDUList([hdu])
         else:
-            print(url_w)
-            weight_hdu = open_fits_from_url(url_w)
             hdu_err = fits.ImageHDU(
                 weight_hdu[0].data, header=weight_hdu[0].header
             )

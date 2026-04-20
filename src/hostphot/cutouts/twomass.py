@@ -9,7 +9,7 @@ from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 
-from hostphot.utils import open_fits_from_url
+from hostphot.utils import open_fits_from_url, open_fits_from_urls
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
     

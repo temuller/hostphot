@@ -11,7 +11,7 @@ from astropy.nddata import Cutout2D
 from astroquery.skyview import SkyView
 from astropy.coordinates import SkyCoord
 
-from hostphot.utils import open_fits_from_url
+from hostphot.utils import open_fits_from_url, open_fits_from_urls
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -61,22 +61,26 @@ def get_WISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
             url_dict[key].append(value)
     url_df = pd.DataFrame(url_dict)
 
-    hdu_list = []
+    url_list = []
+    exptimes = []
     for filt in filters:
         filt_df = url_df[url_df.energy_bandpassname==filt]
         if len(filt_df) == 0:
-            hdu_list.append(None)
+            url_list.append(None)
+            exptimes.append(None)
         else:
-            img_url = filt_df.access_url.values[0]
-            t_expt = filt_df.t_exptime.values[0]
-            hdu = open_fits_from_url(img_url)
-            hdu[0].header["EXPTIME"] = t_expt
+            url_list.append(filt_df.access_url.values[0])
+            exptimes.append(filt_df.t_exptime.values[0])
+
+    hdu_list = open_fits_from_urls(url_list)
+    for i, hdu in enumerate(hdu_list):
+        if hdu is not None:
+            hdu[0].header["EXPTIME"] = exptimes[i]
             # create cutout
             wcs = WCS(hdu[0].header)
             cutout = Cutout2D(hdu[0].data, coords, image_size, wcs=wcs)
             hdu[0].data = cutout.data
             hdu[0].header.update(cutout.wcs.to_header())
-            hdu_list.append(hdu)
     return hdu_list
 
 def get_unWISE_images(ra: float, dec: float, size: float | u.Quantity = 3, 

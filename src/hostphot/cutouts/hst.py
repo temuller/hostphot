@@ -116,21 +116,22 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
         )
     results_df = result.to_pandas()
     
-    hdu_list = []
-    for filt in filters:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def download_hst_filter(filt):
         check_HST_filters(filt)
         # separate the instrument name from the actual filter
         split_filt = filt.split("_")
         if len(split_filt) == 2:
-            filt = split_filt[-1]
+            filt_name = split_filt[-1]
             instrument = split_filt[0]
         elif len(split_filt) == 3:
-            filt = split_filt[-1]
+            filt_name = split_filt[-1]
             instrument = f"{split_filt[0]}/{split_filt[1]}"
         else:
             raise ValueError(f"Incorrect filter name: {filt}")
         # filter by filter and instrument
-        obs_df = results_df[results_df["filter"] == filt]
+        obs_df = results_df[results_df["filter"] == filt_name]
         obs_df = obs_df[obs_df.instrument_name == instrument]
         # get only exposures shorter than one hour
         obs_df = obs_df[obs_df.exposure_duration < 3600]
@@ -139,7 +140,8 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
         )
 
         # start download 
-        filename = f"HST_tmp_{ra}_{dec}"  # the extension is added below
+        filename = f"HST_tmp_{ra}_{dec}_{filt}"  # the extension is added below
+        download_success = False
         for obs_id in obs_df.observation_id:
             try:
                 esahubble.download_product(
@@ -148,19 +150,29 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
                     calibration_level="PRODUCT",
                     filename=filename,
                 )
+                download_success = True
                 break
             except:
                 pass
         temp_file = Path(f"{filename}.fits.gz")
-        if temp_file.is_file() is False:
-            hdu_list.append(None)
-            continue
-        hdu = fits.open(temp_file)
-        # remove the temporary files
-        temp_file.unlink()
-        # add necessary information to the header
-        update_HST_header(hdu)
-        hdu_list.append(hdu)
+        if download_success and temp_file.is_file():
+            hdu = fits.open(temp_file)
+            # copy data to avoid closing issue with temp_file deletion
+            hdu_copy = fits.HDUList([fits.PrimaryHDU(data=hdu[0].data.copy(), header=hdu[0].header.copy())])
+            if len(hdu) > 1:
+                for i in range(1, len(hdu)):
+                    hdu_copy.append(fits.ImageHDU(data=hdu[i].data.copy(), header=hdu[i].header.copy()))
+            hdu.close()
+            # remove the temporary files
+            temp_file.unlink()
+            # add necessary information to the header
+            update_HST_header(hdu_copy)
+            return hdu_copy
+        else:
+            return None
+
+    with ThreadPoolExecutor() as executor:
+        hdu_list = list(executor.map(download_hst_filter, filters))
     # HST images are large so need to be trimmed
     for hdu, filt in zip(hdu_list, filters):
         if hdu is None:

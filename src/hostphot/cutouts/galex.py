@@ -8,6 +8,7 @@ from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 from astroquery.mast import Observations
 
+from hostphot.utils import open_fits_from_url, open_fits_from_urls
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -89,13 +90,20 @@ def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3,
                     files.append(file)
 
             # download the FITS images
-            hdu_list = []
-            for file in files:
-                try:
-                    hdu = fits.open(file)
-                    hdu_list.append(hdu)
-                except Exception:
-                    pass
+            # use a more robust way to download in parallel
+            try:
+                hdu_list = open_fits_from_urls(files)
+            except Exception:
+                # fall back to sequential if parallel fails (though open_fits_from_urls should handle failures)
+                hdu_list = []
+                for file in files:
+                    try:
+                        hdu = open_fits_from_url(file)
+                        hdu_list.append(hdu)
+                    except Exception:
+                        pass
+            # remove None from list
+            hdu_list = [hdu for hdu in hdu_list if hdu is not None]
 
             # calculate the separation of the galaxy to the image center
             separations = []

@@ -4,7 +4,7 @@ from typing import Optional
 import astropy.units as u
 from astropy.io import fits
 
-from hostphot.utils import open_fits_from_url
+from hostphot.utils import open_fits_from_url, open_fits_from_urls
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 def get_Spitzer_images(ra: float, dec: float, size: float | u.Quantity = 3, 
@@ -78,12 +78,12 @@ def get_Spitzer_images(ra: float, dec: float, size: float | u.Quantity = 3,
                 # pick the first image and move to the next filter
                 break
 
+    url_list = list(files_dict.values())
+    hdu_list_all = open_fits_from_urls(url_list)
+
     hdu_list = []
-    for filt, file in files_dict.items():
-        if file is not None:
-            hdu = open_fits_from_url(file)
+    for hdu in hdu_list_all:
+        if hdu is not None:
             hdu[0].header["MAGZP"] = hdu[0].header["ZPAB"]
-            hdu_list.append(hdu)
-        else:
-            hdu_list.append(None)
+        hdu_list.append(hdu)
     return hdu_list

@@ -110,16 +110,17 @@ def get_JWST_images(ra: float, dec: float, size: float | u.Quantity = 3,
         ).get_data()
     results_df = result.to_pandas()
             
-    hdu_list = []
-    for filt in filters:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def download_jwst_filter(filt):
         check_JWST_filters(filt)
         # separate the instrument name from the actual filter
         split_filt = filt.split("_")
-        filt = split_filt[-1]
+        filt_name = split_filt[-1]
         instrument = split_filt[0].upper() + "/IMAGE"
         # filter by filter and instrument
         obs_df = results_df[results_df["instrument_name"] == instrument]
-        obs_df = obs_df[obs_df["energy_bandpassname"] == filt]
+        obs_df = obs_df[obs_df["energy_bandpassname"] == filt_name]
         obs_df = obs_df[obs_df["calibrationlevel"] == 3]
 
         # start download
@@ -134,14 +135,22 @@ def get_JWST_images(ra: float, dec: float, size: float | u.Quantity = 3,
             except:
                 pass
         if temp_file is None:
-            hdu_list.append(None)
-            continue
+            return None
         hdu = fits.open(temp_file)
+        # copy data to avoid closing issue with temp_file deletion
+        hdu_copy = fits.HDUList([fits.PrimaryHDU(data=hdu[0].data.copy(), header=hdu[0].header.copy())])
+        if len(hdu) > 1:
+            for i in range(1, len(hdu)):
+                hdu_copy.append(fits.ImageHDU(data=hdu[i].data.copy(), header=hdu[i].header.copy()))
+        hdu.close()
         # remove the temporary files
         Path(temp_file).unlink()
         # add necessary information to the header
-        update_JWST_header(hdu)
-        hdu_list.append(hdu)
+        update_JWST_header(hdu_copy)
+        return hdu_copy
+
+    with ThreadPoolExecutor() as executor:
+        hdu_list = list(executor.map(download_jwst_filter, filters))
     # JWST images are large so need to be trimmed
     for hdu, filt in zip(hdu_list, filters):
         if hdu is None:

@@ -43,10 +43,38 @@ def open_fits_from_url(url: str) -> fits.hdu:
     -------
     hdu: FITS image.
     """
+    import gzip
     r = requests.get(url, timeout=120)
     r.raise_for_status()
-    hdu = fits.open(BytesIO(r.content))
+    
+    content = r.content
+    if content.startswith(b'\x1f\x8b'):
+        content = gzip.decompress(content)
+        
+    hdu = fits.open(BytesIO(content))
     return hdu
+
+def open_fits_from_urls(urls: list[str | None]) -> list[fits.HDUList | None]:
+    """Opens multiple FITS files from URLs in parallel.
+
+    Parameters
+    ----------
+    urls: List of links to the files.
+
+    Returns
+    -------
+    hdus: List of FITS images.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    def safe_open(url: str | None) -> fits.HDUList | None:
+        if url is None:
+            return None
+        return open_fits_from_url(url)
+
+    with ThreadPoolExecutor() as executor:
+        hdus = list(executor.map(safe_open, urls))
+    return hdus
 
 def add_fields(arr: np.ndarray, names: str | list, dtypes: str | list, data: np.ndarray) -> np.ndarray:
     """Add new fields to a NumPy structured array.

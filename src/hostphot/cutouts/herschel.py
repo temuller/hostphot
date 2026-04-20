@@ -341,11 +341,13 @@ def get_Herschel_images(
     downloads_log = []
     selected_by_filter: dict[str, dict] = {}
 
-    for _, row in observations.iterrows():
+    from concurrent.futures import ThreadPoolExecutor
+
+    def process_observation(row):
         obs_id = row["observation_id"]
         instrument = str(row["instrument_name"]).upper()
         if instrument not in DEFAULT_INSTRUMENTS:
-            continue
+            return None
 
         for level in product_levels:
             tarball = _download_product(obs_id, instrument, level, downloads_dir, overwrite=overwrite)
@@ -355,22 +357,31 @@ def get_Herschel_images(
             extract_dir = extracted_dir / f"{instrument}_{obs_id}_{level}"
             _safe_extract_tarball(tarball, extract_dir, overwrite=overwrite)
             candidates = _scan_science_maps(extract_dir, requested_filters)
-            downloads_log.append(
-                {
-                    "observation_id": obs_id,
-                    "instrument": instrument,
-                    "product_level": level,
-                    "tarball": str(tarball),
-                    "n_candidates": len(candidates),
-                }
-            )
+            
+            log_entry = {
+                "observation_id": obs_id,
+                "instrument": instrument,
+                "product_level": level,
+                "tarball": str(tarball),
+                "n_candidates": len(candidates),
+            }
+            
             if not candidates.empty:
                 candidates["observation_id"] = obs_id
                 candidates["product_level"] = level
-                all_candidates.append(candidates)
+                return candidates, log_entry
+            
+            return None, log_entry
 
-            # Stop after the first product level that actually exists for this observation.
-            break
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(process_observation, [row for _, row in observations.iterrows()]))
+
+    for res in results:
+        if res is not None:
+            candidates, log_entry = res
+            if candidates is not None:
+                all_candidates.append(candidates)
+            downloads_log.append(log_entry)
 
     if downloads_log:
         pd.DataFrame(downloads_log).to_csv(target_dir / "hsa_downloads.csv", index=False)

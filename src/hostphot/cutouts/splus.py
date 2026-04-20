@@ -9,7 +9,7 @@ from astropy.io import fits
 
 import hostphot
 hostphot_path = Path(hostphot.__path__[0])
-from hostphot.utils import open_fits_from_url
+from hostphot.utils import open_fits_from_url, open_fits_from_urls
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 def get_SPLUS_urls(ra: float, dec: float, fov: float | u.Quantity = 3, 
@@ -84,12 +84,9 @@ def get_SPLUS_images(ra: float, dec: float, size: float | u.Quantity = 3,
     url_list = get_SPLUS_urls(ra, dec, fov, filters)
     if url_list is None:
         return None
-    hdu_list = []
-    for url in url_list:
-        if url is None:
-            hdu_list.append(None)
-        else:
-            hdu = open_fits_from_url(url)
+    hdu_list = open_fits_from_urls(url_list)
+    for hdu in hdu_list:
+        if hdu is not None:
             # add zeropoint
             # file from https://splus.cloud/documentation/dr2_3
             zps_file = hostphot_path.joinpath('filters', 'SPLUS', 'iDR3_zps.cat')
@@ -101,5 +98,4 @@ def get_SPLUS_images(ra: float, dec: float, size: float | u.Quantity = 3,
             hdu[0].header['MAGZP'] = zp
             # initial EXPTIME is normalised, so it doesn't help
             hdu[0].header['EXPTIME'] = hdu[0].header['TEXPOSED']
-            hdu_list.append(hdu)
     return hdu_list

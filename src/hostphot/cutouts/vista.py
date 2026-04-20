@@ -6,6 +6,7 @@ from astropy import wcs
 import astropy.units as u
 from astropy.io import fits
 
+from hostphot.utils import open_fits_from_url, open_fits_from_urls
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 from hostphot.moc.maps import contains_coords
 
@@ -89,35 +90,50 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
             if f"band={filt}" in url:
                 urls_dict[filt].append(url)
     
+    # collect all unique URLs
+    unique_urls = list(set([url for sublist in urls_dict.values() for url in sublist]))
+    all_hdus = open_fits_from_urls(unique_urls)
+    url_to_hdu = dict(zip(unique_urls, all_hdus))
+
     hdu_list = []
-    for filt, url_list in urls_dict.items():
-        if len(url_list) > 0:
-            exptime = 0
-            # select image with longest exposure
-            for url in url_list:
-                hdu_ = fits.open(url)
+    for filt in filters:
+        filter_urls = urls_dict[filt]
+        if len(filter_urls) > 0:
+            exptime = -1
+            best_hdu = None
+            for url in filter_urls:
+                hdu_ = url_to_hdu[url]
+                if hdu_ is None:
+                    continue
                 if hdu_[1].header["EXPTIME"] > exptime:
+                    if best_hdu is not None:
+                        best_hdu.close()
                     exptime = hdu_[1].header["EXPTIME"]
-                    hdu = hdu_
+                    best_hdu = hdu_
                 else:
                     hdu_.close()
-            hdu[0].data = hdu[1].data
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", AstropyWarning)
-                img_wcs = wcs.WCS(hdu[1].header)
-                hdu[0].header.update(img_wcs.to_header())
-            # add some keywords to the PHU
-            hdu[0].header['EXPTIME'] = hdu[1].header['EXPTIME']
-            hdu[0].header['MAGZRR'] = hdu[1].header['MAGZRR']
-            # calculate effective ZP (considering atmospheric extinction)
-            # calculate extinction first
-            airmass = (hdu[1].header['HIERARCH ESO TEL AIRM START'] + hdu[1].header['HIERARCH ESO TEL AIRM END'])/2
-            ext_coeff = hdu[1].header['EXTINCT']
-            extinction = ext_coeff*(airmass - 1)
-            # calculate effective ZP
-            zp = hdu[1].header['MAGZPT']
-            hdu[0].header['MAGZP'] = zp - extinction
-            hdu_list.append(hdu)
+
+            if best_hdu is not None:
+                hdu = best_hdu
+                hdu[0].data = hdu[1].data
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", AstropyWarning)
+                    img_wcs = wcs.WCS(hdu[1].header)
+                    hdu[0].header.update(img_wcs.to_header())
+                # add some keywords to the PHU
+                hdu[0].header['EXPTIME'] = hdu[1].header['EXPTIME']
+                hdu[0].header['MAGZRR'] = hdu[1].header['MAGZRR']
+                # calculate effective ZP (considering atmospheric extinction)
+                # calculate extinction first
+                airmass = (hdu[1].header['HIERARCH ESO TEL AIRM START'] + hdu[1].header['HIERARCH ESO TEL AIRM END'])/2
+                ext_coeff = hdu[1].header['EXTINCT']
+                extinction = ext_coeff*(airmass - 1)
+                # calculate effective ZP
+                zp = hdu[1].header['MAGZPT']
+                hdu[0].header['MAGZP'] = zp - extinction
+                hdu_list.append(hdu)
+            else:
+                hdu_list.append(None)
         else:
             hdu_list.append(None)
     return hdu_list
