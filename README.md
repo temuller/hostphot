@@ -120,7 +120,7 @@ by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
 This is the list of surveys in HostPhot:
 
 * DES
-* PS1
+* PanSTARRS
 * SDSS
 * GALEX
 * 2MASS
@@ -134,6 +134,7 @@ This is the list of surveys in HostPhot:
 * SPLUS
 * UKIDSS
 * JWST (NIRCam only)
+* Herschel (PACS, SPIRE)
 
 ## Contributing
 
@@ -169,6 +170,7 @@ v3.2.0
 * VISTA and UKIDSS photometry now agree with 2MASS
 * Fixing Legacy Survey erros - now using the invvar maps for proper values
 * Adding DLR distnace to the aperture output
+* Speeding up some downloads of image cutouts
 
 v3.1.2
 
