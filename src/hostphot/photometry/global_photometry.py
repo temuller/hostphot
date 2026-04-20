@@ -21,7 +21,7 @@ from typing import Optional
 
 import sep
 from astropy.wcs import WCS
-from astropy.wcs.utils import proj_plane_pixel_area
+from astropy.wcs.utils import proj_plane_pixel_area, proj_plane_pixel_scales
 from astropy.io import fits
 from astropy.coordinates import SkyCoord
 import astropy.units as u
@@ -386,6 +386,7 @@ def extract_aperture(
             dec,
             host_ra,
             host_dec,
+            True,
             title,
             outfile,
         )
@@ -427,8 +428,11 @@ def extract_aperture(
             ellipse_radius_in_dir = (a_scaled * b_scaled) / np.sqrt(
                 (b_scaled * np.cos(phi - theta))**2 + (a_scaled * np.sin(phi - theta))**2
             )
+            
+            pixel_scale = proj_plane_pixel_scales(wcs)[0] * 3600  # deg → arcsec
+            ellipse_radius_arcsec = ellipse_radius_in_dir * pixel_scale
 
-            directional_light_radius_norm = directional_light_radius / ellipse_radius_in_dir
+            directional_light_radius_norm = directional_light_radius / ellipse_radius_arcsec
 
             gal_df["dlr"] = directional_light_radius
             gal_df["d_dlr"] = directional_light_radius_norm
