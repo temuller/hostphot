@@ -465,14 +465,18 @@ def multi_band_phot(
             results_dict[f"{filt}_zeropoint"] = zp
         except Exception as exc:
             if raise_exception is True:
-                raise Exception(exc)
-            else:
-                for radius in ap_radii:
-                    results_dict[f"{filt}_{radius}"] = np.nan
-                    results_dict[f"{filt}_{radius}_err"] = np.nan
-                    results_dict[f"{filt}_{radius}_flux"] = np.nan
-                    results_dict[f"{filt}_{radius}_flux_err"] = np.nan
-                results_dict[f"{filt}_zeropoint"] = np.nan
+                # only raise if it's not a FileNotFoundError (missing filter)
+                if not isinstance(exc, FileNotFoundError):
+                    raise Exception(exc)
+                else:
+                     print(f"Warning: {exc}")
+            
+            for radius in ap_radii:
+                results_dict[f"{filt}_{radius}"] = np.nan
+                results_dict[f"{filt}_{radius}_err"] = np.nan
+                results_dict[f"{filt}_{radius}_flux"] = np.nan
+                results_dict[f"{filt}_{radius}_flux_err"] = np.nan
+            results_dict[f"{filt}_zeropoint"] = np.nan
     # store photometry
     phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
     if save_results is True:

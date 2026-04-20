@@ -46,11 +46,11 @@ def open_fits_from_url(url: str) -> fits.hdu:
     import gzip
     r = requests.get(url, timeout=120)
     r.raise_for_status()
-    
+
     content = r.content
     if content.startswith(b'\x1f\x8b'):
         content = gzip.decompress(content)
-        
+
     hdu = fits.open(BytesIO(content))
     return hdu
 
@@ -70,7 +70,10 @@ def open_fits_from_urls(urls: list[str | None]) -> list[fits.HDUList | None]:
     def safe_open(url: str | None) -> fits.HDUList | None:
         if url is None:
             return None
-        return open_fits_from_url(url)
+        try:
+            return open_fits_from_url(url)
+        except Exception:
+            return None
 
     with ThreadPoolExecutor() as executor:
         hdus = list(executor.map(safe_open, urls))
