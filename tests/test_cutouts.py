@@ -1,6 +1,7 @@
 import pytest
 import warnings
 import unittest
+import requests
 from pathlib import Path
 from hostphot.cutouts import download_images, set_HST_image, set_JWST_image
 from pyvo.dal import DALServiceError
@@ -14,79 +15,119 @@ class TestHostPhot(unittest.TestCase):
         self.dec = -15.400056
 
     def test_cutouts_PanSTARRS(self):
-        download_images(
-            self.sn_name, self.ra, self.dec, overwrite=True, survey="PanSTARRS"
-        )
+        try:
+            download_images(
+                self.sn_name, self.ra, self.dec, overwrite=True, survey="PanSTARRS"
+            )
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for PanSTARRS: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for PanSTARRS: {e}")
 
     def test_cutouts_DES(self):
-        download_images(
-            self.sn_name, self.ra, self.dec, overwrite=True, survey="DES"
-        )
+        try:
+            download_images(
+                self.sn_name, self.ra, self.dec, overwrite=True, survey="DES"
+            )
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for DES: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for DES: {e}")
 
     def test_cutouts_SDSS(self):
-        download_images(
-            self.sn_name, self.ra, self.dec, overwrite=True, survey="SDSS"
-        )
+        try:
+            download_images(
+                self.sn_name, self.ra, self.dec, overwrite=True, survey="SDSS"
+            )
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for SDSS: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for SDSS: {e}")
 
     def test_cutouts_GALEX(self):
-        download_images(
-            self.sn_name, self.ra, self.dec, overwrite=True, survey="GALEX"
-        )
+        try:
+            download_images(
+                self.sn_name, self.ra, self.dec, overwrite=True, survey="GALEX"
+            )
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for GALEX: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for GALEX: {e}")
 
     def test_cutouts_WISE(self):
-        download_images(
-            self.sn_name, self.ra, self.dec, overwrite=True, survey="WISE"
-        )
+        try:
+            download_images(
+                self.sn_name, self.ra, self.dec, overwrite=True, survey="WISE"
+            )
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for WISE: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for WISE: {e}")
 
     def test_cutouts_2MASS(self):
-        download_images(
-            self.sn_name, self.ra, self.dec, overwrite=True, survey="2MASS"
-        )
+        try:
+            download_images(
+                self.sn_name, self.ra, self.dec, overwrite=True, survey="2MASS"
+            )
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for 2MASS: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for 2MASS: {e}")
 
     def test_cutouts_unWISE(self):
-        for version in ["neo1", "neo2", "allwise"]:
+        try:
+            for version in ["neo1", "neo2", "allwise"]:
+                download_images(
+                    self.sn_name,
+                    self.ra,
+                    self.dec,
+                    overwrite=True,
+                    survey="unWISE",
+                    version=version,
+                )
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for unWISE: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for unWISE: {e}")
+
+    def test_cutouts_LegacySurvey(self):
+        try:
             download_images(
                 self.sn_name,
                 self.ra,
                 self.dec,
                 overwrite=True,
-                survey="unWISE",
-                version=version,
+                survey="LegacySurvey",
             )
-
-    def test_cutouts_LegacySurvey(self):
-        download_images(
-            self.sn_name,
-            self.ra,
-            self.dec,
-            overwrite=True,
-            survey="LegacySurvey",
-        )
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for LegacySurvey: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for LegacySurvey: {e}")
 
     def test_cutouts_Spitzer(self):
-        name = "Spitzer_test"
-        ra, dec = 52.158591, -27.891113
-        download_images(name, ra, dec, overwrite=True, survey="Spitzer")
+        try:
+            name = "Spitzer_test"
+            ra, dec = 52.158591, -27.891113
+            download_images(name, ra, dec, overwrite=True, survey="Spitzer")
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for Spitzer: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for Spitzer: {e}")
 
     def test_cutouts_VISTA(self):
-        name = "VISTA_test"
-        # use different coordinates for each survey as they don't overlap
-        surveys = {
-            "VHS": [120, -60],
-            "VIDEO": [36.1, -5],
-            "VIKING": [220.5, 0.0],
-        }
-        for version, coords in surveys.items():
-            ra, dec = coords
-            #try:
-            download_images(
-                name,
-                ra,
-                dec,
-                overwrite=True,
-                survey="VISTA",
-                version=version,
-            )
+        try:
+            name = "VISTA_test"
+            # use different coordinates for each survey as they don't overlap
+            surveys = {
+                "VHS": [120, -60],
+                "VIDEO": [36.1, -5],
+                "VIKING": [220.5, 0.0],
+            }
+            for version, coords in surveys.items():
+                ra, dec = coords
+                #try:
+                download_images(
+                    name,
+                    ra,
+                    dec,
+                    overwrite=True,
+                    survey="VISTA",
+                    version=version,
+                )
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for VISTA: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for VISTA: {e}")
 
     def test_cutouts_SkyMapper(self):
         try:
@@ -97,19 +138,27 @@ class TestHostPhot(unittest.TestCase):
                 overwrite=True,
                 survey="SkyMapper",
             )
-        except DALServiceError as e:
-            warnings.warn(f"SkyMapper SIAP service failed: {e}", RuntimeWarning)
-            pytest.skip("SkyMapper SIAP service unavailable or returned 500")
+        except (DALServiceError, requests.exceptions.ConnectionError) as e:
+            warnings.warn(f"SkyMapper service failed: {e}", RuntimeWarning)
+            pytest.skip(f"SkyMapper service unavailable: {e}")
 
     def test_cutouts_SPLUS(self):
-        name = "SPLUS_test"
-        ra, dec = 0.6564206, -0.3740297
-        download_images(name, ra, dec, overwrite=True, survey="SPLUS")
+        try:
+            name = "SPLUS_test"
+            ra, dec = 0.6564206, -0.3740297
+            download_images(name, ra, dec, overwrite=True, survey="SPLUS")
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for SPLUS: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for SPLUS: {e}")
 
     def test_cutouts_UKIDSS(self):
-        name = "UKIDSS_test"
-        ra, dec = 359.5918320, +0.1964120
-        download_images(name, ra, dec, overwrite=True, survey="UKIDSS")
+        try:
+            name = "UKIDSS_test"
+            ra, dec = 359.5918320, +0.1964120
+            download_images(name, ra, dec, overwrite=True, survey="UKIDSS")
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for UKIDSS: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for UKIDSS: {e}")
         
     def test_cutouts_HST(self):
         name = "HST_test"
