@@ -165,9 +165,13 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 ## What's new
 
+v3.2.1
+
+* very minor bug fix
+
 v3.2.0
 
-* VISTA and UKIDSS photometry now agrees with 2MASS
+* 2MASS, VISTA and UKIDSS photometry agrees within ~0.1 mag of catalog sources (still some small discrepancies)
 * Fixing Legacy Survey erros - now using the invvar maps for proper values
 * Adding DLR distance to the aperture output
 * Speeding up some downloads of image cutouts

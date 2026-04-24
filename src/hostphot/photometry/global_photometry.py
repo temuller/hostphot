@@ -666,8 +666,8 @@ def photometry(
                 dec,
                 host_ra,
                 host_dec,
-                title,
-                outfile,
+                title=title,
+                outfile=outfile,
             )
         hdu.close()
         return mag, mag_err, flux, flux_err, zp, herschel_details
@@ -716,8 +716,8 @@ def photometry(
             dec,
             host_ra,
             host_dec,
-            title,
-            outfile,
+            title=title,
+            outfile=outfile,
         )
     hdu.close()
 
