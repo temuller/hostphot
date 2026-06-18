@@ -48,8 +48,7 @@ def get_2MASS_images(
     # Query parameters
     params = {
         "POS": f"{ra},{dec}",
-        #"SIZE": size_degree, 
-        "SIZE": 0.01, 
+        "SIZE": size_degree, 
         "FORMAT": "image/fits"
     }
     # Make the request to the 2MASS server
