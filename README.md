@@ -165,6 +165,10 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 ## What's new
 
+v3.2.2
+
+* Fixed hardcoded image size for 2MASS
+
 v3.2.1
 
 * very minor bug fix
