@@ -165,6 +165,10 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 ## What's new
 
+V3.2.3
+
+* Normalise RA to [0, 360) in `download_images` (solves issue with WISE)
+
 v3.2.2
 
 * Fixed hardcoded image size for 2MASS
