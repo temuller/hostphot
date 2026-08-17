@@ -52,6 +52,12 @@ def download_images(
     >>> download_images(name, host_ra, host_dec, survey=survey)
     """
     input_params = locals()  # dictionary
+    # Normalise the right ascension into the valid [0, 360) degree range so
+    # that negative or wrapped-around values (e.g. ra=-15 -> 345) are accepted
+    # by the survey services. IRSA's SIA endpoint (WISE) rejects negative RA,
+    # which otherwise surfaces as a confusing downstream error (issue #17).
+    # ``input_params`` above intentionally keeps the caller's original value.
+    ra = ra % 360
     # initial checks
     check_survey_validity(survey)
     check_work_dir(workdir)

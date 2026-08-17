@@ -198,6 +198,41 @@ class TestHostPhot(unittest.TestCase):
             )
             self.assertTrue(herschel_warning, "Herschel beta warning should be shown")
 
+    def test_download_images_normalizes_negative_ra(self):
+        """Regression test for issue #17.
+
+        A negative right ascension must be wrapped into the valid [0, 360)
+        degree range before it is handed to a survey service. IRSA's WISE
+        SIA endpoint rejects negative RA, which previously surfaced as a
+        confusing downstream ``AttributeError``. This test mocks the survey
+        download function so it runs offline and only checks the RA handling.
+        """
+        import tempfile
+        from unittest import mock
+        import hostphot.cutouts.downloads as downloads
+
+        negative_ra = -15.072453
+        dec = -0.013717
+        with tempfile.TemporaryDirectory() as tmp_workdir, mock.patch(
+            "hostphot.cutouts.wise.get_WISE_images", return_value=None
+        ) as mocked_get, mock.patch.object(downloads, "workdir", tmp_workdir):
+            download_images(
+                "issue17_negative_ra",
+                negative_ra,
+                dec,
+                survey="WISE",
+                filters=["W1"],
+                save_input=False,
+            )
+
+        self.assertTrue(
+            mocked_get.called, "the survey download function was never reached"
+        )
+        passed_ra = mocked_get.call_args[0][0]
+        self.assertGreaterEqual(passed_ra, 0.0)
+        self.assertLess(passed_ra, 360.0)
+        self.assertAlmostEqual(passed_ra, negative_ra % 360)
+
 
 if __name__ == "__main__":
     unittest.main()
