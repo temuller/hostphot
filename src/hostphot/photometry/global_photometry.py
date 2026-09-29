@@ -682,6 +682,18 @@ def photometry(
             kronrad,
             scale,
         )
+    elif survey == "HSC" and len(hdu) > 1:
+        # hdu[1] is a variance map (σ²); invert to get inverse-variance
+        var = hdu[1].data
+        with np.errstate(divide="ignore", invalid="ignore"):
+            invvar = np.where(var > 0, 1.0 / var, 0.0)
+        flux, flux_err = extract_legacy_kron_flux(
+            data_sub,
+            invvar,
+            gal_obj,
+            kronrad,
+            scale,
+        )
     else:
         flux, flux_err = kron_flux(
             data_sub, bkg.rms(), _exptime, gal_obj, kronrad, scale

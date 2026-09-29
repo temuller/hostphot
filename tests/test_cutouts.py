@@ -176,6 +176,22 @@ class TestHostPhot(unittest.TestCase):
             # this test only runs locally as the file is too large
             set_JWST_image(file, filt, name)
 
+    def test_cutouts_HSC(self):
+        try:
+            name = "HSC_test"
+            # GAMA09H field — well within HSC PDR3 Wide footprint
+            ra, dec = 150.0, 2.2
+            download_images(
+                name, ra, dec, overwrite=True, survey="HSC", version="pdr3_wide"
+            )
+        except ValueError as e:
+            # HSC_SSP_USERNAME / HSC_SSP_PASSWORD not set
+            warnings.warn(f"HSC credentials not set: {e}", RuntimeWarning)
+            pytest.skip(f"HSC credentials not configured: {e}")
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for HSC: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for HSC: {e}")
+
     def test_cutouts_Herschel(self):
         """Test that Herschel download shows beta warning."""
         import warnings

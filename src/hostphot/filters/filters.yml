@@ -1147,3 +1147,73 @@ Herschel:
     magnitude_system: AB
     AB_offset: 0.0
 
+HSC:
+  # Pixel scale: 0.168 arcsec/pixel (https://hsc.mtk.nao.ac.jp/ssp/survey/)
+  # Zeropoint: derived from FLUXMAG0 header keyword (MAGZP = 2.5*log10(FLUXMAG0))
+  # Magnitude system: AB (native for HSC PDR3 coadds)
+  g:
+    zeropoint: "header"
+    pixel_scale: 0.168
+    pixel_units: "counts"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  r:
+    zeropoint: "header"
+    pixel_scale: 0.168
+    pixel_units: "counts"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  r2:
+    zeropoint: "header"
+    pixel_scale: 0.168
+    pixel_units: "counts"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  i:
+    zeropoint: "header"
+    pixel_scale: 0.168
+    pixel_units: "counts"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  i2:
+    zeropoint: "header"
+    pixel_scale: 0.168
+    pixel_units: "counts"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  z:
+    zeropoint: "header"
+    pixel_scale: 0.168
+    pixel_units: "counts"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  Y:
+    zeropoint: "header"
+    pixel_scale: 0.168
+    pixel_units: "counts"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  NB387:
+    zeropoint: "header"
+    pixel_scale: 0.168
+    pixel_units: "counts"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  NB816:
+    zeropoint: "header"
+    pixel_scale: 0.168
+    pixel_units: "counts"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  NB921:
+    zeropoint: "header"
+    pixel_scale: 0.168
+    pixel_units: "counts"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  NB1010:
+    zeropoint: "header"
+    pixel_scale: 0.168
+    pixel_units: "counts"
+    magnitude_system: "AB"
+    AB_offset: 0.0

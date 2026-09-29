@@ -135,6 +135,7 @@ This is the list of surveys in HostPhot:
 * UKIDSS
 * JWST (NIRCam only)
 * Herschel (PACS, SPIRE)
+* HSC (Hyper Suprime-Cam SSP PDR3; requires login credentials — see [hsc-release.mtk.nao.ac.jp](https://hsc-release.mtk.nao.ac.jp/datasearch/))
 
 ## Contributing
 
@@ -164,6 +165,10 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 ```
 
 ## What's new
+
+V3.3.0
+
+* Adding HSC (Hyper Suprime-Cam SSP PDR3) support: broadband (g, r, r2, i, i2, z, Y) and narrowband (NB387, NB816, NB921, NB1010) filters via HTTP Basic Auth cutout API. Set `HSC_SSP_USERNAME` and `HSC_SSP_PASSWORD` environment variables to use.
 
 V3.2.3
 
