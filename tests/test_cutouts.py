@@ -2,7 +2,10 @@ import pytest
 import warnings
 import unittest
 import requests
+import numpy as np
 from pathlib import Path
+from astropy.io import fits
+from hostphot._constants import workdir
 from hostphot.cutouts import download_images, set_HST_image, set_JWST_image
 from pyvo.dal import DALServiceError
 
@@ -184,6 +187,12 @@ class TestHostPhot(unittest.TestCase):
             download_images(
                 name, ra, dec, overwrite=True, survey="HSC", version="pdr3_wide"
             )
+            hsc_file = Path(workdir, name, "HSC", "HSC_i.fits")
+            with fits.open(hsc_file) as hdu:
+                assert hdu[0].data is not None, "HSC image has no data"
+                assert hdu[0].data.ndim == 2
+                assert np.isfinite(hdu[0].header["MAGZP"])
+                assert len(hdu) > 1 and hdu[1].data is not None, "HSC variance map missing"
         except ValueError as e:
             # HSC_SSP_USERNAME / HSC_SSP_PASSWORD not set
             warnings.warn(f"HSC credentials not set: {e}", RuntimeWarning)

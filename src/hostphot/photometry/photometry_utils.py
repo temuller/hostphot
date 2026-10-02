@@ -361,6 +361,13 @@ def uncertainty_calculation(
         zp_unc = 0.01 * (header["MAGZP"])
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
+    elif survey == "HSC":
+        # flux uncertainties from the variance maps are calculated together with the flux
+        # (outside this function); ~1% photometric calibration uncertainty assumed
+        # (see Aihara et al. 2022, PASJ, 74, 247)
+        zp_unc = 0.01
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
+
     else:
         raise Exception(f"Survey {survey} has not been added for error propagation.")
 
