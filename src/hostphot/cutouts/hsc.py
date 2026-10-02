@@ -58,7 +58,6 @@ def _request_cutout(
     sh: float,
     api_filter: str,
     rerun: str,
-    image_type: str,
     auth: tuple[str, str],
 ) -> fits.HDUList | None:
     """Make a single HSC cutout request and return an open HDUList.
@@ -69,14 +68,14 @@ def _request_cutout(
     sw, sh: Half-width and half-height of the cutout in degrees.
     api_filter: HSC API filter name, e.g. ``HSC-G``.
     rerun: HSC rerun name, e.g. ``pdr3_wide``.
-    image_type: ``coadd`` for science image or ``coadd_variance`` for
-                the corresponding variance map.
     auth: (username, password) tuple for HTTP Basic Auth.
 
     Returns
     -------
     hdulist: Open FITS HDUList, or ``None`` if the request fails or
-             no data are available at the given position.
+             no data are available at the given position. The HDUList
+             has an empty primary extension (with the ``FLUXMAG0`` keyword),
+             followed by the image, mask and variance extensions.
     """
     params = {
         "ra": ra,
@@ -85,19 +84,22 @@ def _request_cutout(
         "sh": sh,
         "filter": api_filter,
         "rerun": rerun,
-        "type": image_type,
+        "type": "coadd",
+        "image": "true",
+        "mask": "true",
+        "variance": "true",
     }
     try:
         resp = requests.get(_CUTOUT_URL, params=params, auth=auth, timeout=120)
         resp.raise_for_status()
     except requests.exceptions.HTTPError as e:
-        if resp.status_code == 400:
+        if resp.status_code in [400, 404]:
             # Typically means no coverage at this position
             return None
-        print(f"Warning: HSC request failed for {api_filter} ({image_type}): {e}")
+        print(f"Warning: HSC request failed for {api_filter}: {e}")
         return None
     except requests.exceptions.RequestException as e:
-        print(f"Warning: HSC request failed for {api_filter} ({image_type}): {e}")
+        print(f"Warning: HSC request failed for {api_filter}: {e}")
         return None
 
     raw = resp.content
@@ -141,9 +143,9 @@ def get_HSC_images(
     size: Image size. If a float, the units are assumed to be arcmin.
     filters: Filters to download. If ``None``, uses all broadband filters
              ``['g', 'r', 'i', 'z', 'Y']``.
-    version: HSC rerun / data layer to query. Use ``'pdr3_wide'`` (default)
-             for the Wide layer or ``'pdr3_dud'`` for the Deep+UltraDeep
-             layer.
+    version: HSC rerun / data layer to query. Use ``'pdr3_wide'`` (default,
+             also used if ``None``) for the Wide layer or ``'pdr3_dud'`` for
+             the Deep+UltraDeep layer.
 
     Returns
     -------
@@ -153,6 +155,8 @@ def get_HSC_images(
               Entries are ``None`` for filters with no coverage.
     """
     survey = "HSC"
+    if version is None:
+        version = "pdr3_wide"
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
@@ -171,18 +175,25 @@ def get_HSC_images(
     for filt in filters:
         api_filter = _FILTER_API_NAMES[filt]
 
-        # Science image
-        sci_hdu = _request_cutout(ra, dec, sw, sh, api_filter, version, "coadd", auth)
-        if sci_hdu is None:
+        # extensions: 0 = header only, 1 = image, 2 = mask, 3 = variance
+        cutout = _request_cutout(ra, dec, sw, sh, api_filter, version, auth)
+        if cutout is None or len(cutout) < 2 or cutout[1].data is None:
             hdu_list.append(None)
             continue
 
-        # Variance map (best-effort; not all reruns expose it)
-        var_hdu = _request_cutout(ra, dec, sw, sh, api_filter, version, "coadd_variance", auth)
-
-        # Build primary HDU from science data
-        sci_data = sci_hdu[0].data
-        sci_header = sci_hdu[0].header.copy()
+        # science image with WCS from the image extension, plus the
+        # primary-header keywords (e.g. FLUXMAG0) not already present
+        sci_data = cutout[1].data
+        sci_header = cutout[1].header.copy()
+        for card in cutout[0].header.cards:
+            if card.keyword in ["SIMPLE", "BITPIX", "NAXIS", "EXTEND", "COMMENT", "HISTORY", ""]:
+                continue
+            if card.keyword not in sci_header:
+                sci_header.append(card)
+        sci_header.remove("XTENSION", ignore_missing=True)
+        sci_header.remove("EXTNAME", ignore_missing=True)
+        sci_header.remove("PCOUNT", ignore_missing=True)
+        sci_header.remove("GCOUNT", ignore_missing=True)
 
         # Derive calibrated zeropoint: FLUXMAG0 is the flux in counts of a
         # zero-magnitude source, so ZP = 2.5 * log10(FLUXMAG0).  The nominal
@@ -197,18 +208,17 @@ def get_HSC_images(
 
         primary = fits.PrimaryHDU(data=sci_data, header=sci_header)
 
-        if var_hdu is not None:
+        if len(cutout) > 3 and cutout[3].data is not None:
             var_ext = fits.ImageHDU(
-                data=var_hdu[0].data,
-                header=var_hdu[0].header,
+                data=cutout[3].data,
+                header=cutout[3].header,
                 name="VARIANCE",
             )
             combined = fits.HDUList([primary, var_ext])
-            var_hdu.close()
         else:
             combined = fits.HDUList([primary])
 
-        sci_hdu.close()
+        cutout.close()
         hdu_list.append(combined)
 
     return hdu_list
