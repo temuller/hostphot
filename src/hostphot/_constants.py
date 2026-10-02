@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from matplotlib.font_manager import findSystemFonts
 
-load_dotenv()
+# look for a .env file from the current working directory upwards (e.g. for HSC credentials)
+load_dotenv(find_dotenv(usecwd=True))
 workdir = os.getenv("workdir", "images")
 
 # for plots
