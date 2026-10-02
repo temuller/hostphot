@@ -137,6 +137,17 @@ This is the list of surveys in HostPhot:
 * Herschel (PACS, SPIRE)
 * HSC (Hyper Suprime-Cam SSP PDR3; requires login credentials — see [hsc-release.mtk.nao.ac.jp](https://hsc-release.mtk.nao.ac.jp/datasearch/))
 
+#### HSC credentials
+
+HSC-SSP data are only available to registered users ([create an account here](https://hsc-release.mtk.nao.ac.jp/datasearch/new_user/new)). HostPhot reads your username and password from the `HSC_SSP_USERNAME` and `HSC_SSP_PASSWORD` environment variables. The easiest way to set them is to add them to a `.env` file in the directory from which you run your code (or any parent directory), which HostPhot loads automatically:
+
+```
+HSC_SSP_USERNAME=your_username
+HSC_SSP_PASSWORD=your_password
+```
+
+Do not commit this file to a public repository (add it to your `.gitignore`).
+
 ## Contributing
 
 To contribute, either open an issue or send a pull request (prefered option). You can also contact me directly (check my profile: [https://github.com/temuller](https://github.com/temuller)).
@@ -168,7 +179,9 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 V3.3.0
 
-* Adding HSC (Hyper Suprime-Cam SSP PDR3) support: broadband (g, r, r2, i, i2, z, Y) and narrowband (NB387, NB816, NB921, NB1010) filters via HTTP Basic Auth cutout API. Set `HSC_SSP_USERNAME` and `HSC_SSP_PASSWORD` environment variables to use.
+* Adding HSC (Hyper Suprime-Cam SSP PDR3) support: broadband (g, r, r2, i, i2, z, Y) and narrowband (NB387, NB816, NB921, NB1010) filters via HTTP Basic Auth cutout API. Set the `HSC_SSP_USERNAME` and `HSC_SSP_PASSWORD` environment variables (e.g. in a `.env` file) to use.
+* HSC aperture photometry agrees within ~0.01 mag with the HSC-SSP PDR3 catalog
+* The `.env` file is now searched for from the current working directory (previously from the HostPhot installation directory)
 
 V3.2.3
 
