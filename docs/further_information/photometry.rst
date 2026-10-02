@@ -255,3 +255,18 @@ UKIDSS
   The errors are propagated in the same way as for PS1 (gain, exposure time and readnoise from header), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword).
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{ZP}})`.
+
+HSC
+~~~
+
+* **ZP**
+  
+  HSC-SSP PDR3 coadds are calibrated to a global ZP of :math:`27.0` (AB), obtained from the ``FLUXMAG0`` keyword of the images (:math:`ZP = 2.5\log(\text{FLUXMAG0})`) and stored in the header under the ``MAGZP`` keyword to follow HostPhot convention.
+  
+* **Error Propagation**
+
+  The uncertainties come from the variance maps included with the images, propagated in the same way as the inverse-variance maps of the Legacy Survey, and from the photometric calibration of PDR3, assumed to be :math:`10` mmag (see `Aihara et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022PASJ...74..247A/abstract>`_).
+  
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{var}}^2 + \sigma_{\text{ZP}}^2)`.
+
+  HostPhot aperture photometry has been checked against the HSC-SSP PDR3 Wide catalog: for apertures of 1 arcsec radius (``apertureflux_20``, i.e. 2 arcsec diameter), the magnitudes agree within :math:`\sim0.005` mag for point sources and :math:`\sim0.01` mag for galaxies in the :math:`grizy` bands.

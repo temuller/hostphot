@@ -144,3 +144,22 @@ These images are downloaded from the VISTA science archive (for more information
   UKIDSS survey footprint. Image from the `CASU WFCAM Survey Progress and QC website <http://casu.ast.cam.ac.uk/wfcamsp/overview>`_.
 
 Note that UKIDSS images are flipped with respect to most other surveys.
+
+
+HSC
+~~~
+
+These images are coadd cutouts of the `Hyper Suprime-Cam Subaru Strategic Program (HSC-SSP) <https://hsc-release.mtk.nao.ac.jp/doc/>`_ Public Data Release 3 (PDR3; `Aihara et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022PASJ...74..247A/abstract>`_), downloaded with the `HSC data access cutout service <https://hsc-release.mtk.nao.ac.jp/das_cutout/pdr3/>`_. Each cutout includes the science image and its variance map, which is used for the photometric uncertainties. The pixel scaling of the images is 0.168 arcsec/pixel. The available filters are: :math:`g`, :math:`r`, :math:`r2`, :math:`i`, :math:`i2`, :math:`z`, :math:`Y` (broadband) and :math:`NB387`, :math:`NB816`, :math:`NB921`, :math:`NB1010` (narrowband). In PDR3, the :math:`r`/:math:`r2` and :math:`i`/:math:`i2` data are combined into single :math:`r` and :math:`i` coadds, so the :math:`r` and :math:`i` filters should be used in most cases. The user can choose between the Wide layer (``version='pdr3_wide'``, the default) and the Deep+UltraDeep layer (``version='pdr3_dud'``).
+
+**Credentials:** the HSC-SSP data are only accessible to registered users. You can create an account on the `HSC data release website <https://hsc-release.mtk.nao.ac.jp/datasearch/new_user/new>`_. HostPhot reads the account username and password from the ``HSC_SSP_USERNAME`` and ``HSC_SSP_PASSWORD`` environment variables. The easiest way to set them is to add them to a ``.env`` file in your working directory (the directory from which you run your code, or any of its parent directories), which HostPhot loads automatically:
+
+.. code::
+
+	HSC_SSP_USERNAME=your_username
+	HSC_SSP_PASSWORD=your_password
+
+Alternatively, you can export them as environment variables (e.g. ``export HSC_SSP_USERNAME=your_username`` in your shell). Do not commit the ``.env`` file to a public repository (add it to your ``.gitignore``).
+
+.. figure:: static/hsc_footprint.png
+
+  HSC-SSP PDR3 footprint, showing the centres of the Wide and Deep+UltraDeep patches with data, from the ``patch_qa`` tables of the `HSC PDR3 database <https://hsc-release.mtk.nao.ac.jp/datasearch/>`_.
