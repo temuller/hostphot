@@ -1,5 +1,8 @@
+import sep
+import warnings
 import numpy as np
 import pandas as pd
+from scipy.ndimage import binary_fill_holes
 from pathlib import Path
 from typing import Optional
 
@@ -13,16 +16,19 @@ from hostphot.surveys_utils import (
     check_survey_validity,
     check_filters_validity,
     survey_pixel_units,
+    survey_pixel_scale,
     survey_zp,
 )
 from hostphot.photometry.image_utils import (
     get_image_exptime,
     get_image_gain,
-    get_image_readnoise,
-    correct_HST_aperture,
 )
 
 hostphot_path = Path(hostphot.__path__[0])
+
+# surveys without (inverse-)variance maps for which a blank-aperture noise floor is applied
+# to the aperture uncertainties (accounts for correlated noise in the coadds)
+blank_floor_surveys = ["PanSTARRS", "DES", "SDSS", "2MASS", "SkyMapper", "SPLUS", "VISTA", "UKIDSS", "Spitzer"]
 
 
 def calc_sky_unc(image: np.ndarray, exptime: float) -> float:
@@ -112,27 +118,13 @@ def uncertainty_calculation(
     """
     exptime = get_image_exptime(header, survey)
     gain = get_image_gain(header, survey)
-    readnoise = get_image_readnoise(header, survey)
 
     # 1.0857 = 2.5/ln(10)
     mag_err = 2.5 / np.log(10) * flux_err / flux
 
-    if survey in [
-        "PanSTARRS",
-        "DES",
-        "Spitzer",
-        "VISTA",
-        "SkyMapper",
-        "SPLUS",
-        "UKIDSS",
-    ]:
-        if survey == "Spitzer":
-            flux /= header["EFCONV"]  # conv. factor (MJy/sr)/(DN/s)
-
-        extra_err = (
-            2.5 / np.log(10) * np.sqrt(ap_area * (readnoise**2) + flux / gain) / flux
-        )
-        mag_err = np.sqrt(mag_err**2 + extra_err**2)
+    # PanSTARRS, DES, SkyMapper, SPLUS, VISTA, UKIDSS and Spitzer: the aperture error already includes the
+    # background (with read noise) and source Poisson noise, with a blank-aperture floor for correlated noise
+    # (calculated together with the flux, outside this function), so no extra term is added here
 
     if survey == "DES":
         # see the photometry section in https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality
@@ -171,65 +163,12 @@ def uncertainty_calculation(
         floor_err = unc_dict[filt]
         mag_err = np.sqrt(mag_err**2 + floor_err**2)
 
+
     elif survey == "SDSS":
-        # https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
-        camcol = header["CAMCOL"]
-        run = header["RUN"]
-
-        gain_dict = {
-            "u": {1: 1.62, 2: 1.595, 3: 1.59, 4: 1.6, 5: 1.47, 6: 2.17},
-            "g": {1: 3.32, 2: 3.855, 3: 3.845, 4: 3.995, 5: 4.05, 6: 4.035},
-            "r": {1: 4.71, 2: 4.6, 3: 4.72, 4: 4.76, 5: 4.725, 6: 4.895},
-            "i": {1: 5.165, 2: 6.565, 3: 4.86, 4: 4.885, 5: 4.64, 6: 4.76},
-            "z": {1: 4.745, 2: 5.155, 3: 4.885, 4: 4.775, 5: 3.48, 6: 4.69},
-        }
-        # dark variance
-        dv_dict = {
-            "u": {
-                1: 9.61,
-                2: 12.6025,
-                3: 8.7025,
-                4: 12.6025,
-                5: 9.3025,
-                6: 7.0225,
-            },
-            "g": {
-                1: 15.6025,
-                2: 1.44,
-                3: 1.3225,
-                4: 1.96,
-                5: 1.1025,
-                6: 1.8225,
-            },
-            "r": {
-                1: 1.8225,
-                2: 1.00,
-                3: 1.3225,
-                4: 1.3225,
-                5: 0.81,
-                6: 0.9025,
-            },
-            "i": {1: 7.84, 2: 5.76, 3: 4.6225, 4: 6.25, 5: 7.84, 6: 5.0625},
-            "z": {1: 0.81, 2: 1.0, 3: 1.0, 4: 9.61, 5: 1.8225, 6: 1.21},
-        }
-        gain = gain_dict[filt][camcol]
-        dark_variance = dv_dict[filt][camcol]
-
-        if filt == "u" and camcol == 2 and run > 1100:
-            gain = 1.825
-        if filt == "i" and run > 1500:
-            if camcol == 2:
-                dark_variance = 6.25
-            if camcol == 4:
-                dark_variance = 7.5625
-        if filt == "z" and run > 1500:
-            if camcol == 4:
-                dark_variance = 12.6025
-            if camcol == 5:
-                dark_variance = 2.1025
-
-        extra_err = 1.0857 * np.sqrt(dark_variance + flux / gain) / flux
-        mag_err = np.sqrt(mag_err**2 + extra_err**2)
+        # the Poisson noise of the source is included in the aperture error, using the effective
+        # gain (see get_effective_gain()), while the dark current and read noise are included in
+        # the background noise (and the blank-aperture floor)
+        pass
 
     elif survey == "GALEX":
         # https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html
@@ -265,52 +204,63 @@ def uncertainty_calculation(
         N_c = 6  # number of coadd pixels
         k_z = 1.7  # kernel smoothing factor
         gain = 10  # typical gain in e-/dn
-        n_f = ap_area  # number of frame pixels in the aperture; aprox. as aperture area
-        n_c = 4 * n_f  # number of coadd pixels in the aperture
+        # number of coadd (1 arcsec) pixels in the aperture, i.e. the aperture area
+        # (the number of frame pixels, of 2 arcsec, is a quarter of it)
+        n_c = ap_area
         sigma_c = bkg_rms  # coadd noise; assumed to be ~background noise
 
         SNR = S / np.sqrt(
             S / (gain * N_c)
             + 4 * n_c * k_z ** 2 * sigma_c ** 2
         )
-        mag_err = 1.0857 / SNR
+        # the aperture error includes the blank-aperture floor, which is kept if larger
+        mag_err = max(1.0857 / SNR, mag_err)
+        # global photometric calibration accuracy of ~1-2% (2MASS Explanatory Supplement)
+        calib_err = 0.01
+        mag_err = np.sqrt(mag_err**2 + calib_err**2)
 
 
-    elif "WISE" in survey:
-        # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
-        # see Table 5 of
-        # https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4c.html#wpro
+    elif survey == "WISE":
+        # Eq. 2 of https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html:
+        # sigma_src^2 = f_apcor^2 * F_corr * (sum_i^N_A sigma_i^2 + k * N_A^2 / N_B * sigma_B^2) + sigma_conf^2
         # correction assumed to be 0 mags as PSF fitting is not used.
         m_apcor = 0.0
         f_apcor = 10 ** (-0.4 * m_apcor)
         F_src = f_apcor * flux
 
-        N_p = ap_area  # effective number of noise-pixels characterizing the PRF
-        # ratio of input (detector) pixel scale to output (Atlas Image) pixel scale
-        pixel_scale_ratios = {"W1": 2, "W2": 2, "W3": 2, "W4": 4}
-        Sin_Sout = pixel_scale_ratios[filt]
+        # correlated-noise correction factor: F_corr ~ N_p * (s_in / s_out)^2 (Section II.3.f.i).
+        # Atlas Images are interpolated with the PRF, with N_p the effective number of
+        # noise-pixels of the PRF in native detector pixels (Table 1 of Section IV.6.c.i:
+        # https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_6ci.html)
+        N_p = {"W1": 13.772, "W2": 17.636, "W3": 35.476, "W4": 24.462}[filt]
+        # ratio of input (detector) pixel scale to output (Atlas Image, 1.375") pixel scale
+        Sin_Sout = {"W1": 2, "W2": 2, "W3": 2, "W4": 4}[filt]
         F_corr = N_p * Sin_Sout**2
-        
-        k = np.pi / 2
-        N_A = ap_area
-        N_B = N_A / 10
-        sigma_conf = bkg_rms  # assumed to be ~bkg
+        N_A = ap_area  # number of pixels in the aperture
+        # the variance of the sum can not exceed that of fully correlated pixels (small apertures)
+        F_corr = min(F_corr, max(N_A, 1.0))
+
+        k = np.pi / 2  # sep uses a median-related background estimate
+        # the background is estimated from the whole image
+        N_B = header["NAXIS1"] * header["NAXIS2"] if "NAXIS1" in header else 10 * N_A
+        sigma_i = bkg_rms  # per-pixel noise; assumed background dominated
         sigma_src = np.sqrt(
-            f_apcor ** 2 * F_corr * (bkg_rms ** 2 + k * (N_A ** 2) / N_B * bkg_rms ** 2)
-            + sigma_conf ** 2
-        )
-        
+            f_apcor**2 * F_corr * (N_A * sigma_i**2 + k * N_A**2 / N_B * bkg_rms**2)
+        )  # confusion noise (sigma_conf) not included
+
         mag_err = np.sqrt(1.179 * sigma_src**2 / F_src**2)
 
         # add uncertainty from the ZP
-        if survey == "unWISE":
-            # These values are the same for all Atlas Images of a given band...
-            # see: https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html
-            unc_dict = {"W1": 0.006, "W2": 0.007, "W3": 0.012, "W4": 0.012}
-            zp_unc = unc_dict[filt]
-        elif survey == "WISE":
-            zp_unc = header["MAGZPUNC"]
+        zp_unc = header["MAGZPUNC"]
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
+    elif survey == "unWISE":
+        # flux uncertainties from the inverse-variance maps (Lang 2014, AJ, 147, 108), with a
+        # blank-aperture floor, are calculated together with the flux (outside this function)
+        # ZP uncertainties are the same as for the WISE Atlas Images (Table 1 of
+        # https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html)
+        unc_dict = {"W1": 0.006, "W2": 0.007, "W3": 0.015, "W4": 0.012}
+        zp_unc = unc_dict[filt]
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
     elif survey == "LegacySurvey":
@@ -327,8 +277,12 @@ def uncertainty_calculation(
         mag_err = np.sqrt(mag_err**2 + extra_err**2)
 
     elif survey == "Spitzer":
-        # already added at the beginning
-        pass
+        # absolute calibration uncertainty (in flux): 3% for IRAC (Section 4.3 of the IRAC Instrument Handbook:
+        # https://irsa.ipac.caltech.edu/data/SPITZER/docs/irac/iracinstrumenthandbook/14/) and 4% for MIPS 24 micron
+        # (https://irsa.ipac.caltech.edu/data/SPITZER/docs/mips/mipsinstrumenthandbook/42/)
+        flux_unc = 0.04 if "MIPS" in filt else 0.03
+        zp_unc = 2.5 / np.log(10) * flux_unc
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
     elif survey in ["VISTA", "UKIDSS"]:
         # add uncertainty from the ZP
         zp_unc = header["MAGZRR"]
@@ -357,8 +311,8 @@ def uncertainty_calculation(
 
     elif survey == "JWST":
         # see https://jwst-docs.stsci.edu/jwst-calibration-status/nircam-calibration-status/nircam-imaging-calibration-status#NIRCamImagingCalibrationStatus-Photometriccalibration
-        # absolute flux calibration uncertainties < 1%, but set to 1% error for now
-        zp_unc = 0.01 * (header["MAGZP"])
+        # absolute flux calibration uncertainties < 1%, but set to 1% error (in flux) for now
+        zp_unc = 2.5 / np.log(10) * 0.01  # ~0.011 mag
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
     elif survey == "HSC":
@@ -374,6 +328,87 @@ def uncertainty_calculation(
     flux_err = np.abs(flux * 0.4 * np.log(10) * mag_err)
 
     return flux_err
+
+
+def irac_extended_source_correction(filt: str, radius: float) -> tuple[float, float]:
+    """Extended-source aperture correction for IRAC photometry.
+
+    The IRAC calibration is tied to point sources, so the photometry of extended sources
+    (e.g. galaxies) needs to be corrected for the light scattered across the IRAC focal plane
+    (Section 8.2.2 of the IRAC Instrument Handbook:
+    https://irsa.ipac.caltech.edu/data/SPITZER/docs/irac/iracinstrumenthandbook/46/):
+    ``true flux = measured flux * (A * exp(-radius**B) + C)``. The correction should not be used
+    for small radii (< 8 arcsec), so it is not applied in that case. The corrections are good
+    to 10%, which is propagated as an uncertainty of 10% of the size of the correction.
+
+    Parameters
+    ----------
+    filt: IRAC filter, e.g. ``IRAC.1``.
+    radius: (Effective) aperture radius in arcsec.
+
+    Returns
+    -------
+    correction: Correction factor (multiplicative, in flux).
+    correction_err: Uncertainty of the correction factor.
+    """
+    # Table 8.1 of the IRAC Instrument Handbook
+    coefficients = {
+        "IRAC.1": (0.82, 0.370, 0.910),
+        "IRAC.2": (1.16, 0.433, 0.94),
+        "IRAC.3": (1.49, 0.207, 0.66),
+        "IRAC.4": (1.37, 0.330, 0.740),
+    }
+    if filt not in coefficients or radius < 8.0:
+        return 1.0, 0.0
+    A, B, C = coefficients[filt]
+    correction = A * np.exp(-(radius**B)) + C
+    correction_err = 0.1 * np.abs(1 - correction)
+    return correction, correction_err
+
+
+def sdss_gain(filt: str, camcol: int, run: int) -> float:
+    """Returns the gain (e-/DN) of an SDSS frame.
+
+    See: https://data.sdss.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
+    """
+    gain_dict = {
+        "u": {1: 1.62, 2: 1.595, 3: 1.59, 4: 1.6, 5: 1.47, 6: 2.17},
+        "g": {1: 3.32, 2: 3.855, 3: 3.845, 4: 3.995, 5: 4.05, 6: 4.035},
+        "r": {1: 4.71, 2: 4.6, 3: 4.72, 4: 4.76, 5: 4.725, 6: 4.895},
+        "i": {1: 5.165, 2: 6.565, 3: 4.86, 4: 4.885, 5: 4.64, 6: 4.76},
+        "z": {1: 4.745, 2: 5.155, 3: 4.885, 4: 4.775, 5: 3.48, 6: 4.69},
+    }
+    gain = gain_dict[filt][camcol]
+    if filt == "u" and camcol == 2 and run > 1100:
+        gain = 1.825
+    return gain
+
+
+def get_effective_gain(header: fits.Header, survey: str, filt: str) -> float:
+    """Returns the effective gain used for the Poisson noise of the sources
+    (i.e. the factor converting the image units into electrons).
+
+    Parameters
+    ----------
+    header: Header of the image.
+    survey: Survey name.
+    filt: Filter name.
+
+    Returns
+    -------
+    effective_gain: Effective gain.
+    """
+    if survey == "SDSS" and len(filt) == 1 and "NMGY" in header:
+        # images in nanomaggies: gain [e-/DN] / NMGY [nanomaggies/DN]
+        return sdss_gain(filt, int(header["CAMCOL"]), int(header["RUN"])) / float(header["NMGY"])
+    try:
+        pixel_units = survey_pixel_units(survey, filt)
+    except Exception:
+        # probably a coadd, so only need one filter
+        pixel_units = survey_pixel_units(survey, filt[0])
+    if pixel_units == "counts":
+        return 1
+    return get_image_exptime(header, survey)
 
 
 def magnitude_calculation(
@@ -436,11 +471,18 @@ def magnitude_calculation(
         flux *= 10 ** (-0.4 * offset)
         flux_err *= 10 ** (-0.4 * offset)
 
-    if survey == "HST":
-        # HST needs and aperture correction for the flux
-        # see, e.g. https://www.stsci.edu/hst/instrumentation/acs/data-analysis/aperture-corrections
-        ap_corr = correct_HST_aperture(filt, ap_area, header)
-        flux = flux * ap_corr
+    # extended-source aperture correction for IRAC, using the effective circular radius of the aperture
+    ap_corr, ap_corr_err = 1.0, 0.0
+    if survey == "Spitzer" and ap_area > 0:
+        radius_arcsec = np.sqrt(ap_area / np.pi) * survey_pixel_scale(survey, filt)
+        ap_corr, ap_corr_err = irac_extended_source_correction(filt, radius_arcsec)
+        flux *= ap_corr
+        flux_err *= ap_corr
+
+    # note: no (point-source) aperture correction is applied to HST images, as HostPhot targets
+    # extended sources (galaxies), for which the light scattered by the PSF out of the aperture
+    # is largely compensated by the light scattered into it, and the HST PSF is much smaller
+    # than the usual apertures
 
     # error propagation
     flux_err = uncertainty_calculation(
@@ -452,6 +494,9 @@ def magnitude_calculation(
         header,
         bkg_rms,
     )
+    if ap_corr_err > 0:
+        # uncertainty of the IRAC extended-source correction
+        flux_err = np.sqrt(flux_err**2 + (flux * ap_corr_err / ap_corr) ** 2)
 
     pixel_units = survey_pixel_units(survey, filt)
     if pixel_units == "counts" and survey not in ["2MASS", "VISTA", "UKIDSS"]:
@@ -505,6 +550,8 @@ def extract_filter(
     # Assume DECaLS filters below 32 degrees and BASS+MzLS above
     # https://www.legacysurvey.org/status/
     if survey == "LegacySurvey":
+        if version is None:
+            version = "DECam"  # covers most of the footprint (BASS+MzLS only in the north)
         if version == "BASS+MzLS":
             if filt == "z":
                 filt_file = filters_path / "MzLS_z.dat"
@@ -564,20 +611,40 @@ def integrate_filter(
     return flux_filter
 
 
-# Legacy Survey-specific functions
+# Aperture photometry with inverse-variance maps and a blank-aperture noise floor
+# (used for surveys providing (inverse-)variance maps, e.g. Legacy Survey, HSC and unWISE)
+def get_invvar_map(hdu: fits.HDUList, survey: str) -> np.ndarray | None:
+    """Returns the inverse-variance map of an image, if available.
+
+    Parameters
+    ----------
+    hdu: Image HDU list. The (inverse-)variance map is the first extension.
+    survey: Survey name: e.g. ``LegacySurvey``, ``HSC``.
+
+    Returns
+    -------
+    invvar: Inverse-variance map or ``None`` if not available for this survey/image.
+    """
+    if len(hdu) < 2 or hdu[1].data is None:
+        return None
+    if survey in ["LegacySurvey", "unWISE"]:
+        return hdu[1].data
+    elif survey == "HSC":
+        # HSC provides a variance map (sigma^2); invert to get inverse-variance
+        var = hdu[1].data
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.where(var > 0, 1.0 / var, 0.0)
+    return None
+
 def _normalized_theta(theta: float) -> float:
     """Wrap ellipse position angle into the range expected by photutils/sep."""
-    if theta > np.pi / 2:
-        theta -= np.pi
-    elif theta < -np.pi / 2:
-        theta += np.pi
-    return theta
+    return (theta + np.pi / 2) % np.pi - np.pi / 2
 
 
-def _legacy_aperture_weighted_sum(
+def _aperture_weighted_sum(
     data: np.ndarray, px: float, py: float, radius: float
 ) -> tuple[float, np.ndarray, ApertureMask]:
-    """Return the exact-weight aperture sum for Legacy Survey cutouts."""
+    """Return the exact-weight circular aperture sum."""
     aperture = CircularAperture((px, py), r=radius)
     mask = aperture.to_mask(method="exact")
     cutout = mask.cutout(data, fill_value=np.nan)
@@ -593,10 +660,10 @@ def _legacy_aperture_weighted_sum(
     return flux, weights, mask
 
 
-def _legacy_elliptical_weighted_sum(
+def _elliptical_weighted_sum(
     data: np.ndarray, x: float, y: float, a: float, b: float, theta: float
 ) -> tuple[float, np.ndarray, ApertureMask]:
-    """Return the exact-weight aperture sum for a Legacy Survey Kron ellipse."""
+    """Return the exact-weight elliptical (e.g. Kron) aperture sum."""
     aperture = EllipticalAperture((x, y), a, b, theta)
     mask = aperture.to_mask(method="exact")
     cutout = mask.cutout(data, fill_value=np.nan)
@@ -612,10 +679,10 @@ def _legacy_elliptical_weighted_sum(
     return flux, weights, mask
 
 
-def _legacy_aperture_invvar_variance(
+def _aperture_invvar_variance(
     invvar: np.ndarray, weights: np.ndarray, mask: ApertureMask
 ) -> float:
-    """Propagate Legacy Survey inverse-variance maps into aperture variance."""
+    """Propagate inverse-variance maps into aperture variance."""
     # Use mask.cutout to ensure shapes match even if aperture is partially off-image
     cutout = mask.cutout(invvar, fill_value=np.nan)
     valid = np.isfinite(cutout) & np.isfinite(weights) & (cutout > 0)
@@ -624,38 +691,140 @@ def _legacy_aperture_invvar_variance(
     return float(np.nansum((weights[valid] ** 2) / cutout[valid]))
 
 
-def _legacy_blank_aperture_rms(
+def _source_mask(
+    data: np.ndarray, pixel_scale: float = 1.0, host_xy: Optional[tuple[float, float]] = None
+) -> np.ndarray:
+    """Return a boolean mask of the pixels covered by detected sources (incl. the host).
+
+    The same mask as for the background estimation is used (see
+    :func:`hostphot.processing.background.source_mask`): sources detected at 3 sigma (a lower
+    threshold also masks positive noise fluctuations, biasing the blank-aperture noise low),
+    dilated by the FWHM, and an enlarged ellipse around the host galaxy (if its position is given).
+    """
+    from hostphot.processing.background import source_mask
+
+    valid = np.isfinite(data)
+    data = np.asarray(data, dtype=np.float64)
+    try:
+        # if the (enlarged) host ellipse covers (almost) the whole image, smaller ellipses are used,
+        # so that blank apertures can still be placed
+        for host_factor in [2.0, 1.5, 1.0, None]:
+            if host_factor is None or host_xy is None:
+                mask, info = source_mask(data, pixel_scale)
+                break
+            mask, info = source_mask(data, pixel_scale, host_xy=host_xy, host_factor=host_factor)
+            if info["masked_frac"] <= 0.9:
+                break
+    except Exception:
+        mask = np.zeros(data.shape, dtype=bool)
+    # fill holes inside sources (e.g. faint regions between spiral arms), which are not blank sky
+    mask = binary_fill_holes(mask)
+    return mask | ~valid
+
+
+def get_source_mask(
+    data: np.ndarray, pixel_scale: float = 1.0, host_xy: Optional[tuple[float, float]] = None
+) -> np.ndarray:
+    """Returns the mask of the detected sources used for the blank-aperture noise floor.
+
+    It can be calculated once per image and given to :func:`blank_aperture_floor` and
+    :func:`extract_invvar_aperture_flux` for several apertures.
+
+    Parameters
+    ----------
+    data: Image data.
+    pixel_scale: Pixel scale in arcsec (used for the default FWHM and the host-galaxy detection).
+    host_xy: Pixel coordinates of the host galaxy, which is masked with an enlarged ellipse.
+    """
+    return _source_mask(data, pixel_scale, host_xy)
+
+
+def _background_residuals(
+    data: np.ndarray, source_mask: np.ndarray, mesh_size: int = 64
+) -> np.ndarray:
+    """Return the data minus a smooth background estimated with the sources masked.
+
+    The background mesh size should be larger than the aperture, so that only structure on
+    larger scales (e.g. faint wings of the galaxy) is removed, and not the noise itself.
+    """
+    filled = np.ascontiguousarray(np.where(np.isfinite(data), data, 0.0), dtype=np.float64)
+    try:
+        bkg = sep.Background(filled, mask=source_mask, bw=mesh_size, bh=mesh_size)
+        return np.where(np.isfinite(data), filled - bkg.back(), np.nan)
+    except Exception:
+        return data
+
+
+def _blank_rms(
     data: np.ndarray,
-    px: float,
-    py: float,
-    radius: float,
+    x0: float,
+    y0: float,
+    make_aperture,
+    half_size: float,
+    rmin: float,
+    rmax: float,
     n_apertures: int = 80,
-    rmin_factor: float = 2.5,
-    rmax_factor: float = 6.0,
+    source_mask: Optional[np.ndarray] = None,
 ) -> float | None:
-    """Estimate a local empirical floor from blank circular apertures around the source."""
+    """Estimate an empirical noise floor from the scatter of blank (source-free) apertures.
+
+    Apertures overlapping detected sources (including the host galaxy) are rejected, and the
+    fluxes are measured on the residuals from a smooth background (estimated with the sources
+    masked), so that faint, undetected wings of the galaxy do not contribute to the scatter.
+    The apertures are first drawn from an annulus around the source; if not enough fit there,
+    they are drawn from the whole image.
+
+    Parameters
+    ----------
+    data: Image data.
+    x0, y0: Centre of the source aperture.
+    make_aperture: Function of (x, y) returning the (photutils) aperture at that position.
+    half_size: Half-size of the aperture (for the image-edge check).
+    rmin, rmax: Inner and outer radii of the annulus where apertures are drawn first.
+    n_apertures: Number of blank apertures.
+    source_mask: Mask of the detected sources (see :func:`get_source_mask`). It is calculated if not given.
+
+    Returns
+    -------
+    rms: Robust RMS of the blank-aperture fluxes, or ``None`` if fewer than 10 apertures fit.
+    """
     rng = np.random.default_rng(12345)
     ny, nx = data.shape
-    blank_fluxes = []
+    if source_mask is None:
+        source_mask = _source_mask(data, host_xy=(x0, y0))
+    # background mesh of at least 4 times the aperture size
+    mesh_size = int(max(16, 4 * half_size))
+    residuals = _background_residuals(data, source_mask, mesh_size)
     max_trials = max(400, n_apertures * 20)
-    rmin = rmin_factor * radius
-    rmax = rmax_factor * radius
+    blank_fluxes = []
 
-    for _ in range(max_trials):
-        if len(blank_fluxes) >= n_apertures:
+    # the aperture weights are computed once (centred on a pixel) and shifted by whole pixels
+    weights = make_aperture(0.0, 0.0).to_mask(method="exact")
+    template, bbox = weights.data, weights.bbox
+    footprint = template > 0
+    for region in ["annulus", "image"]:
+        for _ in range(max_trials):
+            if len(blank_fluxes) >= n_apertures:
+                break
+            if region == "annulus":
+                phi = rng.uniform(0, 2 * np.pi)
+                rho = rng.uniform(rmin, rmax)
+                x, y = x0 + rho * np.cos(phi), y0 + rho * np.sin(phi)
+            else:
+                x, y = rng.uniform(0, nx), rng.uniform(0, ny)
+            ix, iy = int(round(x)), int(round(y))
+            xmin, ymin = bbox.ixmin + ix, bbox.iymin + iy
+            xmax, ymax = bbox.ixmax + ix, bbox.iymax + iy
+            if xmin < 0 or ymin < 0 or xmax > nx or ymax > ny:
+                continue  # aperture not fully inside the image
+            if np.any(source_mask[ymin:ymax, xmin:xmax][footprint]):
+                continue  # aperture overlaps a source
+            cutout = residuals[ymin:ymax, xmin:xmax]
+            if not np.all(np.isfinite(cutout[footprint])):
+                continue
+            blank_fluxes.append(float(np.sum(cutout[footprint] * template[footprint])))
+        if len(blank_fluxes) >= 10:
             break
-        theta = rng.uniform(0, 2 * np.pi)
-        rho = rng.uniform(rmin, rmax)
-        x = px + rho * np.cos(theta)
-        y = py + rho * np.sin(theta)
-        if x - radius < 0 or x + radius >= nx or y - radius < 0 or y + radius >= ny:
-            continue
-        try:
-            flux, _, _ = _legacy_aperture_weighted_sum(data, x, y, radius)
-        except Exception:
-            continue
-        if np.isfinite(flux):
-            blank_fluxes.append(flux)
 
     if len(blank_fluxes) < 10:
         return None
@@ -665,7 +834,31 @@ def _legacy_blank_aperture_rms(
     return float(1.4826 * np.nanmedian(np.abs(arr - med)))
 
 
-def _legacy_blank_elliptical_rms(
+def _blank_aperture_rms(
+    data: np.ndarray,
+    px: float,
+    py: float,
+    radius: float,
+    n_apertures: int = 80,
+    rmin_factor: float = 2.5,
+    rmax_factor: float = 6.0,
+    source_mask: Optional[np.ndarray] = None,
+) -> float | None:
+    """Estimate an empirical noise floor from blank circular apertures (see :func:`_blank_rms`)."""
+    return _blank_rms(
+        data,
+        px,
+        py,
+        lambda x, y: CircularAperture((x, y), r=radius),
+        radius,
+        rmin_factor * radius,
+        rmax_factor * radius,
+        n_apertures,
+        source_mask,
+    )
+
+
+def _blank_elliptical_rms(
     data: np.ndarray,
     x0: float,
     y0: float,
@@ -676,88 +869,239 @@ def _legacy_blank_elliptical_rms(
     rmin_factor: float = 2.5,
     rmax_factor: float = 6.0,
 ) -> float | None:
-    """Estimate a local empirical floor from blank elliptical apertures around the host."""
-    rng = np.random.default_rng(12345)
-    ny, nx = data.shape
-    blank_fluxes = []
-    max_trials = max(400, n_apertures * 20)
+    """Estimate an empirical noise floor from blank elliptical apertures (see :func:`_blank_rms`)."""
     step_scale = max(a, b)
-    rmin = rmin_factor * step_scale
-    rmax = rmax_factor * step_scale
+    return _blank_rms(
+        data,
+        x0,
+        y0,
+        lambda x, y: EllipticalAperture((x, y), a, b, theta=theta),
+        step_scale,
+        rmin_factor * step_scale,
+        rmax_factor * step_scale,
+        n_apertures,
+    )
 
-    for _ in range(max_trials):
-        if len(blank_fluxes) >= n_apertures:
-            break
-        phi = rng.uniform(0, 2 * np.pi)
-        rho = rng.uniform(rmin, rmax)
-        x = x0 + rho * np.cos(phi)
-        y = y0 + rho * np.sin(phi)
-        if x - step_scale < 0 or x + step_scale >= nx or y - step_scale < 0 or y + step_scale >= ny:
+
+def aperture_missing_fraction(data: np.ndarray, aperture) -> float:
+    """Returns the fraction of an aperture with no data (non-finite pixels or outside the image).
+
+    Parameters
+    ----------
+    data: Image data.
+    aperture: Photutils aperture (e.g. circular or elliptical).
+
+    Returns
+    -------
+    missing_fraction: Fraction of the aperture area (weighted by the exact pixel overlap) without data.
+    """
+    mask = aperture.to_mask(method="exact")
+    cutout = mask.cutout(data, fill_value=np.nan)
+    if cutout is None:
+        return 1.0  # aperture completely outside the image
+    weights = mask.data
+    total = np.sum(weights)
+    if total <= 0:
+        return 1.0
+    return float(np.sum(weights[~np.isfinite(cutout)]) / total)
+
+
+def elliptical_missing_flux_fraction(data: np.ndarray, aperture, nbins: int = 10) -> float:
+    """Estimates the fraction of the flux of an elliptical aperture (centred on a galaxy) in pixels without data.
+
+    The flux of each pixel without data is estimated from the mean surface brightness of the valid pixels
+    at the same elliptical radius (in ``nbins`` rings), assuming that the galaxy is roughly symmetric. If a
+    ring has no valid pixels, the next ring inwards with data is used (conservative).
+
+    Parameters
+    ----------
+    data: Image data.
+    aperture: Photutils elliptical aperture.
+    nbins: Number of elliptical rings.
+
+    Returns
+    -------
+    missing_fraction: Estimated fraction of the flux in pixels without data.
+    """
+    mask = aperture.to_mask(method="exact")
+    cutout = mask.cutout(data, fill_value=np.nan)
+    if cutout is None:
+        return 1.0
+    weights = mask.data
+    yy, xx = np.indices(weights.shape)
+    xc, yc = aperture.positions
+    dx, dy = xx + mask.bbox.ixmin - xc, yy + mask.bbox.iymin - yc
+    theta = aperture.theta.to_value("rad") if hasattr(aperture.theta, "unit") else float(aperture.theta)
+    u = dx * np.cos(theta) + dy * np.sin(theta)
+    v = -dx * np.sin(theta) + dy * np.cos(theta)
+    rings = np.minimum((np.hypot(u / aperture.a, v / aperture.b) * nbins).astype(int), nbins - 1)
+    inside = weights > 0
+    missing = inside & ~np.isfinite(cutout)
+    valid = inside & np.isfinite(cutout)
+    measured = np.sum((cutout * weights)[valid])
+    estimated = 0.0
+    for ring in range(nbins):
+        ring_missing = missing & (rings == ring)
+        if not ring_missing.any():
             continue
-        try:
-            flux, _, _ = _legacy_elliptical_weighted_sum(data, x, y, a, b, theta)
-        except Exception:
-            continue
-        if np.isfinite(flux):
-            blank_fluxes.append(flux)
+        brightness = np.nan
+        for inner in range(ring, -1, -1):
+            ring_valid = valid & (rings == inner)
+            if ring_valid.sum() > 10:
+                brightness = np.mean(cutout[ring_valid])
+                break
+        if not np.isfinite(brightness):
+            return 1.0
+        estimated += brightness * np.sum(weights[ring_missing])
+    total = measured + estimated
+    if total <= 0:
+        # no positive flux to compare with: fall back to the missing area
+        return aperture_missing_fraction(data, aperture)
+    return float(np.clip(estimated / total, 0, 1))
 
-    if len(blank_fluxes) < 10:
-        return None
 
-    arr = np.asarray(blank_fluxes, dtype=float)
-    med = np.nanmedian(arr)
-    return float(1.4826 * np.nanmedian(np.abs(arr - med)))
+def check_aperture_coverage(
+    data: np.ndarray, aperture, label: str, tolerance: float = 0.05, flux_weighted: bool = False
+) -> bool:
+    """Checks whether an aperture has enough data to measure its flux.
 
+    If part of the aperture has no data (e.g. image edge or chip gap), a warning is raised. The flux
+    can still be measured from the remaining pixels if the missing fraction is within the tolerance.
 
-def extract_legacy_aperture_flux(
-    data: np.ndarray,
-    invvar: np.ndarray,
-    px: float,
-    py: float,
-    radius: float,
-) -> tuple[float, float]:
-    """Legacy Survey aperture flux with invvar propagation and blank-aperture floor."""
-    flux, weights, mask = _legacy_aperture_weighted_sum(data, px, py, radius)
-    invvar_var = _legacy_aperture_invvar_variance(invvar, weights, mask)
-    invvar_err = np.sqrt(invvar_var) if invvar_var > 0 else np.nan
-    blank_rms = _legacy_blank_aperture_rms(data, px, py, radius)
+    Parameters
+    ----------
+    data: Image data.
+    aperture: Photutils aperture (e.g. circular or elliptical).
+    label: Description of the measurement, used in the warnings (e.g. survey, filter and aperture).
+    tolerance: Maximum fraction of the aperture without data.
+    flux_weighted: If ``True``, the tolerance applies to the estimated fraction of the flux without data
+        (see :func:`elliptical_missing_flux_fraction`; for elliptical apertures centred on a galaxy, e.g.
+        Kron apertures, whose outer parts contain little flux) instead of the fraction of the area.
 
-    if blank_rms is None:
-        total_err = invvar_err
+    Returns
+    -------
+    usable: Whether the flux can be measured.
+    """
+    missing_area = aperture_missing_fraction(data, aperture)
+    if missing_area == 0:
+        return True
+    area_msg = f"{100 * missing_area:.1f}% of the aperture has no data (NaN pixels or outside the image)"
+    if flux_weighted:
+        missing = elliptical_missing_flux_fraction(data, aperture)
+        msg = f"{area_msg}, containing an estimated {100 * missing:.1f}% of the flux"
     else:
-        total_err = max(invvar_err, blank_rms)
+        missing = missing_area
+        msg = area_msg
+    if missing <= tolerance:
+        warnings.warn(
+            f"{label}: {msg}; the flux is measured from the remaining pixels and may be underestimated "
+            f"by up to ~{100 * missing:.1f}%."
+        )
+        return True
+    warnings.warn(f"{label}: {msg}, more than the {100 * tolerance:.0f}% tolerance; returning NaN.")
+    return False
 
-    return flux, total_err
 
-
-def extract_legacy_kron_flux(
-    data: np.ndarray,
-    invvar: np.ndarray,
-    objects: np.ndarray,
-    kronrad: float,
-    scale: float,
-) -> tuple[float, float]:
-    """Legacy Survey Kron flux with invvar propagation and blank-aperture floor."""
+def _kron_ellipse(objects: np.ndarray, kronrad: float, scale: float) -> tuple[float, float, float, float, float]:
+    """Return the (x, y, a, b, theta) parameters of the (scaled) Kron ellipse."""
     # theta must be in the range [-pi/2, pi/2] for sep.sum_ellipse()
     theta = _normalized_theta(float(np.ravel(objects["theta"])[0]))
     x = float(np.ravel(objects["x"])[0])
     y = float(np.ravel(objects["y"])[0])
     a = float(np.ravel(objects["a"])[0]) * scale * kronrad
     b = float(np.ravel(objects["b"])[0]) * scale * kronrad
+    return x, y, a, b, theta
 
-    flux, weights, mask = _legacy_elliptical_weighted_sum(data, x, y, a, b, theta)
-    invvar_var = _legacy_aperture_invvar_variance(invvar, weights, mask)
-    invvar_err = np.sqrt(invvar_var) if invvar_var > 0 else np.nan
-    blank_rms = _legacy_blank_elliptical_rms(data, x, y, a, b, theta)
 
+def _apply_floor(flux_err: float, blank_rms: float | None) -> float:
+    """Return the largest between the flux error and the blank-aperture floor (if available)."""
     if blank_rms is None:
-        total_err = invvar_err
-    else:
-        total_err = max(invvar_err, blank_rms)
+        return flux_err
+    return max(flux_err, blank_rms)
 
-    return flux, total_err
 
-# Herschel-specific functions (similar to those for Legacy Survey)
+def blank_aperture_floor(
+    data: np.ndarray,
+    flux_err: float,
+    px: float,
+    py: float,
+    radius: float,
+    source_mask: Optional[np.ndarray] = None,
+) -> float:
+    """Applies a blank-aperture noise floor to the error of a circular-aperture flux.
+
+    The floor (the scatter of the fluxes in blank, source-free apertures) accounts for
+    correlated noise, which is not captured by pixel-wise uncertainties.
+
+    Parameters
+    ----------
+    data: Image data.
+    flux_err: Flux uncertainty.
+    px, py: Aperture centre in pixels.
+    radius: Aperture radius in pixels.
+    source_mask: Mask of the detected sources (see :func:`get_source_mask`). Giving it avoids
+        recalculating it for every aperture on the same image.
+
+    Returns
+    -------
+    flux_err: Flux uncertainty including the floor.
+    """
+    return _apply_floor(flux_err, _blank_aperture_rms(data, px, py, radius, source_mask=source_mask))
+
+
+def blank_kron_floor(
+    data: np.ndarray, flux_err: float, objects: np.ndarray, kronrad: float, scale: float
+) -> float:
+    """Applies a blank-aperture noise floor to the error of a Kron flux.
+
+    See :func:`blank_aperture_floor`.
+
+    Parameters
+    ----------
+    data: Image data.
+    flux_err: Flux uncertainty.
+    objects: Objects detected with `sep.extract()`.
+    kronrad: Kron radius.
+    scale: Scale of the Kron radius.
+
+    Returns
+    -------
+    flux_err: Flux uncertainty including the floor.
+    """
+    x, y, a, b, theta = _kron_ellipse(objects, kronrad, scale)
+    return _apply_floor(flux_err, _blank_elliptical_rms(data, x, y, a, b, theta))
+
+
+def extract_invvar_aperture_flux(
+    data: np.ndarray,
+    invvar: np.ndarray,
+    px: float,
+    py: float,
+    radius: float,
+    source_mask: Optional[np.ndarray] = None,
+) -> tuple[float, float]:
+    """Aperture flux with inverse-variance propagation and a blank-aperture floor."""
+    flux, weights, mask = _aperture_weighted_sum(data, px, py, radius)
+    invvar_var = _aperture_invvar_variance(invvar, weights, mask)
+    invvar_err = np.sqrt(invvar_var) if invvar_var > 0 else np.nan
+    return flux, blank_aperture_floor(data, invvar_err, px, py, radius, source_mask=source_mask)
+
+
+def extract_invvar_kron_flux(
+    data: np.ndarray,
+    invvar: np.ndarray,
+    objects: np.ndarray,
+    kronrad: float,
+    scale: float,
+) -> tuple[float, float]:
+    """Kron flux with inverse-variance propagation and a blank-aperture floor."""
+    x, y, a, b, theta = _kron_ellipse(objects, kronrad, scale)
+    flux, weights, mask = _elliptical_weighted_sum(data, x, y, a, b, theta)
+    invvar_var = _aperture_invvar_variance(invvar, weights, mask)
+    invvar_err = np.sqrt(invvar_var) if invvar_var > 0 else np.nan
+    return flux, blank_kron_floor(data, invvar_err, objects, kronrad, scale)
+
+# Herschel-specific functions (similar to the inverse-variance ones above)
 def _herschel_ellipse_params(
     objects: np.ndarray, kronrad: float, scale: float
 ) -> tuple[float, float, float, float, float]:
@@ -799,7 +1143,7 @@ def _herschel_blank_elliptical_rms(
         if x - step_scale < 0 or x + step_scale >= nx or y - step_scale < 0 or y + step_scale >= ny:
             continue
         try:
-            flux, _, _ = _legacy_elliptical_weighted_sum(data, x, y, a, b, theta)
+            flux, _, _ = _elliptical_weighted_sum(data, x, y, a, b, theta)
         except Exception:
             continue
         if np.isfinite(flux):

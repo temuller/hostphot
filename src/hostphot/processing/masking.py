@@ -26,6 +26,7 @@ from .objects_detection import (
 )
 from hostphot.utils import suppress_stdout, store_input
 from hostphot.photometry.image_utils import adapt_aperture
+from hostphot.processing.background import masked_background
 from hostphot.surveys_utils import (
     check_survey_validity,
     bkg_surveys,
@@ -160,7 +161,8 @@ def create_mask(
     bkg = sep.Background(data)
     bkg_rms = bkg.globalrms
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
-        data_sub = np.copy(data - bkg)
+        # background estimated with the sources (including the galaxy) masked
+        data_sub = data - masked_background(data, img_wcs, host_ra, host_dec, label=f"{survey} {filt}")
     else:
         data_sub = np.copy(data)
 

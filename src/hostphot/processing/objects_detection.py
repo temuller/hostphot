@@ -62,7 +62,13 @@ def extract_objects(
     nogal_objs: All objects extracted except for the galaxy.
     """
     # extract objects with Source Extractor
-    objects = sep.extract(data, threshold, err=bkg, deblend_cont=deblend_cont)
+    # pixels without data (NaN) are masked
+    nan_mask = ~np.isfinite(data)
+    data = np.ascontiguousarray(np.where(nan_mask, 0.0, data), dtype=np.float64)
+    # large galaxies (e.g. in high-resolution images) can exceed the default buffer of
+    # pixels above the threshold (300000), so it is scaled with the image size (with a cap)
+    sep.set_extract_pixstack(int(min(max(300000, data.size), 1e7)))
+    objects = sep.extract(data, threshold, err=bkg, mask=nan_mask, deblend_cont=deblend_cont)
 
     host_coords = SkyCoord(
         ra=host_ra, dec=host_dec, unit=(u.degree, u.degree), frame="icrs"
@@ -93,7 +99,7 @@ def extract_objects(
     else:
         gal_obj = None
         gal_id = -99
-        print("WARNING: the galaxy was no detected")
+        print("WARNING: the galaxy was not detected")
 
     objs_id = [i for i in range(len(objects)) if i != gal_id]
     nogal_objs = objects.take(objs_id)

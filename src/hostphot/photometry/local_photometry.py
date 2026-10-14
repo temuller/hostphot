@@ -34,18 +34,24 @@ from hostphot._constants import workdir, font_family
 from hostphot.processing.cleaning import remove_nan
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, suppress_stdout, store_input
-from hostphot.photometry.image_utils import get_image_exptime
+from hostphot.processing.background import masked_background
 from hostphot.photometry.photometry_utils import (
     magnitude_calculation,
-    extract_legacy_aperture_flux,
+    extract_invvar_aperture_flux,
+    get_invvar_map,
+    blank_aperture_floor,
+    blank_floor_surveys,
+    check_aperture_coverage,
+    get_source_mask,
+    get_effective_gain,
 )
 from hostphot.surveys_utils import (
     get_survey_filters,
-    survey_pixel_units,
     check_filters_validity,
     check_survey_validity,
     survey_pixel_scale,
     bkg_surveys,
+    normalize_filters,
 )
 
 import warnings
@@ -117,7 +123,9 @@ def extract_aperture_flux(
     error = calc_total_error(data, bkg, exptime)
      
     aperture = CircularAperture((px, py), r=radius)
-    ap_results = aperture_photometry(data, aperture, error=error)
+    # pixels without data are excluded (see check_aperture_coverage())
+    nan_mask = ~np.isfinite(data) | ~np.isfinite(error)
+    ap_results = aperture_photometry(data, aperture, error=error, mask=nan_mask)
     raw_flux = ap_results["aperture_sum"][0]
     raw_flux_err = ap_results["aperture_sum_err"][0]
 
@@ -249,12 +257,7 @@ def photometry(
     hdu = remove_nan(hdu)
     header = hdu[0].header
     data = hdu[0].data
-    exptime = get_image_exptime(header, survey)
-    pixel_units = survey_pixel_units(survey, filt)
-    if pixel_units == "counts":
-        _exptime = 1
-    else:
-        _exptime = exptime
+    _exptime = get_effective_gain(header, survey, filt)  # for the Poisson noise of the sources
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         wcs = WCS(header, naxis=2)
@@ -266,8 +269,8 @@ def photometry(
     bkg = sep.Background(data)
     # background subtraction, if needed
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
-        data_sub = np.copy(data - bkg)
-        #data_sub = np.copy(data - bkg.background)
+        # background estimated with the sources masked (the transient position is used to find the host)
+        data_sub = data - masked_background(data, wcs, ra, dec, label=f"{survey} {filt}")
     else:
         data_sub = np.copy(data)
 
@@ -287,6 +290,7 @@ def photometry(
     fluxes, fluxes_err = [], []
     px, py = wcs.wcs_world2pix(ra, dec, 0)  # object's coordinates
 
+    source_mask = None  # for the blank-aperture noise floor (calculated once, if needed)
     for ap_radius in ap_radii:
         # aperture photometry
         if ap_units == "kpc":
@@ -295,31 +299,31 @@ def photometry(
             radius_arcsec = ap_radius
         radius_pix = radius_arcsec / pixel_scale
 
-        if survey == "LegacySurvey" and len(hdu) > 1:
-            invvar = hdu[1].data
-            flux, flux_err = extract_legacy_aperture_flux(
+        invvar = get_invvar_map(hdu, survey)
+        label = f"{survey} {filt} ({radius_arcsec:.3g} arcsec aperture)"
+        if not check_aperture_coverage(data_sub, CircularAperture((px, py), r=radius_pix), label):
+            flux, flux_err = np.nan, np.nan
+        elif invvar is not None:
+            if source_mask is None:
+                source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
+            flux, flux_err = extract_invvar_aperture_flux(
                 data_sub,
                 invvar,
                 px,
                 py,
                 radius_pix,
-            )
-        elif survey == "HSC" and len(hdu) > 1:
-            # hdu[1] is a variance map (σ²); invert to get inverse-variance
-            var = hdu[1].data
-            with np.errstate(divide="ignore", invalid="ignore"):
-                invvar = np.where(var > 0, 1.0 / var, 0.0)
-            flux, flux_err = extract_legacy_aperture_flux(
-                data_sub,
-                invvar,
-                px,
-                py,
-                radius_pix,
+                source_mask=source_mask,
             )
         else:
             flux, flux_err = extract_aperture_flux(
                 data_sub, bkg.rms(), _exptime, px, py, radius_pix
             )
+            if survey in blank_floor_surveys:
+                if source_mask is None:
+                    source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
+                flux_err = blank_aperture_floor(
+                    data_sub, flux_err, px, py, radius_pix, source_mask=source_mask
+                )
         #flux, flux_err = extract_aperture_flux(data_sub, bkg.background_rms, _exptime, px, py, radius_pix)
 
         ap_area = np.pi * (radius_pix**2)
@@ -428,9 +432,8 @@ def multi_band_phot(
             raise ValueError(f"For {survey}, the filter needs to be specified!")
         filters = get_survey_filters(survey)
     else:
+        filters = normalize_filters(filters, survey)
         check_filters_validity(filters, survey)
-    #if survey in ["HST", "JWST"]:
-    #     filters = [filters]
     assert ap_units in ["kpc", "arcsec"], "not valid aperture size units"
 
     # save input parameters

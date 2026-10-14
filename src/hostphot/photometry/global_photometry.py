@@ -27,7 +27,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 
 from photutils.utils import calc_total_error
-from photutils.aperture import aperture_photometry, EllipticalAperture
+from photutils.aperture import EllipticalAperture
 
 from hostphot._constants import workdir
 from hostphot.processing.objects_detection import extract_objects, plot_detected_objects
@@ -36,19 +36,26 @@ from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, store_input
 from hostphot.photometry.photometry_utils import (
     magnitude_calculation,
-    extract_legacy_kron_flux,
-    _legacy_elliptical_weighted_sum,
+    extract_invvar_kron_flux,
+    get_invvar_map,
+    blank_kron_floor,
+    blank_floor_surveys,
+    check_aperture_coverage,
+    _kron_ellipse,
+    _elliptical_weighted_sum,
     _herschel_blank_elliptical_rms,
     _herschel_ellipse_params,
+    get_effective_gain,
 )
-from hostphot.photometry.image_utils import adapt_aperture, get_image_exptime
+from hostphot.photometry.image_utils import adapt_aperture, wrap_theta
+from hostphot.processing.background import masked_background
 from hostphot.surveys_utils import (
     get_survey_filters,
-    survey_pixel_units,
     check_filters_validity,
     check_survey_validity,
     flipped_surveys,
     bkg_surveys,
+    normalize_filters,
 )
 
 import warnings
@@ -117,7 +124,7 @@ def herschel_kron_flux(
     """
     jy_data, flux_unit, conversion_factor = _herschel_data_to_jy_per_pixel(data, header, wcs)
     x, y, a, b, theta = _herschel_ellipse_params(objects, kronrad, scale)
-    flux, weights, _ = _legacy_elliptical_weighted_sum(jy_data, x, y, a, b, theta)
+    flux, weights, _ = _elliptical_weighted_sum(jy_data, x, y, a, b, theta)
 
     blank_rms = _herschel_blank_elliptical_rms(jy_data, x, y, a, b, theta)
     if blank_rms is None or not np.isfinite(blank_rms):
@@ -147,6 +154,49 @@ def herschel_kron_flux(
     return float(flux), flux_err, details
 
 
+def kron_aperture_area(objects: np.ndarray, kronrad: float, scale: float) -> float:
+    """Calculates the area of the Kron aperture used by :func:`kron_flux`.
+
+    Parameters
+    ----------
+    objects: Objects detected with `sep.extract()`.
+    kronrad: Kron radius.
+    scale: Scale of the Kron radius.
+
+    Returns
+    -------
+    ap_area: Aperture area in pixels.
+    """
+    return np.pi * objects["a"][0] * objects["b"][0] * (scale * kronrad) ** 2
+
+
+def _background(data: np.ndarray) -> sep.Background:
+    """Estimates the background of an image, masking the pixels without data (NaN)."""
+    nan_mask = ~np.isfinite(data)
+    filled = np.ascontiguousarray(np.where(nan_mask, 0.0, data), dtype=np.float64)
+    return sep.Background(filled, mask=nan_mask)
+
+
+def _kron_radius(data: np.ndarray, objects: np.ndarray) -> float:
+    """Calculates the Kron radius of an object, masking the pixels without data (NaN)."""
+    nan_mask = ~np.isfinite(data)
+    filled = np.ascontiguousarray(np.where(nan_mask, 0.0, data), dtype=np.float64)
+    kronrad, _ = sep.kron_radius(
+        filled,
+        objects["x"],
+        objects["y"],
+        objects["a"],
+        objects["b"],
+        objects["theta"],
+        r=6.0,  # following sep docs
+        mask=nan_mask,
+    )
+    kronrad = float(kronrad[0])
+    if not np.isfinite(kronrad) or kronrad <= 0:
+        raise ValueError(f"Invalid Kron radius ({kronrad}) for the galaxy.")
+    return kronrad
+
+
 def kron_flux(
     data: np.ndarray,
     bkg: float,
@@ -172,23 +222,49 @@ def kron_flux(
     flux_err: Kron flux error.
     """
     # theta must be in the range [-pi/2, pi/2] for sep.sum_ellipse()
-    if objects["theta"] > np.pi / 2:
-        objects["theta"] -= np.pi
-    elif objects["theta"] < -np.pi / 2:
-        objects["theta"] += np.pi
-        
-    error = calc_total_error(data, bkg, exptime)
-    positions = np.array([objects["x"], objects["y"]]).T
-    aperture = EllipticalAperture(positions, 
-                                    objects["a"][0] * scale * kronrad, 
-                                    objects["b"][0] * scale * kronrad,
-                                    objects["theta"][0]
-                                    )
-    phot_table = aperture_photometry(data, aperture, error=error)
-    flux = phot_table["aperture_sum"].value[0]
-    flux_err = phot_table["aperture_sum_err"].value[0]
+    objects["theta"] = wrap_theta(objects["theta"])
 
-    return flux, flux_err
+    data_valid, error_valid = _kron_arrays(data, bkg, exptime)
+    return _sum_kron_ellipse(data_valid, error_valid, objects, kronrad, scale)
+
+
+def _kron_arrays(data: np.ndarray, bkg: float, exptime: float) -> tuple[np.ndarray, np.ndarray]:
+    """Returns the data and total error with the pixels without data set to zero (i.e. excluded).
+
+    These only depend on the image, so they can be calculated once for several apertures.
+    """
+    error = calc_total_error(data, bkg, exptime)
+    # pixels without data are excluded (see check_aperture_coverage())
+    nan_mask = ~np.isfinite(data) | ~np.isfinite(error)
+    data_valid = np.ascontiguousarray(np.where(nan_mask, 0.0, data), dtype=np.float64)
+    error_valid = np.ascontiguousarray(np.where(nan_mask, 0.0, error), dtype=np.float64)
+    return data_valid, error_valid
+
+
+def _sum_kron_ellipse(
+    data_valid: np.ndarray,
+    error_valid: np.ndarray,
+    objects: np.ndarray,
+    kronrad: float,
+    scale: float,
+) -> tuple[float, float]:
+    """Sums the flux and error in the Kron ellipse with exact pixel overlap.
+
+    Equivalent to ``photutils.aperture_photometry`` with an ``EllipticalAperture`` (same
+    exact-overlap geometry), but much faster, which matters when optimising the aperture.
+    """
+    flux, flux_err, _ = sep.sum_ellipse(
+        data_valid,
+        [objects["x"][0]],
+        [objects["y"][0]],
+        [objects["a"][0] * scale * kronrad],
+        [objects["b"][0] * scale * kronrad],
+        [objects["theta"][0]],
+        r=1.0,
+        err=error_valid,
+        subpix=0,
+    )
+    return flux[0], flux_err[0]
 
 
 def optimize_aperture(
@@ -214,22 +290,17 @@ def optimize_aperture(
     kronrad: Kron radius.
     opt_scale: Optimized scale for the Kron radius.
     """
-    kronrad, _ = sep.kron_radius(
-        data,
-        objects["x"],
-        objects["y"],
-        objects["a"],
-        objects["b"],
-        objects["theta"],
-        r=6.0,  # following sep docs
-    )
-    kronrad = kronrad[0]
+    kronrad = _kron_radius(data, objects)
+
+    # theta must be in the range [-pi/2, pi/2] for sep.sum_ellipse()
+    objects["theta"] = wrap_theta(objects["theta"])
+    data_valid, error_valid = _kron_arrays(data, bkg, exptime)  # same for all the scales
 
     opt_flux = 0.0
     # iterate over scales
     scales = np.arange(1, 10, 0.01)
     for scale in scales:
-        flux, flux_err = kron_flux(data, bkg, exptime, objects, kronrad, scale)
+        flux, flux_err = _sum_kron_ellipse(data_valid, error_valid, objects, kronrad, scale)
         calc_eps = np.abs(opt_flux - flux) / flux
         opt_flux, opt_flux_err = flux, flux_err
         opt_scale = scale
@@ -331,11 +402,12 @@ def extract_aperture(
         wcs = WCS(header, naxis=2)
 
     data = data.astype(np.float64)
-    bkg = sep.Background(data)
+    bkg = _background(data)
     # background subtraction, if needed
     # Note: Herschel images already have background removed in HSA processing
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
-        data_sub = np.copy(data - bkg.back())
+        # background estimated with the sources (including the galaxy) masked
+        data_sub = data - masked_background(data, wcs, host_ra, host_dec, label=f"{survey} {filt}")
     else:
         data_sub = np.copy(data)
 
@@ -350,30 +422,18 @@ def extract_aperture(
         gal_dist_thresh,
         deblend_cont,
     )
+    if gal_obj is None:
+        raise ValueError(
+            f"The galaxy was not detected in {survey} {filt} (threshold={threshold} sigma). "
+            "Try a lower `threshold` or check the coordinates."
+        )
     if optimize_kronrad:
-        exptime = get_image_exptime(header, survey)
-        try:
-            pixel_units = survey_pixel_units(survey, filt)
-        except:
-            # probably a coadd, so only need one filter
-            pixel_units = survey_pixel_units(survey, filt[0])
-        if pixel_units == "counts":
-            _exptime = 1
-        else:
-            _exptime = exptime
+        _exptime = get_effective_gain(header, survey, filt)  # for the Poisson noise of the sources
         opt_res = optimize_aperture(data_sub, bkg.rms(), _exptime, gal_obj, eps)
         _, _, kronrad, scale = opt_res
     else:
         scale = 2.5
-        kronrad, _ = sep.kron_radius(
-            data_sub,
-            gal_obj["x"],
-            gal_obj["y"],
-            gal_obj["a"],
-            gal_obj["b"],
-            gal_obj["theta"],
-            6.0,
-        )
+        kronrad = _kron_radius(data_sub, gal_obj)
 
     if save_plots is True:
         outfile = obj_dir / survey / f"global_{survey}_{filt}.jpg"
@@ -575,22 +635,18 @@ def photometry(
     hdu = remove_nan(hdu)
     header = hdu[0].header
     data = hdu[0].data
-    exptime = get_image_exptime(header, survey)
-    pixel_units = survey_pixel_units(survey, filt)
-    if pixel_units == "counts":
-        _exptime = 1
-    else:
-        _exptime = exptime
+    _exptime = get_effective_gain(header, survey, filt)  # for the Poisson noise of the sources
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         wcs = WCS(header, naxis=2)
 
     data = data.astype(np.float64)
-    bkg = sep.Background(data)
+    bkg = _background(data)
     # background subtraction, if needed
     # Note: Herschel images already have background removed in HSA processing
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
-        data_sub = np.copy(data - bkg.back())
+        # background estimated with the sources (including the galaxy) masked
+        data_sub = data - masked_background(data, wcs, host_ra, host_dec, label=f"{survey} {filt}")
     else:
         data_sub = np.copy(data)
 
@@ -673,21 +729,15 @@ def photometry(
         return mag, mag_err, flux, flux_err, zp, herschel_details
 
     # get Kron flux
-    if survey == "LegacySurvey" and len(hdu) > 1:
-        invvar = hdu[1].data
-        flux, flux_err = extract_legacy_kron_flux(
-            data_sub,
-            invvar,
-            gal_obj,
-            kronrad,
-            scale,
-        )
-    elif survey == "HSC" and len(hdu) > 1:
-        # hdu[1] is a variance map (σ²); invert to get inverse-variance
-        var = hdu[1].data
-        with np.errstate(divide="ignore", invalid="ignore"):
-            invvar = np.where(var > 0, 1.0 / var, 0.0)
-        flux, flux_err = extract_legacy_kron_flux(
+    invvar = get_invvar_map(hdu, survey)
+    x, y, a, b, theta = _kron_ellipse(gal_obj, kronrad, scale)
+    label = f"{survey} {filt} (Kron aperture)"
+    # the outer parts of the Kron aperture contain little flux, so the missing flux is checked
+    kron_aperture = EllipticalAperture((x, y), a, b, theta=theta)
+    if not check_aperture_coverage(data_sub, kron_aperture, label, flux_weighted=True):
+        flux, flux_err = np.nan, np.nan
+    elif invvar is not None:
+        flux, flux_err = extract_invvar_kron_flux(
             data_sub,
             invvar,
             gal_obj,
@@ -698,9 +748,11 @@ def photometry(
         flux, flux_err = kron_flux(
             data_sub, bkg.rms(), _exptime, gal_obj, kronrad, scale
         )
+        if survey in blank_floor_surveys:
+            flux_err = blank_kron_floor(data_sub, flux_err, gal_obj, kronrad, scale)
     
-    # aperture area for an ellipse (or circle)
-    ap_area = np.pi * gal_obj["a"][0] * gal_obj["b"][0]
+    # aperture area of the (scaled) Kron ellipse
+    ap_area = kron_aperture_area(gal_obj, kronrad, scale)
     mag, mag_err, flux, flux_err, zp = magnitude_calculation(
         flux,
         flux_err,
@@ -833,11 +885,8 @@ def multi_band_phot(
             raise ValueError(f"For {survey}, the filter needs to be specified!")
         filters = get_survey_filters(survey)
     else:
-        if survey == "Herschel" and isinstance(filters, str):
-            filters = [filters]
+        filters = normalize_filters(filters, survey)
         check_filters_validity(filters, survey)
-    if survey in ["HST", "JWST"]:
-        filters = [filters]
 
     # save input parameters
     if save_input is True:

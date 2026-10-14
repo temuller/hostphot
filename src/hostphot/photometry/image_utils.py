@@ -4,6 +4,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 from astropy import wcs
+import astropy.units as u
 from astropy.io import fits
 from photutils.aperture import EllipticalAperture
 
@@ -36,14 +37,14 @@ def get_image_gain(header: fits.Header, survey: str) -> float:
     Parameters
     ----------
     header: Header of an image.
-    survey: Survey name: e.g. ``PS1``, ``GALEX``.
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
 
     Returns
     -------
     gain: Gain value.
     """
     check_survey_validity(survey)
-    if survey == "PS1":
+    if survey == "PanSTARRS":
         gain = header["HIERARCH CELL.GAIN"]
     elif survey == "DES":
         gain = header["GAIN"]
@@ -92,7 +93,7 @@ def get_image_readnoise(header: fits.Header, survey: str) -> float:
     Parameters
     ----------
     header: Header of an image.
-    survey: Survey name: e.g. ``PS1``, ``GALEX``.
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
 
     Returns
     -------
@@ -148,7 +149,7 @@ def get_image_exptime(header: fits.Header, survey: str) -> float:
     Parameters
     ----------
     header: Header of an image.
-    survey: Survey name: e.g. ``PS1``, ``GALEX``.
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
 
     Returns
     -------
@@ -181,70 +182,10 @@ def get_image_exptime(header: fits.Header, survey: str) -> float:
     return exptime
 
 
-def correct_HST_aperture(filt: str, ap_area: float, header: fits.Header) -> float:
-    """Get the aperture correction for the given configuration.
-
-    see: https://hst-docs.stsci.edu/wfc3dhb/chapter-9-wfc3-data-analysis/9-1-photometry
-         https://www.stsci.edu/hst/instrumentation/acs/data-analysis/zeropoints
-         https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/uvis-photometric-calibration
-    
-    Parameters
-    ----------
-    filt: HST filter, e.g. ``WFC3_UVIS_F225W``.
-    ap_area: Aperture area.
-    header: Header of an image.
-
-    Returns
-    -------
-    correction: Aperture correction (encircled energy fraction).
-    """
-    # split instrument and filter
-    filt_split = filt.split("_")
-    filt = filt_split[-1]
-    instrument = filt_split[-2]
-
-    if instrument == "UVIS":
-        # either UVIS1 or UVIS2
-        instrument = header["APERTURE"]
-        # some images have a different APERTURE value
-        # see: https://hst-docs.stsci.edu/wfc3ihb/chapter-6-uvis-imaging-with-wfc3/6-4-uvis-field-geometry
-        # not sure if this is the correct solution
-        if instrument == "UVIS-CENTER":
-            instrument = "UVIS2"
-        if instrument == "UVIS":
-            instrument = "UVIS1"
-
-    # assuming circular aperture
-    # for an ellipse, this would take the average of the axes
-    ap_radius = np.sqrt(ap_area / np.pi)
-
-    # get correction curve
-    ac_file = [
-        file
-        for file in Path(hostphot_path, "filters", "HST").glob(
-            f"*{instrument.lower()}_aper*"
-        )
-    ][0]
-    ac_df = pd.read_csv(ac_file)
-
-    # linear interpolation of the aperture correction
-    apertures = np.array(
-        [
-            float(col.replace("APER#", ""))
-            for col in ac_df.columns
-            if col.startswith("AP")
-        ]
-    )
-    ap_corr = ac_df[ac_df.FILTER == filt].values[0][2:].astype(float)
-
-    cont_apertures = np.arange(0, 9, 0.01)
-    cont_ap_corr = np.interp(cont_apertures, apertures, ap_corr)
-
-    # get the closest value
-    ind = np.argmin(np.abs(cont_apertures - ap_radius))
-    correction = cont_ap_corr[ind]
-
-    return correction
+def wrap_theta(theta: float) -> float:
+    """Wraps an ellipse position angle (in radians) into the range [-pi/2, pi/2),
+    as expected by sep (an ellipse is unchanged by a rotation of pi)."""
+    return (theta + np.pi / 2) % np.pi - np.pi / 2
 
 
 def adapt_aperture(
@@ -273,22 +214,24 @@ def adapt_aperture(
     objects_ = objects.copy()  # avoid modifying the intial objects
     for obj in objects_:
         center = (obj["x"], obj["y"])
-        apertures = EllipticalAperture(center, obj["a"], obj["b"], obj["theta"])
+        apertures = EllipticalAperture(center, obj["a"], obj["b"], theta=obj["theta"])
         sky_apertures = apertures.to_sky(img_wcs)
 
         new_apertures = sky_apertures.to_pixel(img_wcs2)
         obj["x"], obj["y"] = new_apertures.positions
         obj["a"] = new_apertures.a
         obj["b"] = new_apertures.b
-        # wether theta is a float or not seems to depend on the python version
-        if isinstance(new_apertures.theta, float):
-            obj["theta"] = new_apertures.theta
+        # photutils returns theta as an angle (in degrees) in recent versions, or as a float (radians)
+        if isinstance(new_apertures.theta, u.Quantity):
+            theta = new_apertures.theta.to_value(u.rad)
         else:
-            obj["theta"] = new_apertures.theta.value
+            theta = float(new_apertures.theta)
 
         if flip is True:
             # flip aperture orientation
-            obj["theta"] *= -1
+            theta *= -1
+        # sep expects theta in the range [-pi/2, pi/2]
+        obj["theta"] = wrap_theta(theta)
 
     # ratio between ellipse axis of two images
     conv_factor = np.mean(np.copy(objects["a"] / objects_["a"]))

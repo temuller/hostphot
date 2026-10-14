@@ -13,6 +13,9 @@ from hostphot.photometry.photometry_utils import integrate_filter, extract_filte
 
 import warnings
 
+# loaded dust maps, for each scaling
+_sfd_maps = {}
+
 
 def _download_dustmaps():
     """Downloads the dust maps for extinction calculation if they are not found
@@ -85,7 +88,10 @@ def deredden(
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
-        m = sfdmap.SFDMap(mapdir=dustmaps_dir, scaling=scaling)
+        # the dust maps are loaded once (reading them is slow)
+        if scaling not in _sfd_maps:
+            _sfd_maps[scaling] = sfdmap.SFDMap(mapdir=dustmaps_dir, scaling=scaling)
+        m = _sfd_maps[scaling]
         ebv = m.ebv(ra, dec)  # RA and DEC in degrees
         a_v = r_v * ebv
 
