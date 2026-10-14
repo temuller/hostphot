@@ -73,10 +73,11 @@ def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3,
                 # if the image was already found, skip this filter
                 continue
 
-            # get only "intensity" images
+            # get only background-subtracted "intensity" images ("intbgsub" = "int" - "skybg"),
+            # i.e. using the sky model of the GALEX pipeline (as used for the GALEX catalogues)
             filt_extension = {
-                "NUV": "-nd-int.fits.gz",
-                "FUV": "-fd-int.fits.gz",
+                "NUV": "-nd-intbgsub.fits.gz",
+                "FUV": "-fd-intbgsub.fits.gz",
             }
             # get unique image sectors
             files = []

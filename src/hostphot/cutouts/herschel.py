@@ -400,14 +400,7 @@ def get_Herschel_images(
     if selected_by_filter:
         pd.DataFrame(selected_by_filter.values()).to_csv(target_dir / "hsa_selected_maps.csv", index=False)
 
-    # Delete temporary files to save space
-    if downloads_dir.exists():
-        import shutil
-        shutil.rmtree(downloads_dir)
-    if extracted_dir.exists():
-        import shutil
-        shutil.rmtree(extracted_dir)
-
+    # read the selected maps (into memory) before deleting the temporary files
     result = []
     for filt in requested_filters:
         selected = selected_by_filter.get(filt)
@@ -415,6 +408,13 @@ def get_Herschel_images(
             result.append(None)
             continue
         result.append(_make_hostphot_hdul(Path(selected["path"]), int(selected["image_ext"]), filt))
+
+    # Delete temporary files to save space
+    import shutil
+    if downloads_dir.exists():
+        shutil.rmtree(downloads_dir)
+    if extracted_dir.exists():
+        shutil.rmtree(extracted_dir)
 
     if tmp is not None:
         tmp.cleanup()

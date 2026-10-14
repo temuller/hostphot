@@ -5,7 +5,7 @@ import astropy.units as u
 from astropy.io import fits
 
 from hostphot.utils import open_fits_from_url, open_fits_from_urls
-from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
+from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 def get_Spitzer_images(ra: float, dec: float, size: float | u.Quantity = 3, 
                         filters: Optional[str] = None) -> list[fits.ImageHDU]:
@@ -28,12 +28,10 @@ def get_Spitzer_images(ra: float, dec: float, size: float | u.Quantity = 3,
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
 
-    pixel_scale = survey_pixel_scale(survey, "IRAC.1")  # IRAC resolution
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec).value
     else:
         size_arcsec = size.to(u.arcsec).value
-    size_pixels = int(size_arcsec / pixel_scale)
 
     base_url = "https://irsa.ipac.caltech.edu/cgi-bin/Cutouts/nph-cutouts?"
     locstr = f"{str(ra)}+{str(dec)}+eq"
@@ -44,19 +42,19 @@ def get_Spitzer_images(ra: float, dec: float, size: float | u.Quantity = 3,
         "max_size": "1800",
         "units": "arcsec",
         "locstr": locstr,
-        "sizeX": size_pixels,
+        "sizeX": size_arcsec,  # in arcsec (see "units")
         "ntable_cutouts": "1",
         "cutouttbl1": "science",
         "mode": "PI",  # XML output file
     }
 
-    # check image size
-    if size_pixels < int(mission_dict["min_size"]):
+    # check image size (in arcsec)
+    if size_arcsec < int(mission_dict["min_size"]):
         mission_dict["sizeX"] = int(mission_dict["min_size"])
         print(
             f'Image cannot be smaller than {mission_dict["min_size"]} arcsec (using this value)'
         )
-    elif size_pixels > int(mission_dict["max_size"]):
+    elif size_arcsec > int(mission_dict["max_size"]):
         mission_dict["sizeX"] = int(mission_dict["max_size"])
         print(
             f'Image cannot be larger than {mission_dict["max_size"]} arcsec (using this value)'

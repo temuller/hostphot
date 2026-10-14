@@ -128,7 +128,7 @@ class TestHostPhot(unittest.TestCase):
                     survey="VISTA",
                     version=version,
                 )
-        except requests.exceptions.ConnectionError as e:
+        except (requests.exceptions.ConnectionError, TimeoutError) as e:
             warnings.warn(f"Connection error for VISTA: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for VISTA: {e}")
 

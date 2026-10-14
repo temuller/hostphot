@@ -1,4 +1,5 @@
 import re
+import socket
 import urllib
 from typing import Optional
 
@@ -55,7 +56,7 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
         if overlap is True:
             break
     if overlap is False:
-        return [False] * len(filters)
+        return [None] * len(filters)
     
     # Latest data releases
     database_dict = {
@@ -79,7 +80,13 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
     }
     survey_url = "&".join([f"{key}={val}" for key, val in survey_dict.items()])
     url = base_url + survey_url
-    results = urllib.request.urlopen(url).read()
+    try:
+        # the archive can be unresponsive, so a timeout is used (in seconds)
+        results = urllib.request.urlopen(url, timeout=300).read()
+    except (socket.timeout, TimeoutError) as exc:
+        raise TimeoutError(
+            "The VISTA Science Archive (VSA) did not respond within 5 minutes. Please, try again later."
+        ) from exc
     links = re.findall('href="(http://.*?)"', results.decode("utf-8"))
     
     # find url for each filter (None if not found)

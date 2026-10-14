@@ -1,3 +1,4 @@
+import numpy as np
 import astropy.units as u
 from astropy.io import fits
 from typing import Optional
@@ -46,6 +47,10 @@ def get_LegacySurvey_images(ra: float, dec: float, size: float | u.Quantity = 3,
     master_hdu = open_fits_from_url(url)
     master_header = master_hdu[0].header
     master_header_invvar = master_hdu[1].header
+    # a single band is returned as a 2D image instead of a cube
+    for ext in (0, 1):
+        if master_hdu[ext].data.ndim == 2:
+            master_hdu[ext].data = master_hdu[ext].data[np.newaxis]
 
     hdu_list = []
     for i, filt in enumerate(filters):

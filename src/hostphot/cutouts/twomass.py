@@ -72,6 +72,8 @@ def get_2MASS_images(
         hdu_list.append(fits_image)
 
     for filt, hdu in zip(filters, hdu_list):
+        if hdu is None:
+            continue  # no image for this filter
         pixel_scale = survey_pixel_scale(survey, filt)
         size_pixels = int((size_degree * u.deg).to(u.arcsec).value / pixel_scale)
     

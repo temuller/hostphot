@@ -1,3 +1,5 @@
+import io
+import gzip
 import tarfile
 import requests
 import pandas as pd
@@ -134,6 +136,7 @@ def get_unWISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
     base_url = "http://unwise.me/cutout_fits?"
     params_url = (
         f"version={version}&ra={ra}&dec={dec}&size={size_pixels}&bands={bands}"
+        "&file_img_m=on&file_invvar_m=on"  # image and inverse-variance map only
     )
     master_url = base_url + params_url
 
@@ -143,17 +146,34 @@ def get_unWISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
         with open(target_file, "wb") as f:
             f.write(response.raw.read())
 
+    # each filter has its image and inverse-variance map (Lang 2014, AJ, 147, 108)
+    # in the tarfile; there can be more than one coadd tile, but only one is used
     hdu_list = []
     with tarfile.open(target_file) as tar_file:
         files_list = tar_file.getnames()
-        for fits_file in files_list:
-            for filt in filters:
-                if f"{filt.lower()}-img-m.fits" in fits_file:
-                    tar_file.extraction_filter = (lambda member, path: member)
-                    tar_file.extract(fits_file, ".")
-                    hdu = fits.open(fits_file)
-                    hdu_list.append(hdu)
-                    Path(fits_file).unlink()  # remove file
+        for filt in filters:
+            img_files = [file for file in files_list if file.endswith(f"{filt.lower()}-img-m.fits")]
+            if len(img_files) == 0:
+                hdu_list.append(None)
+                continue
+            img_file = img_files[0]
+            with tar_file.extractfile(img_file) as f:
+                img_hdu = fits.open(io.BytesIO(f.read()))
+            invvar_files = [
+                img_file.replace("-img-m.fits", f"-invvar-m.fits{ext}") for ext in ["", ".gz"]
+            ]
+            invvar_files = [file for file in invvar_files if file in files_list]
+            if len(invvar_files) > 0:
+                invvar_file = invvar_files[0]
+                with tar_file.extractfile(invvar_file) as f:
+                    content = f.read()
+                if invvar_file.endswith(".gz"):
+                    content = gzip.decompress(content)
+                invvar_hdu = fits.open(io.BytesIO(content))
+                img_hdu.append(
+                    fits.ImageHDU(data=invvar_hdu[0].data, header=invvar_hdu[0].header, name="INVVAR")
+                )
+            hdu_list.append(img_hdu)
     # remove the tarfile
     if target_file.is_file() is True:
         target_file.unlink()

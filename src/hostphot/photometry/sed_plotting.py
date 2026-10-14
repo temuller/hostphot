@@ -7,7 +7,8 @@ from typing import Optional
 
 import hostphot
 from hostphot._constants import workdir, font_family
-from hostphot.surveys_utils import get_survey_filters, filters_file, load_yml, extract_filter
+from hostphot.surveys_utils import get_survey_filters, filters_file, load_yml
+from hostphot.photometry.photometry_utils import extract_filter
 
 path = Path(hostphot.__path__[0])
 filters_config = load_yml(filters_file)

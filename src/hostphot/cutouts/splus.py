@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -45,8 +46,12 @@ def get_SPLUS_urls(ra: float, dec: float, fov: float | u.Quantity = 3,
         return None
     url_list = []
     for filt in filters:
-        filt_df = imgs_df[imgs_df.obs_bandpass==filt]
+        # the broad-band filters are in upper case in the service (e.g. 'G')
+        filt_df = imgs_df[imgs_df.obs_bandpass.str.upper() == filt.upper()]
+        # science images only (not the weight maps)
+        filt_df = filt_df[~filt_df.access_url.str.contains("weight")]
         if len(filt_df) == 0:
+            warnings.warn(f"No S-PLUS image found for filter '{filt}' at ra={ra}, dec={dec}")
             url_list.append(None)
         else:
             fits_url = filt_df.access_url.values[0]  # first image
@@ -94,7 +99,9 @@ def get_SPLUS_images(ra: float, dec: float, size: float | u.Quantity = 3,
             field = hdu[0].header['OBJECT'].replace('_', '-')
             field_df = zps_df[zps_df['#field']==field]
             img_filt = hdu[0].header['FILTER']
-            zp = field_df[img_filt].values[0]
+            # the broad-band filters are in lower case in the zeropoints file (e.g. 'g')
+            zp_col = [col for col in zps_df.columns if col.upper() == img_filt.upper()][0]
+            zp = field_df[zp_col].values[0]
             hdu[0].header['MAGZP'] = zp
             # initial EXPTIME is normalised, so it doesn't help
             hdu[0].header['EXPTIME'] = hdu[0].header['TEXPOSED']

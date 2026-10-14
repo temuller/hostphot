@@ -1,5 +1,6 @@
 import os
 import sys
+import csv
 import requests
 import numpy as np
 import pandas as pd
@@ -130,10 +131,36 @@ def store_input(input_params: dict, inputs_file: Path) -> None:
     now = datetime.now(timezone.utc).isoformat()
     input_params.update({"timestamp": now})
     inputs_df = pd.DataFrame([input_params])
-    if inputs_file.exists():
-        inputs_df.to_csv(inputs_file, index=False, mode="a", header=False)
-    else:
+    if not inputs_file.exists():
         inputs_df.to_csv(inputs_file, index=False)
+        return
+
+    with open(inputs_file, newline="") as file:
+        rows = list(csv.reader(file))
+    header = rows[0] if len(rows) > 0 else []
+    if header == list(inputs_df.columns):
+        inputs_df.to_csv(inputs_file, index=False, mode="a", header=False)
+        return
+
+    # the columns have changed (e.g. new parameters in a newer version): merge the old and new
+    # columns and rewrite the file, so that it can be read again (missing values are left empty)
+    columns = header + [col for col in inputs_df.columns if col not in header]
+    old_rows = []
+    for row in rows[1:]:
+        if len(row) > len(header):
+            # rows appended with more values than the header
+            if len(row) == len(header) + 1 and "timestamp" not in header:
+                # timestamps were added in newer versions (always as the last value)
+                extra_cols = ["timestamp"]
+            else:
+                extra_cols = [col for col in inputs_df.columns if col not in header]
+            row_dict = dict(zip(header + extra_cols, row))
+        else:
+            row_dict = dict(zip(header, row))
+        old_rows.append(row_dict)
+    old_df = pd.DataFrame(old_rows, columns=columns, dtype=object)
+    merged_df = pd.concat([old_df, inputs_df.astype(object)], ignore_index=True)[columns]
+    merged_df.to_csv(inputs_file, index=False)
         
             
 def plot_fits(fits_file: str | Path | list[fits.ImageHDU], ext: int = 0) -> None:

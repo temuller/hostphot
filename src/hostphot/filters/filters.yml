@@ -350,6 +350,7 @@ SPLUS:
   i:
     zeropoint: "header"
     pixel_scale: 0.55  
+    pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
   F861:

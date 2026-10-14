@@ -9,6 +9,7 @@ from hostphot.utils import check_work_dir, store_input
 from hostphot.surveys_utils import (
     get_survey_filters,
     check_survey_validity,
+    normalize_filters,
 )
 
 
@@ -61,14 +62,17 @@ def download_images(
     # initial checks
     check_survey_validity(survey)
     check_work_dir(workdir)
+    # check filters
+    if filters is None:
+        if survey in ["HST", "JWST"]:
+            raise ValueError(f"For {survey}, the filters need to be specified!")
+        filters = get_survey_filters(survey)
+    else:
+        filters = normalize_filters(filters, survey)
+    # check output directory
     survey_dir = Path(workdir, name, survey)
-    # check output directory and filters
     if survey_dir.is_dir() is False:
         survey_dir.mkdir(parents=True)
-    if filters is None:
-        filters = get_survey_filters(survey)
-    elif survey == "Herschel" and isinstance(filters, str):
-        filters = [filters]
 
     # save input parameters
     if save_input is True:
@@ -79,11 +83,8 @@ def download_images(
     if overwrite is False:
         filters_without_image = []
         for filt in filters:
-            if survey == "HST":
-                inst = version.replace("/", "_")
-                filt_image = survey_dir / f"{survey}_{inst}_{filters}.fits"
-            else:
-                filt_image = survey_dir / f"{survey}_{filt}.fits"
+            # same file name as used when saving the images (below)
+            filt_image = survey_dir / f"{survey}_{filt}.fits"
             if filt_image.is_file() is False:
                 filters_without_image.append(filt)
         # only download images not found locally

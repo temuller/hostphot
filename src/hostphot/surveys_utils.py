@@ -1,5 +1,5 @@
+import copy
 import yaml
-import numpy as np
 from pathlib import Path
 from typing import Optional
 import warnings
@@ -16,6 +16,8 @@ bkg_surveys = [
     "VISTA",
     "SkyMapper",
     "UKIDSS",
+    "Spitzer",  # SEIP mosaics only have a model of the zodiacal light subtracted
+    "JWST",  # the sky is not subtracted from the i2d images (BKGSUB = False)
 ]
 # surveys which are flipped respect to most others
 flipped_surveys = [
@@ -30,13 +32,29 @@ survey_warnings = {
 }
 
 
+# parsed YAML files, as parsing them is slow and they are read many times
+_yml_cache = {}
+
+
 def load_yml(file: str) -> dict:
-    """Simply loads a YAML file."""
-    with open(file) as stream:
-        try:
-            return yaml.safe_load(stream)
-        except yaml.YAMLError as exc:
-            print(exc)
+    """Loads a YAML file (cached until the file is modified)."""
+    try:
+        return copy.deepcopy(_load_yml_cached(file))
+    except yaml.YAMLError as exc:
+        print(exc)
+        return None
+
+
+def _load_yml_cached(file: str) -> dict:
+    """Loads a YAML file (cached until the file is modified), returning the cached
+    object itself, so it must not be modified (use :func:`load_yml` otherwise)."""
+    file = Path(file)
+    mtime = file.stat().st_mtime
+    if file not in _yml_cache or _yml_cache[file][0] != mtime:
+        loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)  # C loader if available (faster)
+        with open(file) as stream:
+            _yml_cache[file] = (mtime, yaml.load(stream, Loader=loader))
+    return _yml_cache[file][1]
 
 
 def check_survey_validity(survey: str) -> None:
@@ -47,7 +65,7 @@ def check_survey_validity(survey: str) -> None:
     ----------
     survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
     """
-    filters_config = load_yml(filters_file)
+    filters_config = _load_yml_cached(filters_file)  # read only
     surveys = list(filters_config.keys())
     assert survey in surveys, f"Survey '{survey}' not in {surveys}"
     if survey in survey_warnings.keys():
@@ -69,7 +87,7 @@ def get_survey_filters(survey: str) -> str | list:
     if survey in ["HST", "JWST"]:
         # For HST, the filter needs to be specified
         return None
-    filters_config = load_yml(filters_file)
+    filters_config = _load_yml_cached(filters_file)  # read only
     filters = list(filters_config[survey].keys())
     return filters
 
@@ -88,7 +106,7 @@ def survey_zp(survey: str, filt: str) -> str | dict:
     """
     check_survey_validity(survey)
     check_filters_validity([filt], survey)
-    filters_config = load_yml(filters_file)
+    filters_config = _load_yml_cached(filters_file)  # read only
     zp = filters_config[survey][filt]["zeropoint"]
     return zp
 
@@ -107,7 +125,7 @@ def survey_pixel_scale(survey: str, filt: Optional[str] = None) -> float:
     pixel_scale: Pixel scale in units of arcsec/pixel.
     """
     check_survey_validity(survey)
-    filters_config = load_yml(filters_file)
+    filters_config = _load_yml_cached(filters_file)  # read only
     pixel_scale = float(filters_config[survey][filt]["pixel_scale"])
     return pixel_scale
 
@@ -125,9 +143,33 @@ def survey_pixel_units(survey: str, filt: str) -> str:
     """
     check_survey_validity(survey)
     check_filters_validity([filt], survey)
-    filters_config = load_yml(filters_file)
+    filters_config = _load_yml_cached(filters_file)  # read only
     pixel_units = filters_config[survey][filt]["pixel_units"]
     return pixel_units
+
+
+def normalize_filters(filters: Optional[str | list], survey: str) -> Optional[list]:
+    """Returns the filters as a list.
+
+    A string is either a single filter (e.g. ``FUV``, ``Ks``, ``W1``) or, for surveys with
+    single-character filter names, a concatenation of filters (e.g. ``grizy``).
+
+    Parameters
+    ----------
+    filters: Filters, e.g. ``griz``, ``FUV`` or ``['g', 'r']``.
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
+
+    Returns
+    -------
+    filters: List of filters (``None`` if ``filters`` is ``None``).
+    """
+    if filters is None:
+        return None
+    if isinstance(filters, str):
+        if survey in ["HST", "JWST"] or filters in get_survey_filters(survey):
+            return [filters]
+        return list(filters)
+    return list(filters)
 
 
 def check_filters_validity(filters: str | list, survey: str) -> None:
@@ -197,57 +239,3 @@ def check_JWST_filters(filt: str) -> None:
     filters_dir = hostphot_path / "filters/JWST"
     jwst_filters = [file.name.split(".")[0] for file in filters_dir.rglob("*.dat")]
     assert filt in jwst_filters, f"Not a valid JWST filter ({filt}): {jwst_filters}"
-
-
-def extract_filter(
-    filt: str, survey: str, version: Optional[str] = None
-) -> tuple[np.array, np.array]:
-    """Extracts the transmission function for the filter.
-
-    Parameters
-    ----------
-    filt: Filter to extract.
-    survey: Survey of the filters.
-    version: Version of the filters to use. E.g. for the
-             Legacy Survey as it uses DECam for the south
-             and BASS+MzLS for the north.
-
-    Returns
-    -------
-    wave: Wavelength range of the filter.
-    transmission: Transmission function.
-    """
-    check_survey_validity(survey)
-    if survey in ["HST", "JWST"]:
-        check_filters_validity(filt, survey)
-    else:
-        check_filters_validity([filt], survey)
-    if "WISE" in survey:
-        survey = "WISE"  # for unWISE to use the same filters as WISE
-    filters_path = Path(hostphot_path, "filters", survey)
-    # Assume DECaLS filters below 32 degrees and BASS+MzLS above
-    # https://www.legacysurvey.org/status/
-    if survey == "LegacySurvey":
-        if version == "BASS+MzLS":
-            if filt == "z":
-                filt_file = filters_path / "MzLS_z.dat"
-            else:
-                filt_file = filters_path / f"BASS_{filt}.dat"
-        elif version == "DECam":
-            filt_file = filters_path / f"DECAM_{filt}.dat"
-    elif survey == "HST":
-        if "UVIS" in filt:
-            # Usually UVIS2 is used, but there is no large difference
-            filt_ = filt.replace("UVIS", "UVIS2")
-        else:
-            filt_ = filt
-        filt_file = [
-            file for file in Path(filters_path, "HST").rglob("*.dat") if filt_ in file
-        ][0]
-    elif survey == "JWST":
-        detector = filt.split("_")[0]
-        filt_file = filters_path / f"{detector}/{filt}.dat"
-    else:
-        filt_file = filters_path / f"{survey}_{filt}.dat"
-    wave, transmission = np.loadtxt(filt_file).T
-    return wave, transmission

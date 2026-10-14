@@ -57,7 +57,7 @@ def get_PS1_urls(ra: float, dec: float, size: float | u.Quantity = 3, filters: O
 
     Returns
     -------
-    url_list: List of URLs for the fits images.
+    url_list: List of URLs for the fits images, one per filter (``None`` if not available).
     """
     # check filters
     survey = "PanSTARRS"
@@ -82,9 +82,9 @@ def get_PS1_urls(ra: float, dec: float, size: float | u.Quantity = 3, filters: O
         f"ra={ra}&dec={dec}&size={size_pixels}&format=fits"
     )
     base_url = url + "&red="
-    url_list = []
-    for filename in table["filename"]:
-        url_list.append(base_url + filename)
+    # one URL per requested filter, in the same order (None if not available)
+    url_dict = {filt: base_url + filename for filt, filename in zip(table["filter"], table["filename"])}
+    url_list = [url_dict.get(filt) for filt in filters]
     return url_list
 
 def get_PanSTARRS_images(ra: float, dec: float, size: float | u.Quantity = 3, filters: Optional[str] = None) -> fits.HDUList:
@@ -107,8 +107,10 @@ def get_PanSTARRS_images(ra: float, dec: float, size: float | u.Quantity = 3, fi
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
-    # get URLs
+    # get URLs (None for the filters without images)
     fits_url = get_PS1_urls(ra, dec, size, filters)
-    # download FITS images
-    hdu_list = open_fits_from_urls(fits_url)
+    # download FITS images, keeping the order of the filters
+    available = [url for url in fits_url if url is not None]
+    hdus = iter(open_fits_from_urls(available))
+    hdu_list = [next(hdus) if url is not None else None for url in fits_url]
     return hdu_list
