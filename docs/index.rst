@@ -80,6 +80,7 @@ HostPhot is being actively developed in `a public repository on GitHub
    :caption: About the Code
 
    about/details.rst
+   about/changelog.rst
 
 
 Citing HostPhot

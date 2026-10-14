@@ -34,6 +34,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.mathjax",
     "nbsphinx",
+    "myst_parser",  # for the changelog (CHANGELOG.md)
     # "sphinx.ext.pngmath",
 ]
 

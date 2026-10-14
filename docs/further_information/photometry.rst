@@ -9,7 +9,7 @@ To obtain calibrated photometry in magnitudes, the zero-point (ZP) is essential 
 
 However, the error propagation can be a lot more problematic for some surveys.
 
-**Note:** out of the included surveys, WISE, 2MASS, VISTA, SkyMapper and UKIDSS images need background subtraction (background subtraction of these surveys is performed by default by HostPhot). The images from the other surveys are already background subtracted.
+**Note:** out of the included surveys, WISE, 2MASS, VISTA, SkyMapper, UKIDSS, Spitzer and JWST images need background subtraction (background subtraction of these surveys is performed by default by HostPhot; it can be changed with the ``bkg_sub`` parameter). Spitzer (SEIP) mosaics only have a model of the zodiacal light subtracted, and the sky is not subtracted from JWST ``i2d`` images. For GALEX, the background-subtracted intensity maps of the GALEX pipeline (``intbgsub``) are downloaded. The images from the other surveys are already background subtracted by their respective pipelines, although small residuals can remain (e.g. SDSS, HSC and S-PLUS), which can affect faint sources and large apertures (``bkg_sub=True`` can be used in those cases).
 
 For the global photometry, HostPhot uses :func:`sep.sum_ellipse()` to meaused the counts of the host galaxy, where the value of the parameter ``gain`` depends on each survey+image and the parameter ``err`` is taken to be the global RMS of the background of the image, calculated with :func:`sep.Background()`.
 
@@ -29,13 +29,9 @@ PS1
   
 * **Error Propagation**
 
-  The readnoise and Poisson noise are propagated using the following formula in magnitude space:
+  The aperture uncertainty (:math:`\sigma_{\text{ap}}`) includes the background noise (estimated from the image, which includes the readnoise) and the Poisson noise of the source. As the images are coadds, their noise is correlated between pixels, which is not captured by the pixel-wise uncertainties: a noise floor is therefore applied, given by the scatter of the fluxes in blank apertures around the source (:math:`\sigma_{\text{blank}}`). These apertures do not overlap with detected sources (including the host galaxy), and their fluxes are measured relative to a smooth local background, so that they are not affected by the faint wings of the galaxy. The aperture uncertainty is then :math:`\sigma_{\text{ap}} = max(\sigma_{\text{ap}}, \sigma_{\text{blank}})`. In addition, a systematic error floor is added to each filter, (:math:`\sigma_g, \sigma_r, \sigma_i, \sigma_z, \sigma_y`) = (14, 14, 15, 15, 18) mmag, as described in `Magnier et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020ApJS..251....6M/abstract>`_.
   
-  :math:`\sigma_{\text{noise}} = 2.5/ln(10) * sqrt(A_{\text{ap}} * (\text{readnoise}**2) + flux / \text{gain}) / flux`
-  
-  where :math:`A_{\text{ap}}` is the area of the aperture used (:math:`\pi*a*b` for an ellipse) and :math:`flux` are the counts measured inside that area. The readnoise is obtained from the ``HIERARCH CELL.READNOISE`` keyword in the image's header, while the gain is obtained from the ``HIERARCH CELL.GAIN`` keyword. In addition, a systematic error floor is added to each filter, (:math:`\sigma_g, \sigma_r, \sigma_i, \sigma_z, \sigma_y`) = (14, 14, 15, 15, 18) mmag, as described in `Magnier et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020ApJS..251....6M/abstract>`_.
-  
-  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{floor}}^2)`.
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{floor}}^2)`.
   
 
 
@@ -48,9 +44,9 @@ DES
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1. However, there is an additional component coming from the calibration of the photometric system (see the `DES DR1 Quality website <https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality>`_). There are statistical uncertainties on the shifts applied to DES photometry to place it in the AB system (:math:`\sigma_{\text{stat, shift}}`), which are 2.6, 2.9, 3.4, 2.5, and 4.5 mmag for the :math:`g`, :math:`r`, :math:`i`, :math:`z`, and :math:`Y` bands, respectively. In addition, there are median coadd zeropoint statistical uncertainties (:math:`\sigma_{\text{stat, zp}}`): 5, 4, 5, 6, and 5 mmag for the :math:`g`, :math:`r`, :math:`i`, :math:`z`, and :math:`Y` bands, respectively.
+  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor). However, there is an additional component coming from the calibration of the photometric system (see the `DES DR1 Quality website <https://des.ncsa.illinois.edu/releases/dr1/dr1-docs/quality>`_). There are statistical uncertainties on the shifts applied to DES photometry to place it in the AB system (:math:`\sigma_{\text{stat, shift}}`), which are 2.6, 2.9, 3.4, 2.5, and 4.5 mmag for the :math:`g`, :math:`r`, :math:`i`, :math:`z`, and :math:`Y` bands, respectively. In addition, there are median coadd zeropoint statistical uncertainties (:math:`\sigma_{\text{stat, zp}}`): 5, 4, 5, 6, and 5 mmag for the :math:`g`, :math:`r`, :math:`i`, :math:`z`, and :math:`Y` bands, respectively.
   
-  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{stat, shift}}^2 + \sigma_{\text{stat, zp}}^2)`.
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{stat, shift}}^2 + \sigma_{\text{stat, zp}}^2)`.
 
 
 SDSS
@@ -125,9 +121,9 @@ WISE
   The ZP comes with an associated uncertainty (:math:`\sigma_{ZP}`, ``MAGZPUNC`` keyword in the header).
   The source uncertainty is:
   
-  :math:`\sigma_{\text{src}} = sqrt\big(f_{\text{apcorr}}^2 * F_{\text{src}} * (\Sigma\sigma_i^2 + k*(N_A^2/N_B) * \sigma^2_{\bar{B}/pix}) + \sigma_{\text{conf}}^2 \big)`,
+  :math:`\sigma_{\text{src}} = sqrt\big(f_{\text{apcorr}}^2 * F_{\text{corr}} * (\Sigma\sigma_i^2 + k*(N_A^2/N_B) * \sigma^2_{\bar{B}/pix}) + \sigma_{\text{conf}}^2 \big)`,
   
-  where :math:`F_{\text{corr}}` is the correlated noise correction factor for flux variance , :math:`N_A` and :math:`N_B` are the number of pixels in the source aperture and annulus (both assume to be equal to the aperture area in pixel units), respectively, :math:`\sigma_i` is the flux uncertainty for pixel :math:`i` from uncertainty map (assumed to be approximately the error on the aperture sum above), :math:`\sigma^2_{\bar{B}/pix}` is the variance in sky-background annulus (assumed to be equal to the global RMS of the image's background), and :math:`\sigma_{\text{conf}}^2` is the confusion noise-variance on scale (assumed to be approximately the error on the aperture sum above).
+  where :math:`F_{\text{corr}} = N_p (s_{\text{in}}/s_{\text{out}})^2` is the correlated noise correction factor for flux variance, with :math:`N_p` the effective number of noise-pixels of the PRF (:math:`13.772`, :math:`17.636`, :math:`35.476` and :math:`24.462` for *W1*-*W4*, from `Section IV.6.c.i <https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_6ci.html>`_) and :math:`s_{\text{in}}/s_{\text{out}}` the ratio of the native to Atlas Image pixel scales (:math:`2` for *W1*-*W3* and :math:`4` for *W4*), limited to :math:`N_A` for small apertures; :math:`N_A` is the number of pixels in the source aperture and :math:`N_B` the number of pixels used for the background (the whole image); :math:`\sigma_i` is the flux uncertainty for pixel :math:`i` (assumed to be the global RMS of the image's background, i.e. background-dominated noise), so that :math:`\Sigma\sigma_i^2 = N_A \sigma_i^2`; :math:`\sigma^2_{\bar{B}/pix}` is the variance of the background (the global RMS of the image's background squared) and :math:`k = \pi/2`; the confusion noise (:math:`\sigma_{\text{conf}}`) is not included.
   
   Thus, :math:`\sigma = sqrt\big(\sigma_{ZP}^2 + 1.179*(\sigma_{\text{src}}^2 / F_{\text{src}}^2) \big)`, as described in the link above, were :math:`F_{\text{src}}` is the integrated aperture flux of the source (e.g. galaxy).
 
@@ -141,7 +137,9 @@ unWISE
   
 * **Error Propagation**
 
-  This is calculated in the same way as for WISE.
+  The unWISE images are downloaded together with their inverse-variance maps (`Lang 2014 <https://iopscience.iop.org/article/10.1088/0004-6256/147/5/108>`_), which are used to calculate the flux uncertainties in the same way as for the Legacy Survey, including a noise floor from the scatter of blank (source-free) apertures around the source, which accounts for correlated noise. The ZP uncertainties (:math:`\sigma_{ZP}`) are those of the WISE Atlas Images: :math:`6`, :math:`7`, :math:`15` and :math:`12` mmag for *W1*-*W4*, respectively (Table 1 of `Section 2.3 <https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec2_3f.html>`_ of the WISE website).
+
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{invvar}}^2 + \sigma_{\text{ZP}}^2)`, where :math:`\sigma_{\text{invvar}}` is the largest between the propagated inverse-variance and blank-aperture uncertainties.
   
 
 Legacy Survey
@@ -153,7 +151,7 @@ Legacy Survey
   
 * **Error Propagation**
 
-  This surveys has two main sources of unertainties: one coming from the photometric calibration of DR10 (see `Zhou et al. (2023) <https://ui.adsabs.harvard.edu/abs/2023RNAAS...7..105Z/abstract>`_), which are 5.0, 3.9, 4.3 and 5.5 mmag for the :math:`g`, :math:`r`, :math:`i` and :math:`z` bands, respectively, and the other coming from the inverse-variance maps included with the images.
+  This surveys has two main sources of unertainties: one coming from the photometric calibration of DR10 (see `Zhou et al. (2023) <https://ui.adsabs.harvard.edu/abs/2023RNAAS...7..105Z/abstract>`_), which are 5.0, 3.9, 4.3 and 5.5 mmag for the :math:`g`, :math:`r`, :math:`i` and :math:`z` bands, respectively, and the other coming from the inverse-variance maps included with the images, with a noise floor given by the scatter of blank apertures (with the detected sources, including the host galaxy, masked) around the source.
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2 + \sigma_{\text{invvar}}^2)`.
   
@@ -167,9 +165,17 @@ Spitzer
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1, where the gain and readnoise come from the `IRAC <https://irsa.ipac.caltech.edu/data/SPITZER/docs/irac/iracinstrumenthandbook/IRAC_Instrument_Handbook.pdf>`_ and `MIPS <https://irsa.ipac.caltech.edu/data/SPITZER/docs/mips/mipsinstrumenthandbook/MIPS_Instrument_Handbook.pdf>`_ instrument manuals (see tables 2.3 and 2.4).
+  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor, as the mosaics have correlated noise), with an additional component coming from the absolute flux calibration (:math:`\sigma_{\text{cal}}`): :math:`3\%` for IRAC (Section 4.3 of the `IRAC Instrument Handbook <https://irsa.ipac.caltech.edu/data/SPITZER/docs/irac/iracinstrumenthandbook/14/>`_) and :math:`4\%` for MIPS :math:`24 \mu \text{m}` (`MIPS Instrument Handbook <https://irsa.ipac.caltech.edu/data/SPITZER/docs/mips/mipsinstrumenthandbook/42/>`_), i.e. :math:`\sim0.033` and :math:`\sim0.043` mag, respectively. All the uncertainties are calculated in the units of the images (MJy/sr).
   
-  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2)`.
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{cal}}^2)`.
+
+* **Extended-source correction (IRAC)**
+
+  The IRAC calibration is tied to point sources, so the photometry of extended sources (galaxies) is corrected for the light scattered across the IRAC focal plane, following Section 8.2.2 of the `IRAC Instrument Handbook <https://irsa.ipac.caltech.edu/data/SPITZER/docs/irac/iracinstrumenthandbook/46/>`_: :math:`F_{\text{true}} = F_{\text{measured}} \times (A e^{-r^B} + C)`, where :math:`r` is the (effective, for elliptical apertures) aperture radius in arcsec, and the coefficients (:math:`A`, :math:`B`, :math:`C`) are (:math:`0.82`, :math:`0.370`, :math:`0.910`), (:math:`1.16`, :math:`0.433`, :math:`0.94`), (:math:`1.49`, :math:`0.207`, :math:`0.66`) and (:math:`1.37`, :math:`0.330`, :math:`0.740`) for IRAC channels 1 to 4, respectively. For example, for a :math:`30` arcsec radius the fluxes are corrected by factors of :math:`0.93`, :math:`0.96`, :math:`0.86` and :math:`0.80`, respectively. As recommended by the handbook, the correction is not applied to apertures with radii smaller than :math:`8` arcsec. The corrections are good to :math:`10\%`, which is propagated as an uncertainty of :math:`10\%` of the size of the correction (:math:`0.1 \times |1 - \text{correction}|`). Note that these corrections were derived from elliptical galaxies, and larger departures can be expected for low surface brightness galaxies.
+
+* **Extended sources (MIPS)**
+
+  No extended-source correction is applied to MIPS :math:`24 \mu \text{m}`, as extended-source measurements are consistent with the point-source calibration (Section 4.1.3 of the `MIPS Instrument Handbook <https://irsa.ipac.caltech.edu/data/SPITZER/docs/mips/mipsinstrumenthandbook/42/>`_). Point-source aperture corrections are not applied either, as for the other surveys (see the HST section). However, note that the MIPS :math:`24 \mu \text{m}` PSF is large (FWHM of :math:`\sim6` arcsec, with strong Airy rings): the point-source aperture corrections are :math:`\sim1.6`-:math:`2.0` for a :math:`7` arcsec radius aperture and :math:`\sim1.16` for :math:`13` arcsec (Table 4.13 of `Section 4.3.4 <https://irsa.ipac.caltech.edu/data/SPITZER/docs/mips/mipsinstrumenthandbook/50/>`_). Therefore, the photometry of small apertures (radius :math:`\lesssim13` arcsec, i.e. :math:`\sim2` times the FWHM) is dominated by the PSF rather than by the light distribution of the galaxy, and apertures enclosing a whole (compact) galaxy can miss a fraction (:math:`\sim5`-:math:`15\%`) of its flux, scattered by the PSF wings. It is recommended to use apertures with radii of at least :math:`\sim13` arcsec for MIPS, and larger for compact galaxies.
   
   
 VISTA
@@ -187,12 +193,18 @@ VISTA
   :math:`ZP_{\text{eff}} = MAGZPT - extinction` 
   
   and is stored in the ``MAGZP`` to follow HostPhot convention. In addition, the flux is rescaled by the exposure time, in the same way as for the PS1 images.
+
+  The images are tiles, for which no further photometric correction of the astrometric distortion is necessary (see the `CASU tile generation website <http://casu.ast.cam.ac.uk/surveys-projects/vista/technical/tiles>`_).
+
+* **Comparison with 2MASS and UKIDSS**
+
+  For stars in a field covered by 2MASS, VISTA and UKIDSS, HostPhot photometry in :math:`6` arcsec radius apertures agrees with the 2MASS Point Source Catalog (transformed into each photometric system using the CASU and `Hodgkin et al. (2009) <https://ui.adsabs.harvard.edu/abs/2009MNRAS.394..675H/abstract>`_ colour equations) to within :math:`\sim0.01` mag for 2MASS, :math:`\sim0.02`-:math:`0.03` mag for UKIDSS and :math:`\sim0.04` mag for VISTA (HostPhot being brighter). The difference for VISTA is consistent with the broader PSF wings of the tiles, which combine up to 96 detector images with different PSFs: a fixed aperture collects more flux than the (point-source, aperture-corrected) calibration assumes, and the difference increases with the aperture size. This mainly affects point-like sources; for extended sources (galaxies), the light scattered by the PSF out of the aperture is largely compensated by the light scattered into it. Note that the agreement with the VHS catalogue (Petrosian magnitudes) is worse (:math:`\sim0.04`-:math:`0.10` mag), as these do not capture the full flux of the stars.
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1, with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword).
+  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword).
   
-  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{ZP}})`.
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2)`.
   
   
 HST/WFC3
@@ -206,11 +218,15 @@ HST/WFC3
   
   This is saved in the header under the ``MAGZP`` keyword. 
   
-  In addition, the image's counts should be multiplied by the encircled energy fraction, which mainly affects small apertures (see `EE-UVIS <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/uvis-encircled-energy>`_ and `EE-IR <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/ir-encircled-energy>`_ for WFC3/UVIS and WFC3/IR instruments, respectively). WFC3/UVIS has two detectors, UVIS1 and UVIS2, where the downloaded images have the detector UVIS2 scaled to UVIS1. The encircled energy fraction depends on each detector, so an average is taken between both. The value of `PHOTFLAM` also depends on the detector (`PHOTFLAM1` and `PHOTFLAM2`), but it is already calibrated to a single value (`PHOTFLAM`) and the same thing for `PHOTPLAM`.
+  The value of `PHOTFLAM` depends on the detector (`PHOTFLAM1` and `PHOTFLAM2` for the WFC3/UVIS detectors UVIS1 and UVIS2), but the images are already calibrated to a single value (`PHOTFLAM`), and the same applies to `PHOTPLAM`.
+
+* **Aperture correction**
+
+  No aperture (encircled energy) correction is applied. These corrections (see `EE-UVIS <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/uvis-encircled-energy>`_ and `EE-IR <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/ir-encircled-energy>`_) are meant for point sources, while HostPhot targets extended sources (galaxies): for these, the light scattered by the PSF out of the aperture is largely compensated by the light scattered into it from the rest of the galaxy. In addition, the HST PSF (FWHM of :math:`\sim0.07` and :math:`\sim0.15` arcsec for WFC3/UVIS and WFC3/IR, respectively) is much smaller than the usual apertures, so the effect is negligible. This is also consistent with the other surveys, for which no aperture correction is applied either.
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1, with an additional component coming from the ZP calibration (`ERR_PHOTFLAM`; :math:`\sigma_{\text{ZP}}`), taken from the tables found in the photometric calibration websites of the instruments (see `UVIS photometric calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/uvis-photometric-calibration>`_ `IR photometric calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/ir-photometric-calibration>`_), which is of the order of a few percent at most.
+  The aperture uncertainty (:math:`\sigma_{\text{ap}}`) includes the background and Poisson noise, with an additional component coming from the ZP calibration (`ERR_PHOTFLAM`; :math:`\sigma_{\text{ZP}}`), taken from the tables found in the photometric calibration websites of the instruments (see `UVIS photometric calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/uvis-photometric-calibration>`_ `IR photometric calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/ir-photometric-calibration>`_), which is of the order of a few percent at most.
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}})`.
 
@@ -224,9 +240,9 @@ SkyMapper
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1 (gain and exposure time from header, and readnoise of 5 electrons - explained in the `SkyMapper instrument website <https://rsaa.anu.edu.au/observatories/instruments/skymapper-instrument>`_), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``ZPTERR`` keyword).
+  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``ZPTERR`` keyword).
   
-  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{ZP}})`.
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2)`.
 
 
 SPLUS
@@ -238,9 +254,9 @@ SPLUS
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1 (gain, exposure time and readnoise from header), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), following Section 4.4 of `Almeida-Fernandes et al. (2022) <https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.4590A/abstract>`_: :math:`25` mmag for :math:`U` and :math:`F395` filters, :math:`15` mmag for :math:`F378` filter and :math:`10` mmag for the rest.
+  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), following Section 4.4 of `Almeida-Fernandes et al. (2022) <https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.4590A/abstract>`_: :math:`25` mmag for :math:`U` and :math:`F395` filters, :math:`15` mmag for :math:`F378` filter and :math:`10` mmag for the rest.
   
-  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{ZP}})`.
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2)`.
 
 
 UKIDSS
@@ -252,9 +268,9 @@ UKIDSS
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1 (gain, exposure time and readnoise from header), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword).
+  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword).
   
-  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{noise}}^2 + \sigma_{\text{ZP}})`.
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2)`.
 
 HSC
 ~~~

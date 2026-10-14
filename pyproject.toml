@@ -4,3 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.black]
 line-length = 79
+[tool.coverage.run]
+# coverage of the package only (not the tests); relative paths are needed for the coverage badge action
+source = ["hostphot"]
+relative_files = true

@@ -10,7 +10,7 @@ Global and local photometry of galaxies hosting supernovae or other transients
 [![PyPI](https://img.shields.io/pypi/v/hostphot?label=PyPI&logo=pypi&logoColor=white)](https://pypi.org/project/hostphot/)
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.04508/status.svg)](https://doi.org/10.21105/joss.04508)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6992139.svg)](https://doi.org/10.5281/zenodo.6992139)
-[![Coverage](https://raw.githubusercontent.com/temuller/hostphot/main/coverage.svg)](https://raw.githubusercontent.com/temuller/hostphot/main/coverage.svg)
+[![Coverage](https://raw.githubusercontent.com/temuller/hostphot/python-coverage-comment-action-data/badge.svg)](https://github.com/temuller/hostphot/tree/python-coverage-comment-action-data)
 
 Read the full documentation at [hostphot.readthedocs.io](https://hostphot.readthedocs.io/en/latest/). It is recommended to read the **Further Information** section to understand how HostPhot works.
 ___
@@ -177,147 +177,10 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 ## What's new
 
-V3.3.0
-
-* Adding HSC (Hyper Suprime-Cam SSP PDR3) support: broadband (g, r, r2, i, i2, z, Y) and narrowband (NB387, NB816, NB921, NB1010) filters via HTTP Basic Auth cutout API. Set the `HSC_SSP_USERNAME` and `HSC_SSP_PASSWORD` environment variables (e.g. in a `.env` file) to use.
-* HSC aperture photometry agrees within ~0.01 mag with the HSC-SSP PDR3 catalog
-* The `.env` file is now searched for from the current working directory (previously from the HostPhot installation directory)
-
-V3.2.3
-
-* Normalise RA to [0, 360) in `download_images` (solves issue with WISE)
-
-v3.2.2
-
-* Fixed hardcoded image size for 2MASS
-
-v3.2.1
-
-* very minor bug fix
-
-v3.2.0
-
-* 2MASS, VISTA and UKIDSS photometry agrees within ~0.1 mag of catalog sources (still some small discrepancies)
-* Fixing Legacy Survey erros - now using the invvar maps for proper values
-* Adding DLR distance to the aperture output
-* Speeding up some downloads of image cutouts
-
-v3.1.2
-
-* Fixing download of GALEX images (issue introduced in v3.1.0 when trying to avoid timeout error - [#13](https://github.com/temuller/hostphot/issues/13)).
-* Also storing the coordinates of detected objects in RA,DEC and the ellipse parameters a/b in degrees.
-
-v3.1.1
-
-* Fixing minor bug when calculating dust extinction for Legacy Survey (Issue [#12](https://github.com/temuller/hostphot/issues/12))
-* Saving input for aperture extraction
-
-v3.1.0
-
-* Using DES DR2 instead of DR1
-* Avoid timeout errors when downloading image cutouts for some surveys.
-* Adapting global aperture even if the survey is the same as the reference (mainly to avoid issues with JWST).
-* Fixing/adding features from different issues, mainly for HST/JWST ([#8](https://github.com/temuller/hostphot/issues/8), [#9](https://github.com/temuller/hostphot/issues/9), [#10](https://github.com/temuller/hostphot/issues/10), [#11](https://github.com/temuller/hostphot/issues/11) - thanks Lisa!).
-
-v3.0.0
-
-* Major internal restructuring of the code:
-  * Convert the cutouts into a module with each survey as a different submodule
-  * Storage of input parameters (with timestamps)
-  * Storage of output parameters in a more friendly format
-  * Restructuring of output files
-* Fix the VISTA SCIENCE ARCHIVE url for downloading VISTA images.
-* Fix issue with VISTA image size when downloading cuouts
-* The download of VISTA images now automatically chooses the survey with overlap for the given coordinates, prioritising the survey with deeper coverage.
-* The user experience is kept approximately consistent with previous versions, but there are some changes
-* Download of HST images is now working!
-* Adding download of JWST images!
-
-___
-v2.10.0
-
-* Adding JWST! (few NIRCam filters for now - thanks to Lisa Kelsey for this addition)
-* SkyMapper upgrade from DR2 to DR4 (note that there is still a problem with the photometric calibration of extended sources)
-* Fix HST functions, which includes working with Drizzlepac images
-* Change path handling package (os --> pathlib)
-* Interactive aperture and download of RGB images have been removed and are no longer available
-* Close some fits images that were previously kept opened
-
-v2.9.0
-
-* Fixing issue when applying/propagating common-mask parameters (e.g. from a coadd) to other images
-* Updated error propagation for Legacy Survey with inverse-variance maps (using it as a weight mask now)
-* Bumping up the DR version of VIKING and VIDEO for VISTA
-
-v2.8.0
-
-* Fix SED plotting with negative or too large values/errors, and improve plotting aesthetics
-* Fix problem downloading some 2MASS images giving internal server error (no image overlap)
-* Adding UKIDSS, SPLUS and SkyMapper surveys. WARNINGS: SkyMapper photometry (DR2) is not very accurate with extended sources!
-* The marker showing the galaxy position on images has changed colour for better visualization
-* Adding functions to easily load previously saved parameteres from pickle files
-* Adding missing extinction correction for flux (not magnitudes)
-* Including exposure time into flux for PS1, VISTA and UKIDSS surveys
-* Adding SDSS ZP offsets into flux
-* Output zeropoint together with the photometry
-* Updating LegacySurvey errors, taken from inverse-variance maps and ZP uncertainty
-* Adding missing offsets to unWISE W1 and W2 bands into fluxes
-* Kron radius is no longer "optimized", just the scale, which doesn't have any effect in practice for the user
-
-v2.7.1
-
-* Adding SED plotting
-* Fixed plotting angle of masked object
-
-v2.7.0
-
-* MAJOR BUG: Convertion factor between different pixel scales fixed (it was previously inverted). This affects the common aperture photometry between different surveys!
-* Moving font family to `_constant.py` file
-
-v2.6.2
-
-* Prettier plots (now using `aplpy`), but also more informative!
-* Scale of the apertures for the masks is now a parameter (`r`)
-* Raise exception is now `True` by default when calculating photometry
-
-v2.6.1
-
-* 2MASS cutouts improved (picking largest image)
-
-v2.6.0:
-
-* HST (WFC3 only - pseudo-trial) included
-* 2MASS cutouts fixed (it now downloads the image closest to the given coordinates)
-
-v2.5.1:
-
-* Using sfdmap2 instead of sfdmap to avoid issues with numpy version (requires Python>=3.9)
-
-v2.5.0:
-
-* Systematic error floor added to PS1 photometry
-* Added missing uncertainties in the error budget of DES (~5 mmag)
-* Flux/counts have been added to output photometry
-* GALEX now downloads images with largest exposure time by default
-* Fixed image realignment/orientation between different surveys when using common apertures (for masking and global photometry)
-* Added option to output mask parameters, and also aperture parameters for global photometry
-* Option added to set a distant threshold to identify the host galaxy in the image (by default use the nearest object)
-* Slight change in the column names of the local photometry output file
-* Offsets in SDSS zeropoints to place it in the AB system
-* overwrite set to True by default when downloading image cutouts
-* Other minor bugs fixed
-
-v2.4.0:
-
-* Fixed and improved GALEX cutouts
-* Better galaxy identification
-* Better output plots for masked images
-* Option to return NaN or raise an exception when getting photometry
-
-v2.3.2:
-
-* Improved download of GALEX images (download even if they seem to be just background noise)
+See the [changelog](https://github.com/temuller/hostphot/blob/main/CHANGELOG.md) for the changes in each version.
 
 ## Acknowledgements
 
 I thank Yuchen LIU for helping me adding Spitzer as part of AstroHackWeek 2022. I also thank Lisa Kelsay for helping add HST and JWST.
+
+The update to version 4.0.0 (validation against the survey catalogues, fixes to the photometric uncertainties, background estimation and downloads, and new tests) was carried out with the assistance of Claude (Anthropic), via Claude Code.

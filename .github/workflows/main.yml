@@ -5,10 +5,16 @@ on:
   pull_request:
     branches: [main]
 
+permissions: {}
+
 jobs:
   tests:
     name: "py${{ matrix.python-version }} / ${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
+    permissions:
+      # for the coverage badge (pushed to the python-coverage-comment-action-data branch) and PR comments
+      contents: write
+      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
@@ -20,6 +26,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+          persist-credentials: false
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -28,9 +35,15 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install -U pip pytest
-          python -m pip install .
+          python -m pip install -e .
           python -m pip install flake8 certifi pytest-xdist pytest-cov
       - name: Lint
         run: flake8 . || true
       - name: Run tests
-        run: pytest -v -n auto --cov=. --cov-report=term --cov-report=xml
+        run: pytest -v -n auto --cov --cov-report=term --cov-report=xml
+      - name: Coverage badge and comment
+        # only once (one job of the matrix); the badge is updated on pushes to the default branch
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        uses: py-cov-action/python-coverage-comment-action@v4
+        with:
+          GITHUB_TOKEN: ${{ github.token }}

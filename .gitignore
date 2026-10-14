@@ -18,3 +18,9 @@ tests/images/*
 .idea/
 .vscode/
 .env
+
+# coverage outputs
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/

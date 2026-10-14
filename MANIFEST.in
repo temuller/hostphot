@@ -1,3 +1,4 @@
 include requirements.txt
 graft src/hostphot/filters/
 graft src/hostphot/moc/
+include CHANGELOG.md
