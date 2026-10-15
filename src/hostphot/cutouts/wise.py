@@ -51,9 +51,12 @@ def get_WISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
 
     base_url = "https://irsa.ipac.caltech.edu/SIA?COLLECTION=wise_allwise"
     params_url = f"&POS=circle+{ra}+{dec}+0.002777&RESPONSEFORMAT=CSV&FORMAT=image/fits"
-    response = requests.get(base_url + params_url)
+    response = requests.get(base_url + params_url, timeout=120)
+    response.raise_for_status()
     # transform the response into a dataframe
     split_text = response.text.split("\n")
+    if "energy_bandpassname" not in split_text[0] or "access_url" not in split_text[0]:
+        raise ConnectionError(f"Unexpected response from the IRSA image service: {response.text[:200]!r}")
     url_dict = {key:[] for key in split_text[0].split(",")}
     for row in split_text[1:]:
         if row == "":

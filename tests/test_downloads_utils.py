@@ -16,9 +16,12 @@ from hostphot.cutouts import panstarrs
 from hostphot.cutouts import splus
 from hostphot.cutouts import legacysurvey
 from hostphot.cutouts import vista
+from hostphot.cutouts import hsc
 from hostphot.cutouts.vista import get_VISTA_images
 from hostphot.surveys_utils import normalize_filters, load_yml, filters_file
-from hostphot.utils import store_input
+from hostphot.utils import store_input, image_has_data, open_fits_from_urls
+from hostphot import utils as hp_utils
+from hostphot.cutouts import wise
 from hostphot.photometry.photometry_utils import extract_filter
 
 
@@ -146,6 +149,46 @@ class TestDownloadsUtils(unittest.TestCase):
         with mock.patch.object(vista.urllib.request, "urlopen", side_effect=socket.timeout("timed out")):
             with self.assertRaisesRegex(TimeoutError, "did not respond"):
                 vista.get_VISTA_images(10.0, 0.0, size=3, filters="J")
+
+
+    def test_hsc_coadd_type(self):
+        # coadds without the local sky subtraction (which removes the extended light of galaxies)
+        with mock.patch.object(hsc.requests, "get") as get:
+            get.return_value.content = b""
+            hsc._request_cutout(150.0, 2.0, 0.01, 0.01, "HSC-R", "pdr3_wide", ("user", "password"))
+        self.assertEqual(get.call_args.kwargs["params"]["type"], "coadd/bg")
+
+
+    def test_image_has_data(self):
+        rng = np.random.default_rng(0)
+        sky = rng.normal(0, 1, (200, 200))
+        self.assertTrue(image_has_data(sky))
+        sky_with_star = sky.copy()
+        sky_with_star[100, 100] = 1e6  # bright source (inflates the standard deviation)
+        self.assertTrue(image_has_data(sky_with_star))
+        # mostly zeros with real counts (e.g. GALEX FUV)
+        counts = np.zeros((200, 200))
+        counts[rng.integers(0, 200, 300), rng.integers(0, 200, 300)] = 1e-3
+        self.assertTrue(image_has_data(counts))
+        # no data: constant, or only uniform compression noise
+        self.assertFalse(image_has_data(np.full((200, 200), 3.0)))
+        self.assertFalse(image_has_data(rng.uniform(-0.02, 0.02, (200, 200))))
+        self.assertFalse(image_has_data(np.full((10, 10), np.nan)))
+
+    def test_failed_download_warns(self):
+        # failed downloads are retried once and reported (they used to fail silently)
+        with mock.patch.object(hp_utils, "open_fits_from_url", side_effect=ConnectionError("down")) as opener:
+            with self.assertWarnsRegex(UserWarning, "could not be downloaded"):
+                hdus = open_fits_from_urls(["https://example.org/image.fits", None])
+        self.assertEqual(hdus, [None, None])
+        self.assertEqual(opener.call_count, 2)
+
+    def test_wise_bad_response(self):
+        # an unexpected response from the image service raises an error instead of returning no images
+        with mock.patch.object(wise.requests, "get") as get:
+            get.return_value.text = "<html>Service unavailable</html>"
+            with self.assertRaisesRegex(ConnectionError, "Unexpected response"):
+                wise.get_WISE_images(150.0, 2.0, size=3, filters=["W1"])
 
 
 if __name__ == "__main__":

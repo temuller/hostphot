@@ -12,6 +12,9 @@ from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 # HSC SSP cutout API endpoint (PDR3)
 _CUTOUT_URL = "https://hsc-release.mtk.nao.ac.jp/das_cutout/pdr3/cgi-bin/cutout"
+# coadds without the local (small-scale) sky subtraction of the HSC pipeline, which removes the
+# extended light of galaxies ("coadd" images); only the global sky subtraction is applied
+_COADD_TYPE = "coadd/bg"
 
 # Mapping: HostPhot internal filter name → HSC API filter name
 _FILTER_API_NAMES = {
@@ -59,6 +62,7 @@ def _request_cutout(
     api_filter: str,
     rerun: str,
     auth: tuple[str, str],
+    coadd_type: Optional[str] = None,
 ) -> fits.HDUList | None:
     """Make a single HSC cutout request and return an open HDUList.
 
@@ -69,6 +73,7 @@ def _request_cutout(
     api_filter: HSC API filter name, e.g. ``HSC-G``.
     rerun: HSC rerun name, e.g. ``pdr3_wide``.
     auth: (username, password) tuple for HTTP Basic Auth.
+    coadd_type: Type of coadd image (``_COADD_TYPE`` by default).
 
     Returns
     -------
@@ -84,7 +89,7 @@ def _request_cutout(
         "sh": sh,
         "filter": api_filter,
         "rerun": rerun,
-        "type": "coadd",
+        "type": coadd_type or _COADD_TYPE,
         "image": "true",
         "mask": "true",
         "variance": "true",

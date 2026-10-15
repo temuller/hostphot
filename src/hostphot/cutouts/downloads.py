@@ -1,3 +1,4 @@
+import warnings
 import importlib
 import pandas as pd
 from pathlib import Path
@@ -5,7 +6,7 @@ import astropy.units as u
 from typing import Optional
 
 from hostphot._constants import workdir
-from hostphot.utils import check_work_dir, store_input
+from hostphot.utils import check_work_dir, store_input, image_has_data
 from hostphot.surveys_utils import (
     get_survey_filters,
     check_survey_validity,
@@ -113,7 +114,16 @@ def download_images(
     # save the images
     for hdu, filt in zip(hdu_list, filters):
         if hdu is None:
-            continue  # skip missing filter/image
+            # no coverage or failed download (see previous warnings, if any)
+            warnings.warn(f"No {survey} image was downloaded for filter {filt} of {name}.")
+            continue
+        if not image_has_data(hdu[0].data):
+            warnings.warn(
+                f"The {survey} image for filter {filt} of {name} contains no data (constant or "
+                "compression noise only), so it was not saved."
+            )
+            hdu.close()
+            continue
         # get output file name
         if survey == "HST":
             #inst = version.replace("/", "_")

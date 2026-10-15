@@ -15,6 +15,8 @@ from hostphot.photometry.photometry_utils import (
     aperture_missing_fraction,
     check_aperture_coverage,
     elliptical_missing_flux_fraction,
+    blank_kron_floor,
+    _extrapolated_blank_rms,
     get_source_mask,
     get_effective_gain,
     magnitude_calculation,
@@ -217,6 +219,35 @@ class TestUncertainties(unittest.TestCase):
         true_scatter = 1.4826 * np.median(np.abs(fluxes - np.median(fluxes)))
         floor = blank_aperture_floor(data, 0.0, 300, 300, radius)
         np.testing.assert_allclose(floor, true_scatter, rtol=0.25)
+
+
+    def test_extrapolated_kron_floor(self):
+        # correlated noise: the noise of large apertures is extrapolated from smaller ones
+        from scipy.ndimage import gaussian_filter
+        rng = np.random.default_rng(11)
+        data = gaussian_filter(rng.normal(0, 1, (1200, 1200)), 2.0)
+        radius = 40.0
+        positions = rng.uniform(60, 1140, (400, 2))
+        fluxes = np.array(aperture_photometry(data, CircularAperture(positions, radius))["aperture_sum"])
+        true_scatter = 1.4826 * np.median(np.abs(fluxes - np.median(fluxes)))
+        source_mask = np.zeros(data.shape, dtype=bool)
+        extrapolated = _extrapolated_blank_rms(data, 600, 600, np.pi * radius**2, source_mask)
+        np.testing.assert_allclose(extrapolated, true_scatter, rtol=0.35)
+        # Kron aperture too large for blank apertures to fit in a small image: extrapolated, with a warning
+        small = data[:300, :300]
+        objects = np.zeros(1, dtype=[("x", float), ("y", float), ("a", float), ("b", float), ("theta", float)])
+        objects["x"], objects["y"], objects["a"], objects["b"] = 150, 150, 20, 15
+        with self.assertWarnsRegex(UserWarning, "extrapolated"):
+            flux_err = blank_kron_floor(small, 0.0, objects, kronrad=2.0, scale=2.5)
+        self.assertGreater(flux_err, 0)
+
+
+    def test_splus_calibration_uncertainty(self):
+        # zero-point uncertainties of Almeida-Fernandes et al. (2022), added in quadrature
+        header = fits.Header({"MAGZP": 22.0, "EXPTIME": 100.0, "TEXPOSED": 100.0, "GAIN": 1.0, "HIERARCH OAJ QC NCNOISE": 1.0})
+        for filt, zp_unc in [("u", 0.025), ("F395", 0.025), ("F378", 0.015), ("r", 0.010), ("F660", 0.010)]:
+            mag_err = magnitude_calculation(1e5, 1.0, "SPLUS", filt, 100.0, header, 0.1)[1]
+            np.testing.assert_allclose(mag_err, zp_unc, rtol=0.01)
 
 
 if __name__ == "__main__":

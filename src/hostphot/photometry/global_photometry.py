@@ -732,6 +732,7 @@ def photometry(
     invvar = get_invvar_map(hdu, survey)
     x, y, a, b, theta = _kron_ellipse(gal_obj, kronrad, scale)
     label = f"{survey} {filt} (Kron aperture)"
+    pixel_scale = float(np.sqrt(abs(np.linalg.det(wcs.pixel_scale_matrix))) * 3600)  # arcsec
     # the outer parts of the Kron aperture contain little flux, so the missing flux is checked
     kron_aperture = EllipticalAperture((x, y), a, b, theta=theta)
     if not check_aperture_coverage(data_sub, kron_aperture, label, flux_weighted=True):
@@ -743,13 +744,17 @@ def photometry(
             gal_obj,
             kronrad,
             scale,
+            pixel_scale=pixel_scale,
+            label=label,
         )
     else:
         flux, flux_err = kron_flux(
             data_sub, bkg.rms(), _exptime, gal_obj, kronrad, scale
         )
         if survey in blank_floor_surveys:
-            flux_err = blank_kron_floor(data_sub, flux_err, gal_obj, kronrad, scale)
+            flux_err = blank_kron_floor(
+                data_sub, flux_err, gal_obj, kronrad, scale, pixel_scale=pixel_scale, label=label
+            )
     
     # aperture area of the (scaled) Kron ellipse
     ap_area = kron_aperture_area(gal_obj, kronrad, scale)

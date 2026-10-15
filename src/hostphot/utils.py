@@ -55,6 +55,35 @@ def open_fits_from_url(url: str) -> fits.hdu:
     hdu = fits.open(BytesIO(content))
     return hdu
 
+def image_has_data(data: np.ndarray) -> bool:
+    """Checks whether an image contains data, i.e. it is not constant or just the uniform noise
+    left by image compression (as returned by some services where there is no data).
+
+    For uniformly distributed values, the range between the 0.1 and 99.9 percentiles is ~2.7 times
+    the robust standard deviation (from the median absolute deviation), while it is >~6 times for
+    (Gaussian) sky noise, and larger with sources.
+
+    Parameters
+    ----------
+    data: Image data.
+
+    Returns
+    -------
+    has_data: Whether the image contains data.
+    """
+    values = np.asarray(data, dtype=float)
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        return False
+    if np.std(values) == 0:
+        return False  # constant image
+    robust_std = 1.4826 * np.median(np.abs(values - np.median(values)))
+    if robust_std == 0:
+        return True  # mostly constant pixels with real values (e.g. GALEX FUV counts)
+    low, high = np.percentile(values, [0.1, 99.9])
+    return bool((high - low) / robust_std > 4)
+
+
 def open_fits_from_urls(urls: list[str | None]) -> list[fits.HDUList | None]:
     """Opens multiple FITS files from URLs in parallel.
 
@@ -71,10 +100,14 @@ def open_fits_from_urls(urls: list[str | None]) -> list[fits.HDUList | None]:
     def safe_open(url: str | None) -> fits.HDUList | None:
         if url is None:
             return None
-        try:
-            return open_fits_from_url(url)
-        except Exception:
-            return None
+        # one retry, as servers can fail temporarily (e.g. with parallel requests)
+        for attempt in range(2):
+            try:
+                return open_fits_from_url(url)
+            except Exception as exc:
+                error = exc
+        warnings.warn(f"The image could not be downloaded from {url}: {error!r}")
+        return None
 
     with ThreadPoolExecutor() as executor:
         hdus = list(executor.map(safe_open, urls))

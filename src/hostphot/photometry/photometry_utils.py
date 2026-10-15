@@ -297,16 +297,14 @@ def uncertainty_calculation(
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
     elif survey == "SPLUS":
-        # following Section 4.4 of Almeida-Fernandes et al. (2022)
+        # zero-point uncertainties from Section 4.4 of Almeida-Fernandes et al. (2022):
+        # 25 mmag (u and J0395), 15 mmag (J0378) and 10 mmag (all other filters)
         zp_uncs = {
-            "U": 25e-3,
+            "u": 25e-3,
             "F395": 25e-3,
             "F378": 15e-3,
         }
-        if filt in zp_uncs.keys():
-            zp_unc = zp_uncs[filt]
-        else:
-            zp_unc = 1e-3
+        zp_unc = zp_uncs.get(filt, 10e-3)
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
     elif survey == "JWST":
@@ -868,6 +866,7 @@ def _blank_elliptical_rms(
     n_apertures: int = 80,
     rmin_factor: float = 2.5,
     rmax_factor: float = 6.0,
+    source_mask: Optional[np.ndarray] = None,
 ) -> float | None:
     """Estimate an empirical noise floor from blank elliptical apertures (see :func:`_blank_rms`)."""
     step_scale = max(a, b)
@@ -880,7 +879,51 @@ def _blank_elliptical_rms(
         rmin_factor * step_scale,
         rmax_factor * step_scale,
         n_apertures,
+        source_mask,
     )
+
+
+def _extrapolated_blank_rms(
+    data: np.ndarray,
+    x0: float,
+    y0: float,
+    area: float,
+    source_mask: np.ndarray,
+    fractions: tuple = (1 / 64, 1 / 32, 1 / 16, 1 / 8, 1 / 4, 1 / 2),
+) -> float | None:
+    """Estimate the blank-aperture noise of apertures too large to fit in the image.
+
+    The noise of smaller blank circular apertures (with ``fractions`` of the given area) is
+    fitted as :math:`\\sigma \\propto A^\\beta` (in log space), with :math:`\\beta` between 0.5
+    (uncorrelated noise) and 1 (fully correlated), and extrapolated to the given area.
+
+    Parameters
+    ----------
+    data: Image data.
+    x0, y0: Centre of the source aperture.
+    area: Area of the source aperture in pixels.
+    source_mask: Mask of the detected sources (see :func:`get_source_mask`).
+    fractions: Areas of the smaller apertures, as fractions of ``area``.
+
+    Returns
+    -------
+    rms: Extrapolated noise, or ``None`` if fewer than three smaller apertures could be measured.
+    """
+    target_radius = np.sqrt(area / np.pi)
+    points = []
+    for fraction in fractions:
+        radius = target_radius * np.sqrt(fraction)
+        if radius < 1.5:
+            continue
+        rms = _blank_aperture_rms(data, x0, y0, radius, source_mask=source_mask)
+        if rms is not None and rms > 0:
+            points.append((np.pi * radius**2, rms))
+    if len(points) < 3:
+        return None
+    log_area, log_rms = np.log(np.array(points)).T
+    beta = float(np.clip(np.polyfit(log_area, log_rms, 1)[0], 0.5, 1.0))
+    intercept = np.median(log_rms - beta * log_area)
+    return float(np.exp(intercept + beta * np.log(area)))
 
 
 def aperture_missing_fraction(data: np.ndarray, aperture) -> float:
@@ -1050,11 +1093,19 @@ def blank_aperture_floor(
 
 
 def blank_kron_floor(
-    data: np.ndarray, flux_err: float, objects: np.ndarray, kronrad: float, scale: float
+    data: np.ndarray,
+    flux_err: float,
+    objects: np.ndarray,
+    kronrad: float,
+    scale: float,
+    pixel_scale: float = 1.0,
+    label: str = "Kron aperture",
 ) -> float:
     """Applies a blank-aperture noise floor to the error of a Kron flux.
 
-    See :func:`blank_aperture_floor`.
+    See :func:`blank_aperture_floor`. If blank apertures of the size of the Kron aperture do not fit
+    in the image (e.g. a large galaxy in a small image), the floor is extrapolated from smaller
+    apertures (see :func:`_extrapolated_blank_rms`), with a warning.
 
     Parameters
     ----------
@@ -1063,13 +1114,29 @@ def blank_kron_floor(
     objects: Objects detected with `sep.extract()`.
     kronrad: Kron radius.
     scale: Scale of the Kron radius.
+    pixel_scale: Pixel scale in arcsec (for the source mask).
+    label: Description of the measurement, used in the warnings (e.g. survey and filter).
 
     Returns
     -------
     flux_err: Flux uncertainty including the floor.
     """
     x, y, a, b, theta = _kron_ellipse(objects, kronrad, scale)
-    return _apply_floor(flux_err, _blank_elliptical_rms(data, x, y, a, b, theta))
+    source_mask = _source_mask(data, pixel_scale, host_xy=(x, y))
+    rms = _blank_elliptical_rms(data, x, y, a, b, theta, source_mask=source_mask)
+    if rms is None:
+        rms = _extrapolated_blank_rms(data, x, y, np.pi * a * b, source_mask)
+        if rms is None:
+            warnings.warn(
+                f"{label}: the blank-aperture noise floor could not be estimated (not enough blank sky "
+                "in the image), so the uncertainty might be underestimated. Consider downloading a larger image."
+            )
+        else:
+            warnings.warn(
+                f"{label}: blank apertures of the size of the Kron aperture do not fit in the image, so the "
+                "noise floor was extrapolated from smaller apertures (less accurate). Consider downloading a larger image."
+            )
+    return _apply_floor(flux_err, rms)
 
 
 def extract_invvar_aperture_flux(
@@ -1093,13 +1160,15 @@ def extract_invvar_kron_flux(
     objects: np.ndarray,
     kronrad: float,
     scale: float,
+    pixel_scale: float = 1.0,
+    label: str = "Kron aperture",
 ) -> tuple[float, float]:
     """Kron flux with inverse-variance propagation and a blank-aperture floor."""
     x, y, a, b, theta = _kron_ellipse(objects, kronrad, scale)
     flux, weights, mask = _elliptical_weighted_sum(data, x, y, a, b, theta)
     invvar_var = _aperture_invvar_variance(invvar, weights, mask)
     invvar_err = np.sqrt(invvar_var) if invvar_var > 0 else np.nan
-    return flux, blank_kron_floor(data, invvar_err, objects, kronrad, scale)
+    return flux, blank_kron_floor(data, invvar_err, objects, kronrad, scale, pixel_scale, label)
 
 # Herschel-specific functions (similar to the inverse-variance ones above)
 def _herschel_ellipse_params(
