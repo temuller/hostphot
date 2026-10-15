@@ -175,32 +175,12 @@ def uncertainty_calculation(
         mag_err = np.sqrt(mag_err**2 + calib_err**2)
 
     elif survey == "GALEX":
+        # the Poisson noise of the source and the background noise are included in the aperture
+        # error, so only the calibration uncertainty is added: 5% (FUV) and 2.7% (NUV), see
         # https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html
-        CPS = flux
-        if filt == "FUV":
-            uv_err = -2.5 * (
-                np.log10(CPS)
-                - np.log10(
-                    CPS
-                    + (CPS * exptime + (0.050 * CPS * exptime) ** 2) ** 0.5 / exptime
-                )
-            )
-            # flux_uv_err = (
-            #    np.sqrt(CPS * exptime + (0.050 * CPS * exptime) ** 2) / exptime
-            # )
-        elif filt == "NUV":
-            uv_err = -2.5 * (
-                np.log10(CPS)
-                - np.log10(
-                    CPS
-                    + (CPS * exptime + (0.027 * CPS * exptime) ** 2) ** 0.5 / exptime
-                )
-            )
-            # flux_uv_err = (
-            #    np.sqrt(CPS * exptime + (0.027 * CPS * exptime) ** 2) / exptime
-            # )
-
-        mag_err = np.sqrt(mag_err**2 + uv_err**2)
+        calib_frac = {"FUV": 0.050, "NUV": 0.027}[filt]
+        calib_err = 2.5 / np.log(10) * calib_frac
+        mag_err = np.sqrt(mag_err**2 + calib_err**2)
 
     elif survey == "2MASS":
         # see: https://wise2.ipac.caltech.edu/staff/jarrett/2mass/3chan/noise/

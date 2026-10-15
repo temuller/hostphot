@@ -14,6 +14,23 @@ from hostphot.surveys_utils import get_survey_filters, check_filters_validity, s
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
+# maximum separation (in degrees) between the position and the centre of a GALEX tile
+_MAX_SEPARATION = 0.55
+
+
+def _has_data_at(hdu: fits.HDUList, coords: SkyCoord) -> bool:
+    """Whether a GALEX image has data (finite, non-zero pixels) around the given position."""
+    data = hdu[0].data
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        x, y = WCS(hdu[0].header, naxis=2).world_to_pixel(coords)
+    ix, iy = int(round(float(x))), int(round(float(y)))
+    if not (5 <= iy < data.shape[0] - 5 and 5 <= ix < data.shape[1] - 5):
+        return False
+    stamp = data[iy - 5 : iy + 6, ix - 5 : ix + 6]
+    return bool(np.mean(np.isfinite(stamp) & (stamp != 0)) > 0.5)
+
+
 def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3, 
                     filters: Optional[str] = None, version: Optional[str] = None) -> list[fits.ImageHDU]:
     """Downloads a set of GALEX fits images for a given set
@@ -120,12 +137,16 @@ def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3,
                 separation = coords.separation(coords_img).value
                 separations.append(separation)
 
-            # get the image with the galaxy closest to the center
-            if len(separations) != 0:
-                id_file = np.argmin(separations)
-                hdu = hdu_list[id_file]
-            else:
-                hdu = None
+            # get the image with the galaxy closest to the center, among those covering the
+            # position: within the well-exposed part of the field of view (~0.6 deg radius)
+            # and with data at the position (outside the field of view, the images are zero)
+            hdu = None
+            for id_file in np.argsort(separations):
+                if separations[id_file] > _MAX_SEPARATION:
+                    break
+                if _has_data_at(hdu_list[id_file], coords):
+                    hdu = hdu_list[id_file]
+                    break
 
             hdu_dict[filt] = hdu
 
