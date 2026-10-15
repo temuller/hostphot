@@ -31,7 +31,7 @@ from astropy import units as u
 from astropy.cosmology import FlatLambdaCDM, Cosmology
 
 from hostphot._constants import workdir, font_family
-from hostphot.processing.cleaning import remove_nan
+from hostphot.processing.cleaning import remove_nan, saturated_mask
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, suppress_stdout, store_input
 from hostphot.processing.background import masked_background
@@ -42,6 +42,7 @@ from hostphot.photometry.photometry_utils import (
     blank_aperture_floor,
     blank_floor_surveys,
     check_aperture_coverage,
+    check_saturation,
     get_source_mask,
     get_effective_gain,
 )
@@ -255,6 +256,7 @@ def photometry(
     # load image information
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
+    saturated = saturated_mask(hdu)  # e.g. HSC (None if not available)
     header = hdu[0].header
     data = hdu[0].data
     _exptime = get_effective_gain(header, survey, filt)  # for the Poisson noise of the sources
@@ -301,7 +303,8 @@ def photometry(
 
         invvar = get_invvar_map(hdu, survey)
         label = f"{survey} {filt} ({radius_arcsec:.3g} arcsec aperture)"
-        if not check_aperture_coverage(data_sub, CircularAperture((px, py), r=radius_pix), label):
+        aperture = CircularAperture((px, py), r=radius_pix)
+        if not check_saturation(saturated, aperture, label) or not check_aperture_coverage(data_sub, aperture, label):
             flux, flux_err = np.nan, np.nan
         elif invvar is not None:
             if source_mask is None:

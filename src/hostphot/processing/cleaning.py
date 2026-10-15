@@ -70,6 +70,35 @@ def zeros_to_nan(data: np.ndarray, min_size: int = 1000) -> np.ndarray:
     return data
 
 
+# mask-plane bits of pixels without measured data, e.g. saturated in all the exposures of a coadd
+# (HSC; their values are interpolated). Pixels only flagged as interpolated (INTRP) are detector
+# defects (e.g. bad columns or cosmic rays), with reasonable interpolated values, so they are kept
+SATURATED_MASK_BITS = ["NO_DATA"]
+
+
+def saturated_mask(hdu: list[fits.ImageHDU]) -> np.ndarray | None:
+    """Returns the mask of the pixels without measured data (e.g. saturated and interpolated) from the
+    mask plane of an image (``MASK`` extension with the bit definitions in ``MP_*`` keywords, as in
+    HSC images), if available.
+
+    Parameters
+    ----------
+    hdu: Image HDU list.
+
+    Returns
+    -------
+    mask: Boolean mask (``True`` for the flagged pixels), or ``None`` if there is no mask plane.
+    """
+    if "MASK" not in hdu or hdu["MASK"].data is None or hdu["MASK"].data.shape != hdu[0].data.shape:
+        return None
+    header = hdu["MASK"].header
+    bits = [header[f"MP_{name}"] for name in SATURATED_MASK_BITS if f"MP_{name}" in header]
+    if len(bits) == 0:
+        return None
+    flag = np.bitwise_or.reduce([1 << int(bit) for bit in bits])
+    return (hdu["MASK"].data.astype(np.int64) & flag) > 0
+
+
 def remove_nan(hdu: list[fits.ImageHDU]) -> list[fits.ImageHDU]:
     """Remove columns and/or rows which have all NaN values (after converting large regions of exact
     zeros, without data, into NaN; see :func:`zeros_to_nan`).

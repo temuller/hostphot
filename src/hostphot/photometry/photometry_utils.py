@@ -613,7 +613,9 @@ def get_invvar_map(hdu: fits.HDUList, survey: str) -> np.ndarray | None:
         return hdu[1].data
     elif survey == "HSC":
         # HSC provides a variance map (sigma^2); invert to get inverse-variance
-        var = hdu[1].data
+        if "VARIANCE" not in hdu:
+            return None
+        var = hdu["VARIANCE"].data
         with np.errstate(divide="ignore", invalid="ignore"):
             return np.where(var > 0, 1.0 / var, 0.0)
     return None
@@ -985,6 +987,37 @@ def elliptical_missing_flux_fraction(data: np.ndarray, aperture, nbins: int = 10
         # no positive flux to compare with: fall back to the missing area
         return aperture_missing_fraction(data, aperture)
     return float(np.clip(estimated / total, 0, 1))
+
+
+def check_saturation(flag_mask: Optional[np.ndarray], aperture, label: str) -> bool:
+    """Checks whether an aperture contains saturated pixels (without measured data, see
+    :func:`hostphot.processing.cleaning.saturated_mask`), with a warning if it does. As these are
+    the brightest pixels of the source, the flux cannot be measured (it would be underestimated).
+
+    Parameters
+    ----------
+    flag_mask: Mask of the saturated pixels (``None`` if not available).
+    aperture: Photutils aperture (e.g. circular or elliptical).
+    label: Description of the measurement, used in the warnings (e.g. survey, filter and aperture).
+
+    Returns
+    -------
+    usable: Whether the flux can be measured (no saturated pixels within the aperture).
+    """
+    if flag_mask is None:
+        return True
+    mask = aperture.to_mask(method="center")
+    cutout = mask.cutout(flag_mask.astype(float), fill_value=0.0)
+    if cutout is None:
+        return True
+    n_saturated = int(np.sum(cutout[mask.data > 0] > 0))
+    if n_saturated == 0:
+        return True
+    warnings.warn(
+        f"{label}: the aperture contains {n_saturated} pixels without measured data (e.g. saturated in "
+        "all the exposures), so the flux would be underestimated; returning NaN."
+    )
+    return False
 
 
 def check_aperture_coverage(

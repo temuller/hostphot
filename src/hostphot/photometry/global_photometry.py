@@ -31,7 +31,7 @@ from photutils.aperture import EllipticalAperture
 
 from hostphot._constants import workdir
 from hostphot.processing.objects_detection import extract_objects, plot_detected_objects
-from hostphot.processing.cleaning import remove_nan
+from hostphot.processing.cleaning import remove_nan, saturated_mask
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, store_input
 from hostphot.photometry.photometry_utils import (
@@ -41,6 +41,7 @@ from hostphot.photometry.photometry_utils import (
     blank_kron_floor,
     blank_floor_surveys,
     check_aperture_coverage,
+    check_saturation,
     _kron_ellipse,
     _elliptical_weighted_sum,
     _herschel_blank_elliptical_rms,
@@ -633,6 +634,7 @@ def photometry(
     # image information
     hdu = fits.open(fits_file)
     hdu = remove_nan(hdu)
+    saturated = saturated_mask(hdu)  # e.g. HSC (None if not available)
     header = hdu[0].header
     data = hdu[0].data
     _exptime = get_effective_gain(header, survey, filt)  # for the Poisson noise of the sources
@@ -735,7 +737,9 @@ def photometry(
     pixel_scale = float(np.sqrt(abs(np.linalg.det(wcs.pixel_scale_matrix))) * 3600)  # arcsec
     # the outer parts of the Kron aperture contain little flux, so the missing flux is checked
     kron_aperture = EllipticalAperture((x, y), a, b, theta=theta)
-    if not check_aperture_coverage(data_sub, kron_aperture, label, flux_weighted=True):
+    if not check_saturation(saturated, kron_aperture, label) or not check_aperture_coverage(
+        data_sub, kron_aperture, label, flux_weighted=True
+    ):
         flux, flux_err = np.nan, np.nan
     elif invvar is not None:
         flux, flux_err = extract_invvar_kron_flux(

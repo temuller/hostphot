@@ -17,7 +17,7 @@ from astropy.convolution import (
 )
 
 from hostphot._constants import workdir, font_family
-from .cleaning import remove_nan
+from .cleaning import remove_nan, SATURATED_MASK_BITS
 from .objects_detection import (
     extract_objects,
     find_gaia_objects,
@@ -221,6 +221,18 @@ def create_mask(
         masked_data = data_sub.copy()
     masked_hdu = deepcopy(hdu)
     masked_hdu[0].data = masked_data
+    if "MASK" in masked_hdu and masked_hdu["MASK"].data is not None:
+        # the masked objects (e.g. saturated stars) are replaced, so their pixels are no longer
+        # flagged as without measured data in the mask plane (e.g. HSC)
+        replaced = ~np.isclose(masked_data, data_sub, equal_nan=True)
+        if replaced.shape == masked_hdu["MASK"].data.shape and replaced.any():
+            for name in SATURATED_MASK_BITS:
+                key = f"MP_{name}"
+                if key in masked_hdu["MASK"].header:
+                    bit = 1 << int(masked_hdu["MASK"].header[key])
+                    mask_data = masked_hdu["MASK"].data.astype(np.int64)
+                    mask_data[replaced] &= ~bit
+                    masked_hdu["MASK"].data = mask_data.astype(masked_hdu["MASK"].data.dtype)
     outfile = obj_dir / survey / f"{survey}_{filt}_masked.fits"
     masked_hdu.writeto(outfile, overwrite=True)
 

@@ -156,7 +156,8 @@ def get_HSC_images(
     -------
     hdu_list: List of :class:`~astropy.io.fits.HDUList` objects, one per
               filter.  Each HDUList has a primary extension (science image)
-              and, when available, a first image extension (variance map).
+              and, when available, the variance map (``VARIANCE``) and mask plane (``MASK``)
+              extensions.
               Entries are ``None`` for filters with no coverage.
     """
     survey = "HSC"
@@ -213,15 +214,15 @@ def get_HSC_images(
 
         primary = fits.PrimaryHDU(data=sci_data, header=sci_header)
 
+        combined = fits.HDUList([primary])
         if len(cutout) > 3 and cutout[3].data is not None:
-            var_ext = fits.ImageHDU(
-                data=cutout[3].data,
-                header=cutout[3].header,
-                name="VARIANCE",
+            combined.append(
+                fits.ImageHDU(data=cutout[3].data, header=cutout[3].header, name="VARIANCE")
             )
-            combined = fits.HDUList([primary, var_ext])
-        else:
-            combined = fits.HDUList([primary])
+        if len(cutout) > 2 and cutout[2].data is not None:
+            # mask plane (bit definitions in the MP_* keywords), used to identify pixels without
+            # data (e.g. saturated in all the exposures and interpolated)
+            combined.append(fits.ImageHDU(data=cutout[2].data, header=cutout[2].header, name="MASK"))
 
         cutout.close()
         hdu_list.append(combined)
