@@ -29,6 +29,10 @@ flipped_surveys = [
 survey_warnings = {
     "SkyMapper": "WARNING: The photometric calibration of SkyMapper is not trustworthy at the moment (DR4)!",
     "Herschel": "Herschel support is currently in beta testing. Results may not be fully validated.",
+    "SPLUS": (
+        "S-PLUS support is in beta: the images (DR1) can have no coverage in parts of the tiles, "
+        "which are set to NaN using the weight maps, and the photometry agrees with other surveys within ~0.1 mag."
+    ),
 }
 
 

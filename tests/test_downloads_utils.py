@@ -122,16 +122,20 @@ class TestDownloadsUtils(unittest.TestCase):
         # the service lists broad-band filters in upper case, plus weight maps
         table = pd.DataFrame(
             {
-                "obs_bandpass": ["G", "G", "F660", "F660"],
-                "access_format": ["image/fits"] * 4,
-                "access_url": ["G_swpweight.fz", "G_swp.fz", "F660_swp.fz", "F660_swpweight.fz"],
+                "obs_bandpass": ["G", "G", "F660", "F660", "G", "G"],
+                "access_format": ["image/fits"] * 6,
+                "access_url": ["T1_G_swpweight.fz", "T1_G_swp.fz", "T1_F660_swp.fz", "T1_F660_swpweight.fz",
+                               "T2_G_swp.fz", "T2_G_swpweight.fz"],
+                # tile T1 is nearer to the position than T2
+                "s_ra": [30.1, 30.1, 30.1, 30.1, 30.9, 30.9],
+                "s_dec": [0.3] * 6,
             }
         )
         with mock.patch.object(splus.sia, "SIAService") as service:
             service.return_value.search.return_value = table
             with self.assertWarns(UserWarning):  # no image for 'r'
                 urls = splus.get_SPLUS_urls(30.0, 0.3, 0.05, ["g", "F660", "r"])
-        self.assertEqual(urls, ["G_swp.fz", "F660_swp.fz", None])
+        self.assertEqual(urls, ["T1_G_swp.fz", "T1_F660_swp.fz", None])
 
 
     def test_legacysurvey_single_band(self):
@@ -166,10 +170,14 @@ class TestDownloadsUtils(unittest.TestCase):
         sky_with_star = sky.copy()
         sky_with_star[100, 100] = 1e6  # bright source (inflates the standard deviation)
         self.assertTrue(image_has_data(sky_with_star))
-        # mostly zeros with real counts (e.g. GALEX FUV)
+        # sparse real counts (zero-count pixels in between)
         counts = np.zeros((200, 200))
-        counts[rng.integers(0, 200, 300), rng.integers(0, 200, 300)] = 1e-3
+        counts[rng.integers(0, 200, 6000), rng.integers(0, 200, 6000)] = 1e-3
         self.assertTrue(image_has_data(counts))
+        # (almost) all zeros: no data (e.g. outside the footprint)
+        zero_filled = np.zeros((200, 200))
+        zero_filled[:20, :10] = rng.normal(0, 1, (20, 10))
+        self.assertFalse(image_has_data(zero_filled))
         # no data: constant, or only uniform compression noise
         self.assertFalse(image_has_data(np.full((200, 200), 3.0)))
         self.assertFalse(image_has_data(rng.uniform(-0.02, 0.02, (200, 200))))
@@ -189,6 +197,47 @@ class TestDownloadsUtils(unittest.TestCase):
             get.return_value.text = "<html>Service unavailable</html>"
             with self.assertRaisesRegex(ConnectionError, "Unexpected response"):
                 wise.get_WISE_images(150.0, 2.0, size=3, filters=["W1"])
+
+
+    def test_zeros_to_nan(self):
+        from hostphot.processing.cleaning import zeros_to_nan
+        data = np.random.default_rng(1).normal(0, 1, (200, 200))
+        data[:, 150:] = 0  # region without data (10000 pixels)
+        data[10:15, 10:15] = 0  # small group of zero pixels (kept)
+        out = zeros_to_nan(data)
+        self.assertTrue(np.isnan(out[:, 150:]).all())
+        self.assertFalse(np.isnan(out[:, :150]).any())
+        # integer images are also handled
+        ints = np.ones((100, 100), dtype=int)
+        ints[:, 50:] = 0
+        self.assertTrue(np.isnan(zeros_to_nan(ints)[:, 50:]).all())
+
+
+    def test_splus_tile_coverage(self):
+        # the nearest tile is skipped if it does not cover the position (zero weight)
+        from astropy.wcs import WCS
+        wcs = WCS(naxis=2)
+        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+        wcs.wcs.crval, wcs.wcs.crpix, wcs.wcs.cdelt = [30.0, 0.3], [50.5, 50.5], [-0.55 / 3600, 0.55 / 3600]
+        header = wcs.to_header()
+        header.update({"OBJECT": "STRIPE82_0044", "FILTER": "G", "TEXPOSED": 120.0})
+        science = np.ones((100, 100))
+        no_coverage = fits.HDUList([fits.PrimaryHDU(np.zeros((100, 100)), header)])
+        weight = np.ones((100, 100))
+        weight[:, :20] = 0  # part without coverage
+        coverage = fits.HDUList([fits.PrimaryHDU(weight, header)])
+        files = {
+            "T1_G_swp.fz": fits.HDUList([fits.PrimaryHDU(science, header)]), "T1_G_swpweight.fz": no_coverage,
+            "T2_G_swp.fz": fits.HDUList([fits.PrimaryHDU(science, header)]), "T2_G_swpweight.fz": coverage,
+        }
+        candidates = [[("T1_G_swp.fz", "T1_G_swpweight.fz"), ("T2_G_swp.fz", "T2_G_swpweight.fz")]]
+        with mock.patch.object(splus, "_get_SPLUS_candidates", return_value=candidates), \
+                mock.patch.object(splus, "open_fits_from_url", side_effect=lambda url: files[url]):
+            hdu = splus.get_SPLUS_images(30.0, 0.3, size=1, filters=["g"])[0]
+        data = hdu[0].data
+        self.assertTrue(np.isnan(data[:, :20]).all())  # no coverage in tile T2
+        self.assertTrue(np.isfinite(data[:, 20:]).all())
+        self.assertIn("MAGZP", hdu[0].header)
 
 
 if __name__ == "__main__":

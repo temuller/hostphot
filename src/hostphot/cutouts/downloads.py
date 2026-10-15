@@ -119,7 +119,7 @@ def download_images(
             continue
         if not image_has_data(hdu[0].data):
             warnings.warn(
-                f"The {survey} image for filter {filt} of {name} contains no data (constant or "
+                f"The {survey} image for filter {filt} of {name} contains no data (zeros, constant or "
                 "compression noise only), so it was not saved."
             )
             hdu.close()

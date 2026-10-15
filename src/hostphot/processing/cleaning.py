@@ -3,6 +3,7 @@ from astropy import wcs
 from astropy.io import fits
 from astropy.coordinates import SkyCoord
 from astropy.nddata.utils import Cutout2D
+from scipy.ndimage import label
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -42,8 +43,36 @@ def trim_images(
     return trimmed_fits_files
 
 
+def zeros_to_nan(data: np.ndarray, min_size: int = 1000) -> np.ndarray:
+    """Converts large connected regions of exact zeros into NaNs, as they are regions without data
+    (e.g. outside the survey footprint), not valid measurements.
+
+    Parameters
+    ----------
+    data: Image data.
+    min_size: Minimum number of connected pixels for a region of zeros to be considered without data.
+
+    Returns
+    -------
+    data: Image data with the regions without data as NaN.
+    """
+    zeros = data == 0
+    if zeros.sum() < min_size:
+        return data
+    labels, _ = label(zeros)
+    sizes = np.bincount(labels.ravel())
+    sizes[0] = 0  # pixels that are not zero
+    no_data = sizes[labels] >= min_size
+    if not no_data.any():
+        return data
+    data = data.astype(np.float64)  # also for integer images
+    data[no_data] = np.nan
+    return data
+
+
 def remove_nan(hdu: list[fits.ImageHDU]) -> list[fits.ImageHDU]:
-    """Remove columns and/or rows which have all NaN values.
+    """Remove columns and/or rows which have all NaN values (after converting large regions of exact
+    zeros, without data, into NaN; see :func:`zeros_to_nan`).
     The WCS is updated accordingly.
 
     Parameters
@@ -56,7 +85,8 @@ def remove_nan(hdu: list[fits.ImageHDU]) -> list[fits.ImageHDU]:
     trimmed_hdu: Trimmed image.
     """
     header = hdu[0].header
-    data = hdu[0].data
+    # regions without data filled with zeros (e.g. outside the footprint) are treated as NaN
+    data = zeros_to_nan(hdu[0].data)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(header, naxis=2)

@@ -56,8 +56,8 @@ def open_fits_from_url(url: str) -> fits.hdu:
     return hdu
 
 def image_has_data(data: np.ndarray) -> bool:
-    """Checks whether an image contains data, i.e. it is not constant or just the uniform noise
-    left by image compression (as returned by some services where there is no data).
+    """Checks whether an image contains data, i.e. it is not constant, (almost) all zeros, or just the
+    uniform noise left by image compression (as returned by some services where there is no data).
 
     For uniformly distributed values, the range between the 0.1 and 99.9 percentiles is ~2.7 times
     the robust standard deviation (from the median absolute deviation), while it is >~6 times for
@@ -72,14 +72,15 @@ def image_has_data(data: np.ndarray) -> bool:
     has_data: Whether the image contains data.
     """
     values = np.asarray(data, dtype=float)
-    values = values[np.isfinite(values)]
-    if values.size == 0:
-        return False
+    # exact zeros are considered as pixels without data (e.g. outside the footprint)
+    values = values[np.isfinite(values) & (values != 0)]
+    if values.size < 0.05 * np.size(data):
+        return False  # (almost) no pixels with data
     if np.std(values) == 0:
         return False  # constant image
     robust_std = 1.4826 * np.median(np.abs(values - np.median(values)))
     if robust_std == 0:
-        return True  # mostly constant pixels with real values (e.g. GALEX FUV counts)
+        return True  # mostly identical values with real ones (e.g. counts)
     low, high = np.percentile(values, [0.1, 99.9])
     return bool((high - low) / robust_std > 4)
 

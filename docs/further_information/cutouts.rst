@@ -127,7 +127,7 @@ These images are downloaded from the NOAO DataLab using the SIA service (for mor
 SPLUS
 ~~~~~
 
-These images are downloaded from the NOAO DataLab using the SIA service (for more information, see the DES survey above). The pixel scaling of the images is 0.55 arcsec/pixel, as described in the `S-PLUS website <https://www.splus.iag.usp.br/survey/>`_. The available filters are: :math:`F378, F395, F410, F430, F515, F660, F861, G, I, R, U, Z`.
+These images are downloaded from the NOAO DataLab using the SIA service (for more information, see the DES survey above). The pixel scaling of the images is 0.55 arcsec/pixel, as described in the `S-PLUS website <https://www.splus.iag.usp.br/survey/>`_. The available filters are: :math:`F378, F395, F410, F430, F515, F660, F861, G, I, R, U, Z`. The S-PLUS tiles (DR1) overlap and their outer parts can have no coverage (images without real data), so, for each filter, the tiles are tried in order of distance of their centres to the given position, and the first one covering the position (positive weight in the weight map) is used. Pixels without coverage (weight of zero) are set to NaN. The zeropoints of the S-PLUS internal data release 3 (iDR3) are used. S-PLUS support is in beta.
 
 .. figure:: static/splus_footprint.png
 

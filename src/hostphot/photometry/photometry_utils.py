@@ -168,7 +168,11 @@ def uncertainty_calculation(
         # the Poisson noise of the source is included in the aperture error, using the effective
         # gain (see get_effective_gain()), while the dark current and read noise are included in
         # the background noise (and the blank-aperture floor)
-        pass
+        # calibration: ~1% in gri and ~2% in u and z (Padmanabhan et al. 2008;
+        # https://www.sdss4.org/dr17/algorithms/fluxcal/), where the AB offsets of u and z
+        # are also uncertain at the >0.01 mag level
+        calib_err = 0.02 if filt in ["u", "z"] else 0.01
+        mag_err = np.sqrt(mag_err**2 + calib_err**2)
 
     elif survey == "GALEX":
         # https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html

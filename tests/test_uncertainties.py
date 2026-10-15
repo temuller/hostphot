@@ -171,10 +171,11 @@ class TestUncertainties(unittest.TestCase):
         # SDSS images are in nanomaggies: the effective gain is gain / NMGY (e-/nanomaggy)
         header = fits.Header({"CAMCOL": 4, "RUN": 4192, "EXPTIME": 53.9, "NMGY": 0.005})
         np.testing.assert_allclose(get_effective_gain(header, "SDSS", "r"), 4.76 / 0.005)
-        # the magnitude error is given by the measured flux error (no extra terms in wrong units)
+        # the magnitude error is given by the measured flux error (no extra terms in wrong units),
+        # plus the calibration uncertainty (0.01 mag in r)
         for flux, flux_err in [(1.0, 0.3), (10.0, 0.3), (100.0, 1.0)]:
             mag_err = magnitude_calculation(flux, flux_err, "SDSS", "r", 100.0, header, 0.03)[1]
-            np.testing.assert_allclose(mag_err, 1.0857 * flux_err / flux, rtol=0.01)
+            np.testing.assert_allclose(mag_err, np.hypot(1.0857 * flux_err / flux, 0.01), rtol=0.01)
 
 
     def test_2mass_uncertainties(self):
