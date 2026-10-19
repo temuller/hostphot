@@ -9,7 +9,7 @@ from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls
+from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image, image_coverage, FULL_COVERAGE
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
     
@@ -55,21 +55,31 @@ def get_2MASS_images(
     response = requests.get(base_url, params=params)
     response.raise_for_status()
     
+    lines = response.content.decode("utf-8").split("<TD><![CDATA[")
     hdu_list = []
     for filter in filters:
         if filter == "Ks":
             filter = "K"
-        fits_image = None
-        for line in response.content.decode("utf-8").split("<TD><![CDATA["):
+        # all the Atlas tiles overlapping the position: the one covering the whole cutout is used
+        # (all 2MASS tiles have the same depth)
+        urls = []
+        for line in lines:
             if re.match(f"https://irsa.*{filter.lower()}i.*fits", line.split("]]>")[0]):
                 fitsurl = line.split("]]")[0]
-                fits_image = open_fits_from_url(fitsurl)
-                wcs = WCS(fits_image[0].header)
-                if coords.contained_by(wcs):
-                    break
-        else:
-            fits_image = None
-        hdu_list.append(fits_image)
+                if fitsurl not in urls:
+                    urls.append(fitsurl)
+        # the tiles are downloaded one by one, stopping at the first one covering the whole cutout
+        tiles = []
+        for fitsurl in urls:
+            tile = open_fits_from_urls([fitsurl])[0]  # retries once and warns if it fails
+            if tile is None:
+                continue
+            tiles.append(tile)
+            if image_coverage(tile[0].data, WCS(tile[0].header), ra, dec, size_degree * 3600) >= FULL_COVERAGE:
+                break
+        candidates = [(tile[0].data, WCS(tile[0].header), None) for tile in tiles]
+        index = select_image(candidates, ra, dec, size_degree * 3600, label=f"{survey} {filter}")
+        hdu_list.append(None if index is None else tiles[index])
 
     for filt, hdu in zip(filters, hdu_list):
         if hdu is None:

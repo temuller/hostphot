@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from io import BytesIO
 from pathlib import Path
+from typing import Optional
 import matplotlib.image as img
 import matplotlib.pyplot as plt
 from contextlib import contextmanager
@@ -83,6 +84,90 @@ def image_has_data(data: np.ndarray) -> bool:
         return True  # mostly identical values with real ones (e.g. counts)
     low, high = np.percentile(values, [0.1, 99.9])
     return bool((high - low) / robust_std > 4)
+
+
+FULL_COVERAGE = 0.99  # the whole cutout is covered (allowing for rounding at the edges)
+
+
+def image_coverage(data: np.ndarray, img_wcs, ra: float, dec: float, size_arcsec: float) -> float:
+    """Fraction of a square cutout (centred on the given position) covered by an image with valid
+    data (finite, non-zero pixels).
+
+    Parameters
+    ----------
+    data: Image data.
+    img_wcs: WCS of the image.
+    ra, dec: Position of the cutout centre in degrees.
+    size_arcsec: Size of the cutout in arcsec.
+
+    Returns
+    -------
+    coverage: Fraction of the cutout with valid data (0 if the position is outside the image).
+    """
+    try:
+        x, y = img_wcs.world_to_pixel_values(ra, dec)
+        pixel_scale = np.sqrt(np.abs(np.linalg.det(img_wcs.pixel_scale_matrix))) * 3600
+    except Exception:
+        return 0.0
+    if not (np.isfinite(x) and np.isfinite(y)):
+        return 0.0
+    npix = max(int(round(size_arcsec / pixel_scale)), 1)  # cutout size in pixels
+    ny, nx = data.shape
+    x0 = int(round(x - npix / 2))
+    y0 = int(round(y - npix / 2))
+    x1, y1 = x0 + npix, y0 + npix
+    if npix > 2:
+        # the outermost pixels are excluded, as the cutouts of the image services can be shifted by one pixel
+        x0, y0, x1, y1 = x0 + 1, y0 + 1, x1 - 1, y1 - 1
+    total = (x1 - x0) * (y1 - y0)
+    stamp = data[max(y0, 0) : max(min(y1, ny), 0), max(x0, 0) : max(min(x1, nx), 0)]
+    valid = np.isfinite(stamp) & (stamp != 0)
+    return float(valid.sum() / total)
+
+
+def select_image(
+    candidates: list,
+    ra: float,
+    dec: float,
+    size_arcsec: float,
+    label: str = "",
+) -> Optional[int]:
+    """Selects the best image among several candidates covering a position (e.g. overlapping tiles).
+
+    Among the images covering the whole requested cutout, the deepest one is selected; if none
+    covers the whole cutout, the one with the largest coverage is selected (with a warning).
+
+    Parameters
+    ----------
+    candidates: List of (data, wcs, depth) tuples, where ``depth`` is a measure of the depth of
+        the image (e.g. exposure time; larger is deeper).
+    ra, dec: Position of the cutout centre in degrees.
+    size_arcsec: Size of the cutout in arcsec.
+    label: Description used in the warnings (e.g. survey and filter).
+
+    Returns
+    -------
+    index: Index of the selected candidate, or ``None`` if no image covers the position.
+    """
+    if len(candidates) == 0:
+        return None
+    depths = np.array([depth if depth is not None and np.isfinite(depth) else -np.inf for _, _, depth in candidates])
+    # check the images from the deepest to the shallowest (keeping the order if equally deep),
+    # stopping at the first one covering the whole cutout
+    coverages = np.zeros(len(candidates))
+    for i in np.argsort(-depths, kind="stable"):
+        data, img_wcs, _ = candidates[i]
+        coverages[i] = image_coverage(data, img_wcs, ra, dec, size_arcsec)
+        if coverages[i] >= FULL_COVERAGE:
+            return int(i)
+    if coverages.max() <= 0:
+        return None
+    best = int(np.argmax(coverages))
+    warnings.warn(
+        f"{label}: none of the available images covers the whole cutout; using the one with the largest "
+        f"coverage ({100 * coverages[best]:.0f}% of the requested area)."
+    )
+    return best
 
 
 def open_fits_from_urls(urls: list[str | None]) -> list[fits.HDUList | None]:

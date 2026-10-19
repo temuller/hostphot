@@ -7,7 +7,7 @@ from astropy import wcs
 import astropy.units as u
 from astropy.io import fits
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls
+from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 from hostphot.moc.maps import contains_coords
 
@@ -104,21 +104,17 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
 
     hdu_list = []
     for filt in filters:
-        filter_urls = urls_dict[filt]
-        if len(filter_urls) > 0:
-            exptime = -1
-            best_hdu = None
-            for url in filter_urls:
-                hdu_ = url_to_hdu[url]
-                if hdu_ is None:
-                    continue
-                if hdu_[1].header["EXPTIME"] > exptime:
-                    if best_hdu is not None:
-                        best_hdu.close()
-                    exptime = hdu_[1].header["EXPTIME"]
-                    best_hdu = hdu_
-                else:
-                    hdu_.close()
+        candidates = [url_to_hdu[url] for url in urls_dict[filt] if url_to_hdu[url] is not None]
+        if len(candidates) > 0:
+            # select the image covering the whole cutout, the deepest one if there are several
+            images = []
+            for hdu_ in candidates:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", AstropyWarning)
+                    img_wcs = wcs.WCS(hdu_[1].header)
+                images.append((hdu_[1].data, img_wcs, hdu_[1].header.get("EXPTIME")))
+            index = select_image(images, ra, dec, size * 60, label=f"{survey} {filt}")
+            best_hdu = None if index is None else candidates[index]
 
             if best_hdu is not None:
                 hdu = best_hdu

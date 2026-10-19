@@ -13,7 +13,9 @@ from astropy.nddata import Cutout2D
 from astroquery.skyview import SkyView
 from astropy.coordinates import SkyCoord
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls
+import numpy as np
+
+from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -150,33 +152,42 @@ def get_unWISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
             f.write(response.raw.read())
 
     # each filter has its image and inverse-variance map (Lang 2014, AJ, 147, 108)
-    # in the tarfile; there can be more than one coadd tile, but only one is used
+    # in the tarfile; there can be more than one coadd tile: the one covering the whole cutout
+    # is used (the deepest one, i.e. with the largest inverse variance, if there are several)
     hdu_list = []
     with tarfile.open(target_file) as tar_file:
         files_list = tar_file.getnames()
         for filt in filters:
             img_files = [file for file in files_list if file.endswith(f"{filt.lower()}-img-m.fits")]
-            if len(img_files) == 0:
-                hdu_list.append(None)
-                continue
-            img_file = img_files[0]
-            with tar_file.extractfile(img_file) as f:
-                img_hdu = fits.open(io.BytesIO(f.read()))
-            invvar_files = [
-                img_file.replace("-img-m.fits", f"-invvar-m.fits{ext}") for ext in ["", ".gz"]
-            ]
-            invvar_files = [file for file in invvar_files if file in files_list]
-            if len(invvar_files) > 0:
-                invvar_file = invvar_files[0]
-                with tar_file.extractfile(invvar_file) as f:
-                    content = f.read()
-                if invvar_file.endswith(".gz"):
-                    content = gzip.decompress(content)
-                invvar_hdu = fits.open(io.BytesIO(content))
-                img_hdu.append(
-                    fits.ImageHDU(data=invvar_hdu[0].data, header=invvar_hdu[0].header, name="INVVAR")
-                )
-            hdu_list.append(img_hdu)
+            candidates, images = [], []
+            for img_file in img_files:
+                with tar_file.extractfile(img_file) as f:
+                    img_hdu = fits.open(io.BytesIO(f.read()))
+                invvar_files = [
+                    img_file.replace("-img-m.fits", f"-invvar-m.fits{ext}") for ext in ["", ".gz"]
+                ]
+                invvar_files = [file for file in invvar_files if file in files_list]
+                depth = None
+                if len(invvar_files) > 0:
+                    invvar_file = invvar_files[0]
+                    with tar_file.extractfile(invvar_file) as f:
+                        content = f.read()
+                    if invvar_file.endswith(".gz"):
+                        content = gzip.decompress(content)
+                    invvar_hdu = fits.open(io.BytesIO(content))
+                    img_hdu.append(
+                        fits.ImageHDU(data=invvar_hdu[0].data, header=invvar_hdu[0].header, name="INVVAR")
+                    )
+                    invvar = invvar_hdu[0].data
+                    if np.any(invvar > 0):
+                        depth = float(np.nanmedian(invvar[invvar > 0]))
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", AstropyWarning)
+                    img_wcs = WCS(img_hdu[0].header)
+                candidates.append(img_hdu)
+                images.append((img_hdu[0].data, img_wcs, depth))
+            index = select_image(images, ra, dec, size_arcsec.value, label=f"{survey} {filt}")
+            hdu_list.append(None if index is None else candidates[index])
     # remove the tarfile
     if target_file.is_file() is True:
         target_file.unlink()

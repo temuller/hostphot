@@ -4,7 +4,9 @@ from astropy.io import fits
 from astropy.coordinates import SkyCoord
 from astroquery.ukidss import Ukidss
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls
+import numpy as np
+
+from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -41,17 +43,27 @@ def get_UKIDSS_images(ra: float, dec: float, size: float=3, filters: str='ZYJHK'
     pos = SkyCoord(ra, dec, unit="deg")
     urls = u_obj.get_image_list(pos, waveband='all', frame_type="stack", image_width=size)
 
-    # select URLs for each filter
-    url_list = []
-    for filt in filters:
-        found_url = None
-        for url in urls:
-            if f'band={filt}' in url:
-                found_url = url
-                break
-        url_list.append(found_url)
+    # all the images of each filter (e.g. from different programmes or overlapping frames)
+    unique_urls = list(dict.fromkeys(urls))
+    all_hdus = open_fits_from_urls(unique_urls)
+    url_to_hdu = dict(zip(unique_urls, all_hdus))
 
-    hdu_list_all = open_fits_from_urls(url_list)
+    # select the image covering the whole cutout, the deepest one if there are several
+    size_arcsec = size.to(u.arcsec).value
+    hdu_list_all = []
+    for filt in filters:
+        candidates = [url_to_hdu[url] for url in unique_urls if f'band={filt}' in url]
+        candidates = [hdu for hdu in candidates if hdu is not None]
+        images = []
+        for hdu in candidates:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", AstropyWarning)
+                img_wcs = wcs.WCS(hdu[1].header)
+            exptime = hdu[0].header.get("EXP_TIME", hdu[1].header.get("EXP_TIME", np.nan))
+            nexp = hdu[0].header.get("NEXP", hdu[1].header.get("NEXP", 1))
+            images.append((hdu[1].data, img_wcs, exptime * nexp))
+        index = select_image(images, ra, dec, size_arcsec, label=f"{survey} {filt}")
+        hdu_list_all.append(None if index is None else candidates[index])
 
     hdu_list = []
     for hdu in hdu_list_all:

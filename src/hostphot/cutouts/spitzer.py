@@ -4,7 +4,9 @@ from typing import Optional
 import astropy.units as u
 from astropy.io import fits
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls
+from astropy.wcs import WCS
+
+from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 def get_Spitzer_images(ra: float, dec: float, size: float | u.Quantity = 3, 
@@ -67,17 +69,22 @@ def get_Spitzer_images(ra: float, dec: float, size: float | u.Quantity = 3,
     response = requests.get(url)
     list_text = response.text.split()
 
-    # find the fits file for each fitler (None if not found)
-    files_dict = {filt: None for filt in filters}
+    # find all the mosaics of each filter (there can be several overlapping ones)
+    files_dict = {filt: [] for filt in filters}
     for filt in filters:
         for line in list_text:
-            if filt in line and line.endswith(".mosaic.fits"):
-                files_dict[filt] = line
-                # pick the first image and move to the next filter
-                break
+            if filt in line and line.endswith(".mosaic.fits") and line not in files_dict[filt]:
+                files_dict[filt].append(line)
+    unique_urls = list(dict.fromkeys(url for urls in files_dict.values() for url in urls))
+    url_to_hdu = dict(zip(unique_urls, open_fits_from_urls(unique_urls)))
 
-    url_list = list(files_dict.values())
-    hdu_list_all = open_fits_from_urls(url_list)
+    # select the mosaic covering the whole cutout, the deepest one if there are several
+    hdu_list_all = []
+    for filt in filters:
+        candidates = [url_to_hdu[url] for url in files_dict[filt] if url_to_hdu[url] is not None]
+        images = [(hdu[0].data, WCS(hdu[0].header), hdu[0].header.get("EXPTIME")) for hdu in candidates]
+        index = select_image(images, ra, dec, mission_dict["sizeX"], label=f"{survey} {filt}")
+        hdu_list_all.append(None if index is None else candidates[index])
 
     hdu_list = []
     for hdu in hdu_list_all:
