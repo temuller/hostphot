@@ -281,12 +281,10 @@ def photometry(
         ap_radii = [ap_radii]
 
     pixel_scale = survey_pixel_scale(survey, filt)
-    if survey == "UKIDSS" and filt == "J":
-        if "LAS" in header["PROJECT"].split("/")[-1]:
-            # if the J comes from the LAS, then the observations were micro-stepped,
-            # so the pixel size is smaller.
-            nustep = header["NUSTEP"]
-            pixel_scale /= nustep / 2  # divided by 2 for the two dimensions (x and y)
+    if survey == "UKIDSS":
+        # micro-stepped UKIDSS images (e.g. LAS J, or DXS/UDS) have smaller pixels than the nominal
+        # 0.4 arcsec (e.g. 0.2 arcsec), so the pixel scale is taken from the image
+        pixel_scale = float(np.sqrt(np.abs(np.linalg.det(wcs.pixel_scale_matrix))) * 3600)
 
     mags, mags_err = [], []
     fluxes, fluxes_err = [], []
