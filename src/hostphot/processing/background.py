@@ -15,6 +15,11 @@ MASKED_FRACTION_WARNING = 0.8
 MIN_UNMASKED_FRACTION = 0.02
 # larger images are binned for the background estimation (much faster; the background is smooth)
 MAX_PIXELS = 4e6
+# FWHM used when it cannot be measured (too few bright, compact sources): typical ground-based seeing,
+# but at most 10 pixels (as for PanSTARRS), so it is not too large for images with small pixels (e.g. HST
+# and JWST, with FWHM of ~2 pixels)
+FALLBACK_FWHM_ARCSEC = 2.5
+FALLBACK_FWHM_MAX_PIX = 10.0
 
 
 def _set_pixstack(size: int) -> None:
@@ -37,8 +42,9 @@ def _ellipse_mask(
 def _estimate_fwhm(
     sub: np.ndarray, objects: np.ndarray, rms: float, pixel_scale: float, minarea: int
 ) -> float:
-    """Estimates the FWHM (in pixels) of an image from bright, compact sources (2.5 arcsec by default)."""
-    fwhm_pix = 2.5 / pixel_scale
+    """Estimates the FWHM (in pixels) of an image from bright, compact sources (see ``FALLBACK_FWHM_ARCSEC``
+    and ``FALLBACK_FWHM_MAX_PIX`` for the default)."""
+    fwhm_pix = min(FALLBACK_FWHM_ARCSEC / pixel_scale, FALLBACK_FWHM_MAX_PIX)
     good = (objects["flag"] == 0) & (objects["peak"] > 20 * rms) & (objects["npix"] > minarea)
     if good.sum() >= 5:
         half_radius, flags = sep.flux_radius(
@@ -208,17 +214,23 @@ def _masked_background(
     for _ in range(niter):
         mask, info = source_mask(data, pixel_scale, host_xy=host_xy, back=back, rms=rms)
         good = ~mask
-        if good.sum() < MIN_UNMASKED_FRACTION * data.size:
+        constant = good.sum() < MIN_UNMASKED_FRACTION * data.size
+        if constant:
             # (almost) no sky left: constant background from the remaining unmasked pixels
             pixels = filled[good] if good.sum() > 100 else filled[~nan_mask]
             median = sigma_clipped_stats(pixels, sigma=3.0, maxiters=10)[1]
             back = np.full(data.shape, median)
         else:
             back = sep.Background(filled, mask=mask, bw=mesh, bh=mesh, fw=3, fh=3).back()
+            if not np.any(back):
+                # sep returns zero everywhere if all the meshes are mostly masked: constant background instead
+                constant = True
+                median = sigma_clipped_stats(filled[good], sigma=3.0, maxiters=10)[1]
+                back = np.full(data.shape, median)
         residuals = (filled - back)[good] if good.sum() > 100 else (filled - back)[~nan_mask]
         rms = sigma_clipped_stats(residuals, sigma=3.0, maxiters=10)[2]
 
-    if info["masked_frac"] > MASKED_FRACTION_WARNING:
+    if info["masked_frac"] > MASKED_FRACTION_WARNING or constant:
         size_arcmin = max(nx, ny) * pixel_scale / 60
         msg = (
             f"{label}: {100 * info['masked_frac']:.0f}% of the image is masked for the background "
@@ -234,8 +246,8 @@ def _masked_background(
             )
         else:
             msg += f" Consider downloading a larger image (currently {size_arcmin:.1f} arcmin)."
-        if good.sum() < MIN_UNMASKED_FRACTION * data.size:
-            msg += " A constant background was used, as very few pixels were left unmasked."
+        if constant:
+            msg += " A constant background was used, as very few sky pixels were left unmasked."
         warnings.warn(msg)
 
     return back
