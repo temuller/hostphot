@@ -27,8 +27,11 @@ from hostphot.photometry.image_utils import (
 hostphot_path = Path(hostphot.__path__[0])
 
 # surveys without (inverse-)variance maps for which a blank-aperture noise floor is applied
-# to the aperture uncertainties (accounts for correlated noise in the coadds)
-blank_floor_surveys = ["PanSTARRS", "DES", "SDSS", "2MASS", "SkyMapper", "SPLUS", "VISTA", "UKIDSS", "Spitzer"]
+# to the aperture uncertainties (accounts for correlated noise in the coadds, e.g. drizzled HST and
+# JWST images: https://hst-docs.stsci.edu/drizzpac/chapter-3-description-of-the-drizzle-algorithm/3-3-weight-maps-and-correlated-noise)
+blank_floor_surveys = [
+    "PanSTARRS", "DES", "SDSS", "2MASS", "SkyMapper", "SPLUS", "VISTA", "UKIDSS", "Spitzer", "HST", "JWST"
+]
 
 
 def calc_sky_unc(image: np.ndarray, exptime: float) -> float:
@@ -390,6 +393,13 @@ def get_effective_gain(header: fits.Header, survey: str, filt: str) -> float:
         pixel_units = survey_pixel_units(survey, filt[0])
     if pixel_units == "counts":
         return 1
+    if survey == "Spitzer" and float(header.get("GAIN", 0)) > 0:
+        # SEIP mosaics (MJy/sr): mean gain in e-/(MJy/sr), from the exposure time and coverage
+        # (GAIN = EXPGAIN * EXPTIME / EFCONV; see the SEIP Explanatory Supplement)
+        return float(header["GAIN"])
+    if survey == "JWST" and float(header.get("EFFGAIN", 0)) > 0:
+        # images in MJy/sr: effective gain in e-/(MJy/sr), from the Poisson variance (see update_JWST_header())
+        return float(header["EFFGAIN"])
     return get_image_exptime(header, survey)
 
 

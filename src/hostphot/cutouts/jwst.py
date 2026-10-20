@@ -37,6 +37,15 @@ def update_JWST_header(hdu: fits.hdu.ImageHDU) -> None:
     hdu[0].header["MAGZP"] = (
        -6.10 - (2.5 * np.log10(pixar_sr))
     )
+    # effective gain (images in MJy/sr) for the Poisson noise of the sources, from the Poisson variance
+    # of the pipeline (VAR_POISSON = SCI / gain, in (MJy/sr)^2), as it depends on the coverage
+    if "VAR_POISSON" in hdu:
+        sci, var = hdu[1].data, hdu["VAR_POISSON"].data
+        good = np.isfinite(sci) & np.isfinite(var) & (sci > 0) & (var > 0)
+        if good.any():
+            hdu[0].header["EFFGAIN"] = (
+                float(np.median(sci[good] / var[good])), "Effective gain in e-/(MJy/sr) from VAR_POISSON"
+            )
 
 def set_JWST_image(file: str, filt: str, name: str) -> None:
     """Moves a previously downloaded JWST image into the work directory.
