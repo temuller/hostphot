@@ -108,7 +108,7 @@ import hostphot.photometry.global_photometry as gp
 results = gp.multi_band_phot(name, host_ra, host_dec, 
                              survey=survey, ra=ra, dec=dec,
                              use_mask=True, correct_extinction=True,
-                             common_aperture=True, coadd_filters='riz', 
+                             common_aperture=True, ref_filt='riz', 
                              save_plots=True)
 ```
 

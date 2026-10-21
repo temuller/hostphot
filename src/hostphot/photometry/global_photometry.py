@@ -630,6 +630,10 @@ def photometry(
     else:
         data_sub = np.copy(data)
 
+    if common_aperture is True and (ref_filt is None or ref_survey is None):
+        raise ValueError(
+            "Reference filter(s) 'ref_filt' and survey 'ref_survey' must be given for common aperture photometry"
+        )
     if (ref_filt is None) | (ref_survey is None) | (common_aperture is False):
         # independent photometry for each filter
         gal_obj, wcs, kronrad, scale, _ = extract_aperture(
@@ -649,13 +653,6 @@ def photometry(
             deblend_cont,
             save_plots,
             save_aperture_params,
-        )
-    elif ((common_aperture is True) & (ref_filt is None)) | (
-        (common_aperture is True) & (ref_survey is None)
-    ):
-        # error
-        raise ValueError(
-            "Reference filter(s) 'ref_filt' and survey 'ref_survey' must be given for common aperture photometry"
         )
     else:
         # common aperture photometry
@@ -904,6 +901,8 @@ def multi_band_phot(
 
     if ref_survey is None:
         ref_survey = survey
+    if common_aperture is True and ref_filt is None:
+        raise ValueError("The reference filter(s) 'ref_filt' must be given for common aperture photometry")
 
     for filt in filters:
         try:
