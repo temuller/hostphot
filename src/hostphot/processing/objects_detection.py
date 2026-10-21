@@ -106,44 +106,46 @@ def extract_objects(
     return gal_obj, nogal_objs
 
 
-def find_gaia_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
-    """Finds objects using the Gaia DR3 catalog for the given
-    coordinates in a given radius.
+def find_gaia_objects(ra: float, dec: float, rad: float = 0.15, min_significance: float = 5.0) -> SkyCoord:
+    """Finds stars using the Gaia DR3 catalog for the given coordinates in a given radius.
+
+    Only the sources with a significant proper motion or parallax (above ``min_significance``
+    sigma) are returned, as Gaia also detects compact regions of nearby galaxies (e.g. HII regions),
+    which are not stars (e.g. ~5-25 times more sources within 1 arcmin of nearby spiral galaxies
+    than in the surrounding field, without this selection).
 
     Parameters
     ----------
     ra: Right ascension in degrees.
     dec: Declination in degrees.
     rad: Search radius in degrees.
+    min_significance: Minimum significance of the proper motion or parallax.
 
     Returns
     -------
-    gaia_coord: Coordinates of the objects found.
+    gaia_coord: Coordinates of the stars found.
     """
     from astroquery.gaia import Gaia
-    Gaia.MAIN_GAIA_TABLE = "gaiaedr3.gaia_source"
-    Gaia.ROW_LIMIT = 1000  # avoid heavy queries
-    coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs")
-    width = u.Quantity(rad, u.deg)
-    height = u.Quantity(rad, u.deg)
+    query = (
+        "SELECT ra, dec, parallax_over_error, pmra, pmra_error, pmdec, pmdec_error "
+        "FROM gaiadr3.gaia_source "
+        f"WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra}, {dec}, {rad})) = 1"
+    )
     try:
         with suppress_stdout():
-            gaia_cat = Gaia.query_object_async(
-                coordinate=coord, width=width, height=height
-            )
-    except HTTPError:
-        print("Gaia DR3 failed, trying DR2")
-        try:
-            Gaia.MAIN_GAIA_TABLE = "gaiadr2.gaia_source"
-            gaia_cat = Gaia.query_object_async(coordinate=coord, width=width, height=height)
-        except HTTPError:
-            print("Gaia DR2 also failed — returning empty result")
-            return SkyCoord([], [], unit="deg")
+            gaia_cat = Gaia.launch_job_async(query).get_results()  # (no row limit)
+    except Exception as exc:
+        warnings.warn(f"The Gaia DR3 query failed ({exc}), so no stars are used for the cross-match.")
+        return SkyCoord([], [], unit="deg")
 
-    gaia_ra = np.array(gaia_cat["ra"].value)
-    gaia_dec = np.array(gaia_cat["dec"].value)
+    def values(column):
+        return np.ma.filled(np.ma.asarray(gaia_cat[column], dtype=float), np.nan)
+
+    pm_significance = np.hypot(values("pmra") / values("pmra_error"), values("pmdec") / values("pmdec_error"))
+    with np.errstate(invalid="ignore"):
+        is_star = (pm_significance > min_significance) | (values("parallax_over_error") > min_significance)
     gaia_coord = SkyCoord(
-        ra=gaia_ra, dec=gaia_dec, unit=(u.degree, u.degree), frame="icrs"
+        ra=values("ra")[is_star], dec=values("dec")[is_star], unit=(u.degree, u.degree), frame="icrs"
     )
     return gaia_coord
 

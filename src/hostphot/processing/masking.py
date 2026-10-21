@@ -9,7 +9,6 @@ import aplpy
 import sep
 from astropy.io import fits
 from astropy import wcs
-from astropy.coordinates import concatenate
 from astropy.convolution import (
     Gaussian2DKernel,
     convolve_fft,
@@ -21,7 +20,6 @@ from .cleaning import remove_nan, SATURATED_MASK_BITS
 from .objects_detection import (
     extract_objects,
     find_gaia_objects,
-    find_catalog_objects,
     cross_match,
 )
 from hostphot.utils import suppress_stdout, store_input
@@ -121,10 +119,8 @@ def create_mask(
     sigma: Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
     r: Scale of the aperture size for the sources to be masked.
-    crossmatch: If ``True``, the detected objects are cross-matched with a
-        Gaia catalog.
-    crossmatch: If ``True``, the detected objects are cross-matched with a
-        Gaia catalog.
+    crossmatch: If ``True``, the detected objects are cross-matched with the stars of Gaia DR3 (with
+        significant proper motion or parallax), and only those are masked.
     gal_dist_thresh: Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
@@ -183,13 +179,11 @@ def create_mask(
             gal_dist_thresh,
             deblend_cont,
         )
-        # preprocessing: cross-match extracted objects with a catalog
-        # using two Gaia catalogs as they do not always include the
-        # same objects.
+        # preprocessing: cross-match extracted objects with the stars of Gaia DR3 (with significant
+        # proper motion or parallax, as Gaia and the catalogs based on it, e.g. TIC, also include
+        # compact regions of the galaxies)
         if crossmatch:
-            cat_coord1 = find_gaia_objects(host_ra, host_dec)
-            cat_coord2 = find_catalog_objects(host_ra, host_dec)
-            cat_coord = concatenate([cat_coord1, cat_coord2])
+            cat_coord = find_gaia_objects(host_ra, host_dec)
             nongal_objs = cross_match(nongal_objs, img_wcs, cat_coord)
     else:
         # use objects previously extracted
