@@ -3,8 +3,7 @@
 This module follows HostPhot's cutout interface: ``download_images(...,
 survey="Herschel")`` calls ``get_Herschel_images`` and expects one HDUList per
 requested filter.  The HSA products are full processed maps rather than cutouts,
-so the ``size`` argument is only used to check that the maps cover the requested
-area (the full maps are returned).
+so the selected maps are cut to the requested ``size`` after the download.
 
 Only the photometry observations whose footprint contains the target are used, and
 only the final ("standalone") maps of each observation are downloaded (the whole
@@ -18,10 +17,12 @@ import tempfile
 from pathlib import Path
 from typing import Iterable, Optional
 
+import numpy as np
 import astropy.units as u
 import pandas as pd
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
+from astropy.nddata import Cutout2D
 from astroquery.esa.hsa import HSA
 
 from astropy.wcs import WCS
@@ -309,6 +310,19 @@ def _make_hostphot_hdul(path: Path, image_ext: int, filt: str) -> fits.HDUList:
     return fits.HDUList([fits.PrimaryHDU(data=data, header=header)])
 
 
+def _cutout(hdul: fits.HDUList, ra: float, dec: float, size_arcsec: float) -> fits.HDUList:
+    """Cuts a map (in the primary HDU) to a square of the given size centred on RA/Dec."""
+    header = hdul[0].header
+    img_wcs = WCS(header, naxis=2)
+    pixel_scale = float(np.sqrt(np.abs(np.linalg.det(img_wcs.pixel_scale_matrix))) * 3600)
+    size_pixels = max(int(round(size_arcsec / pixel_scale)), 1)
+    coords = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame="icrs")
+    cutout = Cutout2D(hdul[0].data, coords, size_pixels, wcs=img_wcs)
+    header = header.copy()
+    header.update(cutout.wcs.to_header())
+    return fits.HDUList([fits.PrimaryHDU(data=cutout.data, header=header)])
+
+
 def get_Herschel_images(
     ra: float,
     dec: float,
@@ -335,8 +349,8 @@ def get_Herschel_images(
     ra, dec:
         Target coordinates in degrees.
     size:
-        Size of the area that the maps need to cover. If a float is given, the units are
-        assumed to be arcmin. The full maps are returned (HSA does not provide cutouts).
+        Image size. If a float is given, the units are assumed to be arcmin. The maps are
+        downloaded whole (HSA does not provide cutouts) and cut to this size.
     filters:
         Herschel filters to return. Valid options are ``PACS100``, ``PACS160``,
         ``SPIRE250``, ``SPIRE350`` and ``SPIRE500``.
@@ -449,7 +463,7 @@ def get_Herschel_images(
         if index is None:
             result.append(None)
             continue
-        result.append(hduls[filt][index])
+        result.append(_cutout(hduls[filt][index], ra, dec, size_arcsec))
         selected.append(provenance[filt][index])
     if selected:
         pd.DataFrame(selected).to_csv(target_dir / "hsa_selected_maps.csv", index=False)
