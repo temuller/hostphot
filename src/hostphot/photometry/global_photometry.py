@@ -228,13 +228,21 @@ def _sum_kron_ellipse(
     return flux[0], flux_err[0]
 
 
+# maximum scale of the Kron radius (and step) when optimising the aperture
+MAX_KRON_SCALE = 6.0
+KRON_SCALE_STEP = 0.1
+
+
 def optimize_aperture(
     data: np.ndarray, bkg: float, exptime: float, objects: np.ndarray, eps: float = 0.001
 ) -> tuple[float, float, float, float]:
     """Optimizes the Kron flux by iteration over different scales.
 
-    The stop condition is met when the fractional change in flux between iterations
-    is less that ``eps``.
+    The scale of the Kron radius is increased (in steps of ``KRON_SCALE_STEP``) until the flux
+    gained between steps is consistent with the noise of the added ring (or smaller than a
+    fraction ``eps`` of the flux), up to ``MAX_KRON_SCALE`` (with a warning). Without the noise
+    criterion, the noise and residuals of the sky prevent the convergence, and the apertures
+    grow too large (with fluxes biased by the sky).
 
     Parameters
     ----------
@@ -242,7 +250,7 @@ def optimize_aperture(
     bkg: Background error of the images.
     exptime: Exposure time.
     objects: Objects detected with :func:`sep.extract()`.
-    eps: Minimum percent change in flux allowed between iterations.
+    eps: Minimum fractional change in flux used to stop the iterations.
 
     Returns
     -------
@@ -257,23 +265,28 @@ def optimize_aperture(
     objects["theta"] = wrap_theta(objects["theta"])
     data_valid, error_valid = _kron_arrays(data, bkg, exptime)  # same for all the scales
 
-    opt_flux = 0.0
-    # iterate over scales
-    scales = np.arange(1, 10, 0.01)
+    scales = np.arange(1.0, MAX_KRON_SCALE + KRON_SCALE_STEP / 2, KRON_SCALE_STEP)
+    prev = None  # flux, error and scale of the previous step
     for scale in scales:
         flux, flux_err = _sum_kron_ellipse(data_valid, error_valid, objects, kronrad, scale)
-        calc_eps = np.abs(opt_flux - flux) / flux
-        opt_flux, opt_flux_err = flux, flux_err
-        opt_scale = scale
-        if calc_eps < eps:
-            opt_scale = scale
-            break
-        elif np.isnan(calc_eps):
-            opt_scale = scales[-2]
+        if not np.isfinite(flux):
+            if prev is None:
+                return flux, flux_err, kronrad, scale
             warnings.warn("Warning: the aperture might not fit in the image!")
-            break
+            return prev[0], prev[1], kronrad, prev[2]
+        if prev is not None:
+            gain = flux - prev[0]
+            # noise of the flux in the added ring (independent of that of the previous aperture)
+            gain_err = np.sqrt(max(flux_err**2 - prev[1] ** 2, 0.0))
+            if gain < max(gain_err, eps * np.abs(flux)):
+                return flux, flux_err, kronrad, scale
+        prev = (flux, flux_err, scale)
 
-    return opt_flux, opt_flux_err, kronrad, opt_scale
+    warnings.warn(
+        f"The optimised Kron aperture reached the maximum scale ({MAX_KRON_SCALE} times the Kron radius) "
+        "without converging (e.g. residual sky or a very extended galaxy), so the flux might be overestimated."
+    )
+    return prev[0], prev[1], kronrad, prev[2]
 
 
 def extract_aperture(
@@ -287,7 +300,7 @@ def extract_aperture(
     bkg_sub: bool = False,
     threshold: float = 10,
     use_mask: bool = True,
-    optimize_kronrad: bool = True,
+    optimize_kronrad: bool = False,
     eps: float = 0.0001,
     gal_dist_thresh: float = -1,
     deblend_cont: float = 0.005,
@@ -312,10 +325,12 @@ def extract_aperture(
     threshold: Threshold used by `sep.extract()` to extract objects.
     use_mask: If `True`, the masked fits files are used. These must have
         been created beforehand.
-    optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the
-        aperture size until the change in flux is less than ``eps``.
-    eps: The Kron radius is increased until the change in flux is lower than ``eps``.
-        A value of 0.0001 means 0.01% change in flux.
+    optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the aperture
+        size until the flux gained is consistent with the noise (see :func:`optimize_aperture`).
+        Otherwise (default), the standard Kron scale of 2.5 is used.
+    eps: Minimum fractional change in flux used to stop the optimisation of the Kron-radius
+        scale (if the flux gained is not already within the noise). A value of 0.0001 means
+        0.01% change in flux.
     gal_dist_thresh: Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
@@ -520,7 +535,7 @@ def photometry(
     threshold: float = 10,
     use_mask: bool = True,
     correct_extinction: float = True,
-    optimize_kronrad: bool = True,
+    optimize_kronrad: bool = False,
     eps: float = 0.0001,
     gal_dist_thresh: float = -1,
     deblend_cont: float = 0.005,
@@ -552,10 +567,12 @@ def photometry(
         been created beforehand.
     correct_extinction: If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
         by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
-    optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the
-        aperture size until the change in flux is less than ``eps``.
-    eps: The Kron radius is increased until the change in flux is lower than ``eps``.
-        A value of 0.0001 means 0.01% change in flux.
+    optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the aperture
+        size until the flux gained is consistent with the noise (see :func:`optimize_aperture`).
+        Otherwise (default), the standard Kron scale of 2.5 is used.
+    eps: Minimum fractional change in flux used to stop the optimisation of the Kron-radius
+        scale (if the flux gained is not already within the noise). A value of 0.0001 means
+        0.01% change in flux.
     gal_dist_thresh: Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
@@ -770,7 +787,7 @@ def multi_band_phot(
     common_aperture: bool = False,
     ref_filt: Optional[str | list] = None,
     ref_survey: Optional[str | list] = None,
-    optimize_kronrad: bool = True,
+    optimize_kronrad: bool = False,
     eps: float = 0.0001,
     gal_dist_thresh: float = -1,
     deblend_cont: float = 0.005,
@@ -804,10 +821,12 @@ def multi_band_phot(
     ref_filt: Reference filter(s) used for common aperture photometry.
     ref_survey: Reference survey used for common aperture photometry. By default uses the same
         as the input 'survey'.
-    optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the
-        aperture size until the change in flux is less than ``eps``.
-    eps: The Kron radius is increased until the change in flux is lower than ``eps``.
-        A value of 0.0001 means 0.01% change in flux.
+    optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the aperture
+        size until the flux gained is consistent with the noise (see :func:`optimize_aperture`).
+        Otherwise (default), the standard Kron scale of 2.5 is used.
+    eps: Minimum fractional change in flux used to stop the optimisation of the Kron-radius
+        scale (if the flux gained is not already within the noise). A value of 0.0001 means
+        0.01% change in flux.
         when optimizing the Kron radius.
     gal_dist_thresh: Distance in arcsec to crossmatch the galaxy coordinates with a detected object,
         where the object nearest to the galaxy position is considered as the galaxy (within
