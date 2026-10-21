@@ -536,7 +536,7 @@ def photometry(
     bkg_sub: Optional[bool] = None,
     threshold: float = 10,
     use_mask: bool = True,
-    correct_extinction: float = True,
+    correct_extinction: bool = False,
     optimize_kronrad: bool = False,
     eps: float = 0.0001,
     gal_dist_thresh: float = -1,
@@ -568,7 +568,7 @@ def photometry(
     use_mask: If `True`, the masked fits files are used. These must have
         been created beforehand.
     correct_extinction: If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
-        by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
+        by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999). Not applied by default.
     optimize_kronrad: If `True`, the Kron-radius scale is optimized, increasing the aperture
         size until the flux gained is consistent with the noise (see :func:`optimize_aperture`).
         Otherwise (default), the standard Kron scale of 2.5 is used.
@@ -785,7 +785,7 @@ def multi_band_phot(
     bkg_sub: Optional[bool] = None,
     threshold: float = 10,
     use_mask: bool = True,
-    correct_extinction: bool = True,
+    correct_extinction: bool = False,
     common_aperture: bool = False,
     ref_filt: Optional[str | list] = None,
     ref_survey: Optional[str | list] = None,
@@ -818,7 +818,7 @@ def multi_band_phot(
     threshold: Threshold used by :func:`sep.extract()` to extract objects.
     use_mask: If ``True``, the masked fits files are used. These must have
         been created beforehand.
-    correct_extinction: If ``True``, the magnitudes are corrected for extinction.
+    correct_extinction: If ``True``, the magnitudes are corrected for Milky-Way extinction (not applied by default).
     common_aperture: Whether to use common aperture photometry using the reference filter(s) and survey.
     ref_filt: Reference filter(s) used for common aperture photometry.
     ref_survey: Reference survey used for common aperture photometry. By default uses the same

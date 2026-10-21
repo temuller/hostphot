@@ -212,7 +212,7 @@ def photometry(
     ap_units: str = "kpc",
     bkg_sub: Optional[bool] = None,
     use_mask: bool = True,
-    correct_extinction: bool = True,
+    correct_extinction: bool = False,
     save_plots: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
     """Calculates the local aperture photometry in a given radius.
@@ -234,7 +234,7 @@ def photometry(
     use_mask: If ``True``, the masked fits files are used. These must have
         been created beforehand.
     correct_extinction: If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
-        by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
+        by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999). Not applied by default.
     save_plots: If ``True``, the figure with the aperture is saved.
 
     Returns
@@ -401,7 +401,7 @@ def multi_band_phot(
     ap_units: str = "kpc",
     bkg_sub: Optional[bool] = None,
     use_mask: bool = True,
-    correct_extinction: bool = True,
+    correct_extinction: bool = False,
     save_plots: bool = True,
     save_results: bool = True,
     raise_exception: bool = True,
@@ -427,7 +427,7 @@ def multi_band_phot(
     use_mask: If ``True``, the masked fits files are used. These must have
         been created beforehand.
     correct_extinction: If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
-        by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
+        by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999). Not applied by default.
     save_plots: If ``True``, the figure with the aperture is saved.
     save_results: If ``True``, the magnitudes are saved into a csv file.
     raise_exception: If ``True``, an exception is raised if the photometry fails for any filter.

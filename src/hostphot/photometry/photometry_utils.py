@@ -562,7 +562,8 @@ def extract_filter(
             filt_ = filt
         filt_file = [file for file in filters_path.rglob(f"*{filt_}*")][0]
     elif survey == "JWST":
-        filt_file = filters_path / f"{filt}.dat"
+        # the transmission functions are in a directory per instrument (e.g. NIRCam/NIRCam_F150W.dat)
+        filt_file = filters_path / filt.split("_")[0] / f"{filt}.dat"
     else:
         filt_file = filters_path / f"{survey}_{filt}.dat"
     wave, transmission = np.loadtxt(filt_file).T

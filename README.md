@@ -112,8 +112,8 @@ results = gp.multi_band_phot(name, host_ra, host_dec,
                              save_plots=True)
 ```
 
-By default, HostPhot corrects for Milky Way extinction using the recalibrated dust maps
-by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999).
+With `correct_extinction=True`, HostPhot corrects for Milky Way extinction using the recalibrated dust maps
+by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999). The correction is not applied by default.
 
 ### Surveys List
 
