@@ -6,7 +6,7 @@ from astroquery.ukidss import Ukidss
 
 import numpy as np
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image
+from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image, url_band
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -43,8 +43,9 @@ def get_UKIDSS_images(ra: float, dec: float, size: float=3, filters: str='ZYJHK'
     pos = SkyCoord(ra, dec, unit="deg")
     urls = u_obj.get_image_list(pos, waveband='all', frame_type="stack", image_width=size)
 
-    # all the images of each filter (e.g. from different programmes or overlapping frames)
-    unique_urls = list(dict.fromkeys(urls))
+    # all the images of the requested filters (e.g. from different programmes or overlapping frames);
+    # the band is matched exactly (e.g. H, not the H2 narrow band)
+    unique_urls = [url for url in dict.fromkeys(urls) if url_band(url) in filters]
     all_hdus = open_fits_from_urls(unique_urls)
     url_to_hdu = dict(zip(unique_urls, all_hdus))
 
@@ -52,7 +53,7 @@ def get_UKIDSS_images(ra: float, dec: float, size: float=3, filters: str='ZYJHK'
     size_arcsec = size.to(u.arcsec).value
     hdu_list_all = []
     for filt in filters:
-        candidates = [url_to_hdu[url] for url in unique_urls if f'band={filt}' in url]
+        candidates = [url_to_hdu[url] for url in unique_urls if url_band(url) == filt]
         candidates = [hdu for hdu in candidates if hdu is not None]
         images = []
         for hdu in candidates:

@@ -86,6 +86,16 @@ def image_has_data(data: np.ndarray) -> bool:
     return bool((high - low) / robust_std > 4)
 
 
+def url_band(url: str) -> Optional[str]:
+    """Returns the value of the ``band`` parameter of an image URL (e.g. of the WFAU archives,
+    ``...&band=H&...``), or ``None`` if there is none.
+    """
+    from urllib.parse import parse_qs, urlparse
+
+    values = parse_qs(urlparse(url).query).get("band")
+    return values[0] if values else None
+
+
 FULL_COVERAGE = 0.99  # the whole cutout is covered (allowing for rounding at the edges)
 
 

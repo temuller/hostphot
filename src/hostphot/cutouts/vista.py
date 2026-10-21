@@ -7,7 +7,7 @@ from astropy import wcs
 import astropy.units as u
 from astropy.io import fits
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image
+from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image, url_band
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 from hostphot.moc.maps import contains_coords
 
@@ -94,7 +94,7 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
     for filt in filters:
         for link in links:
             url = link.replace("getImage", "getFImage", 1)
-            if f"band={filt}" in url:
+            if url_band(url) == filt:  # exact match (e.g. not a narrow band with the same prefix)
                 urls_dict[filt].append(url)
     
     # collect all unique URLs
