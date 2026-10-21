@@ -689,6 +689,12 @@ def photometry(
         herschel_details["magnitude_system"] = "AB"
         herschel_details["zeropoint_unit"] = "Jy"
 
+        if correct_extinction is True:
+            # as for the other surveys (negligible in the far infrared)
+            A_ext = calc_extinction(filt, survey, host_ra, host_dec)
+            mag -= A_ext
+            flux *= 10 ** (0.4 * A_ext)
+
         if save_plots is True:
             outfile = obj_dir / survey / f"global_{survey}_{filt}.jpg"
             filt_ = filt.replace("_", "-")
