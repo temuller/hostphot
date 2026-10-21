@@ -120,13 +120,17 @@ def get_unWISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
+    requested_filters = list(filters)  # one image (or None) per requested filter, in the same order
 
+    filters = list(requested_filters)  # (the caller's list is not modified)
     if "neo" in version:
         # these only have W1 and W2 data
-        if "W3" in filters:
-            filters.remove("W3")
-        if "W4" in filters:
-            filters.remove("W4")
+        unavailable = [filt for filt in filters if filt in ["W3", "W4"]]
+        if len(unavailable) > 0:
+            warnings.warn(f"unWISE {version} only has W1 and W2 images (no images for {', '.join(unavailable)}).")
+        filters = [filt for filt in filters if filt not in ["W3", "W4"]]
+    if len(filters) == 0:
+        return [None] * len(requested_filters)
 
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec)
@@ -145,17 +149,15 @@ def get_unWISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
     )
     master_url = base_url + params_url
 
-    response = requests.get(master_url, stream=True)
-    target_file = Path(f"unWISE_images_{ra}_{dec}.tar.gz")  # current directory
-    if response.status_code == 200:
-        with open(target_file, "wb") as f:
-            f.write(response.raw.read())
+    response = requests.get(master_url, timeout=300)
+    response.raise_for_status()
 
     # each filter has its image and inverse-variance map (Lang 2014, AJ, 147, 108)
     # in the tarfile; there can be more than one coadd tile: the one covering the whole cutout
     # is used (the deepest one, i.e. with the largest inverse variance, if there are several)
-    hdu_list = []
-    with tarfile.open(target_file) as tar_file:
+    hdu_dict = {}
+    # the tarfile is read in memory (no temporary files)
+    with tarfile.open(fileobj=io.BytesIO(response.content), mode="r:*") as tar_file:
         files_list = tar_file.getnames()
         for filt in filters:
             img_files = [file for file in files_list if file.endswith(f"{filt.lower()}-img-m.fits")]
@@ -187,11 +189,8 @@ def get_unWISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
                 candidates.append(img_hdu)
                 images.append((img_hdu[0].data, img_wcs, depth))
             index = select_image(images, ra, dec, size_arcsec.value, label=f"{survey} {filt}")
-            hdu_list.append(None if index is None else candidates[index])
-    # remove the tarfile
-    if target_file.is_file() is True:
-        target_file.unlink()
-    return hdu_list
+            hdu_dict[filt] = None if index is None else candidates[index]
+    return [hdu_dict.get(filt) for filt in requested_filters]
 
 def get_used_image(header: fits.header.Header) -> str:
     """Obtains the name of the image downloaded by SkyView.
