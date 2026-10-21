@@ -3,7 +3,12 @@
 This module follows HostPhot's cutout interface: ``download_images(...,
 survey="Herschel")`` calls ``get_Herschel_images`` and expects one HDUList per
 requested filter.  The HSA products are full processed maps rather than cutouts,
-so the ``size`` argument is accepted for API compatibility but is not used.
+so the ``size`` argument is only used to check that the maps cover the requested
+area (the full maps are returned).
+
+Only the photometry observations whose footprint contains the target are used, and
+only the final ("standalone") maps of each observation are downloaded (the whole
+processing level is downloaded only if these are not available).
 """
 
 from __future__ import annotations
@@ -19,7 +24,10 @@ from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astroquery.esa.hsa import HSA
 
+from astropy.wcs import WCS
+
 from hostphot.surveys_utils import check_filters_validity, get_survey_filters
+from hostphot.utils import image_coverage, select_image, FULL_COVERAGE
 
 
 DEFAULT_FILTERS = ("PACS100", "PACS160", "SPIRE250", "SPIRE350", "SPIRE500")
@@ -28,6 +36,12 @@ DEFAULT_PRODUCT_LEVELS = ("LEVEL2_5", "LEVEL3", "LEVEL2")
 DEFAULT_RADIUS_ARCMIN = 5.0
 
 INSTRUMENT_OID_TO_NAME = {1: "PACS", 2: "SPIRE", 3: "HIFI"}
+
+# photometry observing modes (hsa.observing_mode): PacsPhoto, SpirePhotoLargeScan,
+# SpirePhotoPointJiggle, SpirePhotoSmall, SpirePhotoPointJiggleId55, SpirePhotoSmallScan
+# and SpirePacsParallel (with both PACS and SPIRE maps)
+PHOTOMETRY_MODES = {1: ("PACS",), 4: ("SPIRE",), 5: ("SPIRE",), 6: ("SPIRE",), 7: ("SPIRE",),
+                    283: ("SPIRE",), 31: ("PACS", "SPIRE")}
 
 # Host-galaxy photometry should prefer extended-emission products.
 FILTER_RULES = {
@@ -87,33 +101,38 @@ def query_hsa_observations(
     instruments: Iterable[str] = DEFAULT_INSTRUMENTS,
     max_obs: int = 200,
 ) -> pd.DataFrame:
-    """Query public HSA observations whose pointing centre is near RA/Dec."""
-    coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame="icrs")
-    table = HSA.query_region(coord, radius_arcmin * u.arcmin, n_obs=max_obs, columns="*")
-    df = table.to_pandas()
+    """Query the public HSA photometry observations whose footprint contains RA/Dec.
+
+    Spectroscopy, calibration and engineering observations are excluded. Observations
+    in SPIRE/PACS parallel mode are listed once per instrument. The observations are
+    sorted by duration (longest, i.e. deepest, first).
+
+    ``radius_arcmin`` is kept for backward compatibility, but it is not used (the
+    footprints of the observations are used instead of the distance to their centres).
+    """
+    del radius_arcmin
+    modes = ",".join(str(mode) for mode in PHOTOMETRY_MODES)
+    query = (
+        f"select top {max_obs} observation_id, instrument_oid, observing_mode_oid, target_name, "
+        "ra, dec, duration from hsa.v_active_observation "
+        f"where contains(point('ICRS', {ra}, {dec}), polygon_fov)=1 "
+        f"and observing_mode_oid in ({modes})"
+    )
+    df = HSA.query_hsa_tap(query).to_pandas()
     if df.empty:
         return df
 
-    if "observation_id" not in df.columns:
-        raise RuntimeError(f"HSA result has no observation_id column: {list(df.columns)}")
-
-    inst_col = next((col for col in ("instrument_name", "instrument") if col in df.columns), None)
-    if inst_col is not None:
-        df["instrument_name"] = df[inst_col].astype(str).str.upper()
-    elif "instrument_oid" in df.columns:
-        df["instrument_name"] = pd.to_numeric(df["instrument_oid"], errors="coerce").map(
-            INSTRUMENT_OID_TO_NAME
-        )
-    else:
-        raise RuntimeError(
-            "HSA result has no instrument_name/instrument or instrument_oid column: "
-            f"{list(df.columns)}"
-        )
-
     keep = {inst.upper() for inst in instruments}
-    df = df[df["instrument_name"].isin(keep)].copy()
+    rows = []
+    for _, row in df.iterrows():
+        for instrument in PHOTOMETRY_MODES[int(row["observing_mode_oid"])]:
+            if instrument in keep:
+                rows.append({**row.to_dict(), "instrument_name": instrument})
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+    df = df.sort_values("duration", ascending=False, kind="stable")
     order = ["observation_id", "instrument_name", "instrument_oid", "target_name", "ra", "dec"]
-    order = [col for col in order if col in df.columns]
     order += [col for col in df.columns if col not in order]
     return df[order].reset_index(drop=True)
 
@@ -121,23 +140,30 @@ def query_hsa_observations(
 def _download_product(
     observation_id: str | int,
     instrument_name: str,
-    product_level: str,
+    product_level: Optional[str],
     download_dir: Path,
     overwrite: bool = False,
 ) -> Optional[Path]:
-    """Download one compressed HSA product tarball."""
+    """Download one compressed HSA product tarball.
+
+    If ``product_level`` is ``None``, only the final ("standalone") maps of the
+    observation are downloaded; otherwise, the whole processing level.
+    """
     download_dir.mkdir(parents=True, exist_ok=True)
+    if product_level is None:
+        product_level = "STANDALONE"
     stem = f"Herschel_{instrument_name}_{observation_id}_{product_level}"
     existing = list(download_dir.glob(stem + ".*"))
     if existing and not overwrite:
         return existing[0]
 
     try:
+        level_kwargs = {} if product_level == "STANDALONE" else {"product_level": product_level}
         filename = HSA.download_data(
-            retrieval_type="OBSERVATION",
+            retrieval_type="STANDALONE" if product_level == "STANDALONE" else "OBSERVATION",
             observation_id=str(observation_id),
             instrument_name=instrument_name,
-            product_level=product_level,
+            **level_kwargs,
             filename=stem,
             download_dir=str(download_dir),
             cache=False,
@@ -145,6 +171,8 @@ def _download_product(
             verbose=False,
         )
     except Exception as exc:
+        if "proprietary" in str(exc).lower():
+            raise PermissionError(f"Herschel observation {observation_id} is not public") from exc
         print(
             "  Herschel download failed: "
             f"obs={observation_id} instrument={instrument_name} level={product_level}: {exc}"
@@ -294,30 +322,40 @@ def get_Herschel_images(
 ) -> list[Optional[fits.HDUList]]:
     """Download Herschel maps and return one HostPhot-ready HDUList per filter.
 
+    The photometry observations whose footprint contains the target are downloaded one
+    by one, from the longest (deepest) to the shortest, until a map covering the whole
+    requested area is found for each filter. Only the final ("standalone") maps of each
+    observation are downloaded; the processing levels in ``product_levels`` are only
+    downloaded (whole) if these do not include the filter. Among the maps of a filter,
+    the deepest one covering the whole area is used; otherwise, the one with the largest
+    coverage (with a warning).
+
     Parameters
     ----------
     ra, dec:
         Target coordinates in degrees.
     size:
-        Accepted only for HostPhot API compatibility. HSA returns processed maps,
-        not on-demand cutouts.
+        Size of the area that the maps need to cover. If a float is given, the units are
+        assumed to be arcmin. The full maps are returned (HSA does not provide cutouts).
     filters:
         Herschel filters to return. Valid options are ``PACS100``, ``PACS160``,
         ``SPIRE250``, ``SPIRE350`` and ``SPIRE500``.
     output_dir:
-        Optional HostPhot survey folder used to store HSA tarballs, extracted
-        products and CSV provenance files.
+        Optional HostPhot survey folder used to store CSV provenance files.
     radius_arcmin:
-        HSA observation search radius.
+        Not used (kept for backward compatibility; see :func:`query_hsa_observations`).
     product_levels:
-        HSA product levels to try, in order.
+        HSA product levels to try, in order, if the final maps do not include a filter.
     overwrite:
         Redownload and re-extract products even when local files exist.
     max_obs:
-        Maximum number of HSA observations returned by the cone search.
+        Maximum number of HSA observations returned by the query.
     """
-    del size  # HSA products are not cutout-size driven.
     requested_filters = _normalise_filters(filters)
+    if isinstance(size, (float, int)):
+        size_arcsec = (size * u.arcmin).to(u.arcsec).value
+    else:
+        size_arcsec = size.to(u.arcsec).value
 
     if output_dir is None:
         tmp = tempfile.TemporaryDirectory(prefix="hostphot_herschel_")
@@ -330,84 +368,91 @@ def get_Herschel_images(
     downloads_dir = target_dir / "hsa_downloads"
     extracted_dir = target_dir / "hsa_extracted"
 
-    observations = query_hsa_observations(ra, dec, radius_arcmin=radius_arcmin, max_obs=max_obs)
+    instruments = {FILTER_RULES[filt]["instrument"] for filt in requested_filters}
+    observations = query_hsa_observations(ra, dec, instruments=instruments, max_obs=max_obs)
     observations.to_csv(target_dir / "hsa_observations.csv", index=False)
     if observations.empty:
         if tmp is not None:
             tmp.cleanup()
         return [None for _ in requested_filters]
 
-    all_candidates = []
     downloads_log = []
-    selected_by_filter: dict[str, dict] = {}
+    # maps of each filter: (data, wcs, depth) for the selection, and their provenance
+    maps: dict[str, list] = {filt: [] for filt in requested_filters}
+    hduls: dict[str, list] = {filt: [] for filt in requested_filters}
+    provenance: dict[str, list] = {filt: [] for filt in requested_filters}
+    covered: set[str] = set()
 
-    from concurrent.futures import ThreadPoolExecutor
+    def add_maps(candidates: pd.DataFrame, obs_id, instrument: str, level: str, duration: float) -> set:
+        """Adds the best map of each filter in an observation; returns the filters found."""
+        found = set()
+        for filt, filt_df in candidates.groupby("filter"):
+            if filt in covered or filt not in maps:
+                continue
+            best = filt_df.sort_values(["score", "path"], ascending=[False, True]).iloc[0]
+            hdul = _make_hostphot_hdul(Path(best["path"]), int(best["image_ext"]), filt)
+            img_wcs = WCS(hdul[0].header, naxis=2)
+            maps[filt].append((hdul[0].data, img_wcs, duration))
+            hduls[filt].append(hdul)
+            coverage = image_coverage(hdul[0].data, img_wcs, ra, dec, size_arcsec)
+            provenance[filt].append(
+                {**best.to_dict(), "observation_id": obs_id, "instrument_name": instrument,
+                 "product_level": level, "duration": duration, "coverage": coverage}
+            )
+            found.add(filt)
+            if coverage >= FULL_COVERAGE:
+                covered.add(filt)
+        return found
 
-    def process_observation(row):
-        obs_id = row["observation_id"]
-        instrument = str(row["instrument_name"]).upper()
-        if instrument not in DEFAULT_INSTRUMENTS:
-            return None
-
-        for level in product_levels:
-            tarball = _download_product(obs_id, instrument, level, downloads_dir, overwrite=overwrite)
+    for _, row in observations.iterrows():
+        instrument = row["instrument_name"]
+        pending = [
+            filt for filt in requested_filters
+            if filt not in covered and FILTER_RULES[filt]["instrument"] == instrument
+        ]
+        if len(pending) == 0:
+            continue
+        obs_id, duration = row["observation_id"], float(row["duration"])
+        # final maps first; whole processing levels only if they do not include the filters
+        for level in [None] + list(product_levels):
+            level_name = level or "STANDALONE"
+            try:
+                tarball = _download_product(obs_id, instrument, level, downloads_dir, overwrite=overwrite)
+            except PermissionError:
+                break  # proprietary data (no level can be downloaded)
             if tarball is None or not tarball.exists() or tarball.stat().st_size == 0:
                 continue
-
-            extract_dir = extracted_dir / f"{instrument}_{obs_id}_{level}"
+            extract_dir = extracted_dir / f"{instrument}_{obs_id}_{level_name}"
             _safe_extract_tarball(tarball, extract_dir, overwrite=overwrite)
-            candidates = _scan_science_maps(extract_dir, requested_filters)
-            
-            log_entry = {
-                "observation_id": obs_id,
-                "instrument": instrument,
-                "product_level": level,
-                "tarball": str(tarball),
-                "n_candidates": len(candidates),
-            }
-            
-            if not candidates.empty:
-                candidates["observation_id"] = obs_id
-                candidates["product_level"] = level
-                return candidates, log_entry
-            
-            return None, log_entry
-
-    with ThreadPoolExecutor() as executor:
-        results = list(executor.map(process_observation, [row for _, row in observations.iterrows()]))
-
-    for res in results:
-        if res is not None:
-            candidates, log_entry = res
-            if candidates is not None:
-                all_candidates.append(candidates)
-            downloads_log.append(log_entry)
+            candidates = _scan_science_maps(extract_dir, pending)
+            downloads_log.append(
+                {"observation_id": obs_id, "instrument": instrument, "product_level": level_name,
+                 "tarball": str(tarball), "n_candidates": len(candidates)}
+            )
+            found = add_maps(candidates, obs_id, instrument, level_name, duration) if not candidates.empty else set()
+            pending = [filt for filt in pending if filt not in found]
+            if len(pending) == 0:
+                break
+        if covered.issuperset(requested_filters):
+            break  # all the filters have a map covering the whole area
 
     if downloads_log:
         pd.DataFrame(downloads_log).to_csv(target_dir / "hsa_downloads.csv", index=False)
+    all_provenance = [entry for filt in requested_filters for entry in provenance[filt]]
+    if all_provenance:
+        pd.DataFrame(all_provenance).to_csv(target_dir / "hsa_candidate_maps.csv", index=False)
 
-    if all_candidates:
-        candidates_df = pd.concat(all_candidates, ignore_index=True)
-        candidates_df.to_csv(target_dir / "hsa_candidate_maps.csv", index=False)
-        for filt in requested_filters:
-            filt_df = candidates_df[candidates_df["filter"] == filt]
-            if filt_df.empty:
-                continue
-            selected_by_filter[filt] = filt_df.sort_values(
-                ["score", "product_level", "path"], ascending=[False, True, True]
-            ).iloc[0].to_dict()
-
-    if selected_by_filter:
-        pd.DataFrame(selected_by_filter.values()).to_csv(target_dir / "hsa_selected_maps.csv", index=False)
-
-    # read the selected maps (into memory) before deleting the temporary files
     result = []
+    selected = []
     for filt in requested_filters:
-        selected = selected_by_filter.get(filt)
-        if selected is None:
+        index = select_image(maps[filt], ra, dec, size_arcsec, label=f"Herschel {filt}")
+        if index is None:
             result.append(None)
             continue
-        result.append(_make_hostphot_hdul(Path(selected["path"]), int(selected["image_ext"]), filt))
+        result.append(hduls[filt][index])
+        selected.append(provenance[filt][index])
+    if selected:
+        pd.DataFrame(selected).to_csv(target_dir / "hsa_selected_maps.csv", index=False)
 
     # Delete temporary files to save space
     import shutil
