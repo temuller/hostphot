@@ -12,8 +12,10 @@ processing level is downloaded only if these are not available).
 
 from __future__ import annotations
 
+import shutil
 import tarfile
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -268,10 +270,12 @@ def _scan_science_maps(extract_dir: Path, requested_filters: Iterable[str]) -> p
                 image_header = hdul[image_index].header
                 merged_header = hdul[0].header.copy()
                 merged_header.update(image_header)
-                filt = _candidate_filter(path, merged_header)
+                # the product names are matched within the extracted tree only (not the user's directories)
+                rel_path = path.relative_to(extract_dir)
+                filt = _candidate_filter(rel_path, merged_header)
                 if filt not in requested:
                     continue
-                score = _score_candidate(path, filt, merged_header)
+                score = _score_candidate(rel_path, filt, merged_header)
                 if score <= 0:
                     continue
                 rows.append(
@@ -424,63 +428,70 @@ def get_Herschel_images(
                 covered.add(filt)
         return found
 
-    for _, row in observations.iterrows():
-        instrument = row["instrument_name"]
-        pending = [
-            filt for filt in requested_filters
-            if filt not in covered and FILTER_RULES[filt]["instrument"] == instrument
-        ]
-        if len(pending) == 0:
-            continue
-        obs_id, duration = row["observation_id"], float(row["duration"])
-        # final maps first; whole processing levels only if they do not include the filters
-        for level in [None] + list(product_levels):
-            level_name = level or "STANDALONE"
-            try:
-                tarball = _download_product(obs_id, instrument, level, downloads_dir, overwrite=overwrite)
-            except PermissionError:
-                break  # proprietary data (no level can be downloaded)
-            if tarball is None or not tarball.exists() or tarball.stat().st_size == 0:
-                continue
-            extract_dir = extracted_dir / f"{instrument}_{obs_id}_{level_name}"
-            _safe_extract_tarball(tarball, extract_dir, overwrite=overwrite)
-            candidates = _scan_science_maps(extract_dir, pending)
-            downloads_log.append(
-                {"observation_id": obs_id, "instrument": instrument, "product_level": level_name,
-                 "tarball": str(tarball), "n_candidates": len(candidates)}
-            )
-            found = add_maps(candidates, obs_id, instrument, level_name, duration) if not candidates.empty else set()
-            pending = [filt for filt in pending if filt not in found]
+    try:
+        for _, row in observations.iterrows():
+            instrument = row["instrument_name"]
+            pending = [
+                filt for filt in requested_filters
+                if filt not in covered and FILTER_RULES[filt]["instrument"] == instrument
+            ]
             if len(pending) == 0:
-                break
-        if covered.issuperset(requested_filters):
-            break  # all the filters have a map covering the whole area
+                continue
+            obs_id, duration = row["observation_id"], float(row["duration"])
+            # final maps first; whole processing levels only if they do not include the filters
+            for level in [None] + list(product_levels):
+                level_name = level or "STANDALONE"
+                try:
+                    tarball = _download_product(obs_id, instrument, level, downloads_dir, overwrite=overwrite)
+                except PermissionError:
+                    break  # proprietary data (no level can be downloaded)
+                if tarball is None or not tarball.exists() or tarball.stat().st_size == 0:
+                    continue
+                extract_dir = extracted_dir / f"{instrument}_{obs_id}_{level_name}"
+                try:
+                    _safe_extract_tarball(tarball, extract_dir, overwrite=overwrite)
+                except (tarfile.TarError, EOFError, OSError) as exc:
+                    # e.g. truncated download: removed, so that it is not reused
+                    warnings.warn(f"Herschel: could not extract {tarball.name} ({exc}); skipped.")
+                    tarball.unlink(missing_ok=True)
+                    shutil.rmtree(extract_dir, ignore_errors=True)
+                    continue
+                candidates = _scan_science_maps(extract_dir, pending)
+                downloads_log.append(
+                    {"observation_id": obs_id, "instrument": instrument, "product_level": level_name,
+                     "tarball": str(tarball), "n_candidates": len(candidates)}
+                )
+                found = add_maps(candidates, obs_id, instrument, level_name, duration) if not candidates.empty else set()
+                pending = [filt for filt in pending if filt not in found]
+                if len(pending) == 0:
+                    break
+            if covered.issuperset(requested_filters):
+                break  # all the filters have a map covering the whole area
 
-    if downloads_log:
-        pd.DataFrame(downloads_log).to_csv(target_dir / "hsa_downloads.csv", index=False)
-    all_provenance = [entry for filt in requested_filters for entry in provenance[filt]]
-    if all_provenance:
-        pd.DataFrame(all_provenance).to_csv(target_dir / "hsa_candidate_maps.csv", index=False)
+        if downloads_log:
+            pd.DataFrame(downloads_log).to_csv(target_dir / "hsa_downloads.csv", index=False)
+        all_provenance = [entry for filt in requested_filters for entry in provenance[filt]]
+        if all_provenance:
+            pd.DataFrame(all_provenance).to_csv(target_dir / "hsa_candidate_maps.csv", index=False)
 
-    result = []
-    selected = []
-    for filt in requested_filters:
-        index = select_image(maps[filt], ra, dec, size_arcsec, label=f"Herschel {filt}")
-        if index is None:
-            result.append(None)
-            continue
-        result.append(_cutout(hduls[filt][index], ra, dec, size_arcsec))
-        selected.append(provenance[filt][index])
-    if selected:
-        pd.DataFrame(selected).to_csv(target_dir / "hsa_selected_maps.csv", index=False)
+        result = []
+        selected = []
+        for filt in requested_filters:
+            index = select_image(maps[filt], ra, dec, size_arcsec, label=f"Herschel {filt}")
+            if index is None:
+                result.append(None)
+                continue
+            result.append(_cutout(hduls[filt][index], ra, dec, size_arcsec))
+            selected.append(provenance[filt][index])
+        if selected:
+            pd.DataFrame(selected).to_csv(target_dir / "hsa_selected_maps.csv", index=False)
 
-    # Delete temporary files to save space
-    import shutil
-    if downloads_dir.exists():
-        shutil.rmtree(downloads_dir)
-    if extracted_dir.exists():
-        shutil.rmtree(extracted_dir)
-
-    if tmp is not None:
-        tmp.cleanup()
+    finally:
+        # delete the temporary files (also if something failed) to save space
+        if downloads_dir.exists():
+            shutil.rmtree(downloads_dir, ignore_errors=True)
+        if extracted_dir.exists():
+            shutil.rmtree(extracted_dir, ignore_errors=True)
+        if tmp is not None:
+            tmp.cleanup()
     return result
