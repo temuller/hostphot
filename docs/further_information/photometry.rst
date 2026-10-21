@@ -134,6 +134,10 @@ unWISE
 * **ZP**
   
   unWISE images are rescaled to have ZPs of :math:`22.5`, as explained in `Lang (2014) <https://iopscience.iop.org/article/10.1088/0004-6256/147/5/108>`_. Note that to improve the agreement between unWISE and AllWISE fluxes, it is recommend subtracting :math:`4` mmag from unWISE *W1* and :math:`32` mmag from unWISE *W2* fluxes, as descrived in the `unWISE catalogs website <https://catalog.unwise.me/catalogs.html#absolute>`_ (performed internally by HostPhot).
+
+* **Background**
+
+  The unWISE pipeline already subtracts the sky (a constant level from each input frame and from each coadd tile; `Lang 2014 <https://iopscience.iop.org/article/10.1088/0004-6256/147/5/108>`_), so HostPhot does not subtract a background from unWISE images by default (it can be done with ``bkg_sub=True``). In tests on high-latitude fields, the residual sky was small (:math:`\sim\pm1` nanomaggies per pixel), while subtracting a background degraded the agreement with the AllWISE aperture photometry of stars (the background mesh is only a few times larger than the WISE PSF).
   
 * **Error Propagation**
 
