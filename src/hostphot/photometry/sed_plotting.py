@@ -7,7 +7,7 @@ from typing import Optional
 
 import hostphot
 from hostphot._constants import workdir, font_family
-from hostphot.surveys_utils import get_survey_filters, filters_file, load_yml
+from hostphot.surveys_utils import filters_file, load_yml
 from hostphot.photometry.photometry_utils import extract_filter
 
 path = Path(hostphot.__path__[0])
@@ -105,10 +105,14 @@ def plot_sed(
 
     # start plotting
     fig, ax = plt.subplots(figsize=(12, 6))
+    n_plotted = 0
     for file in phot_files:
         phot_df = pd.read_csv(file)
         survey = file.parts[-2]
-        filters = get_survey_filters(survey)
+        if survey not in filters_config:
+            continue
+        # filters with photometry (from the configuration, as HST and JWST have no default filters)
+        filters = list(filters_config[survey])
 
         # Vega to AB
         ab_offset = {filt: filters_config[survey][filt]["AB_offset"] 
@@ -118,7 +122,21 @@ def plot_sed(
         if phot_type == "local":
             ap_units = phot_df.ap_units.values[0]
             title = fr"{name} - {phot_type} SED (r $= {radius}$ {ap_units})"
-            ext = f"_{radius}"
+            # the radius in the column names is matched numerically (e.g. 1 and 1.0)
+            ext = None
+            for column in phot_df.columns:
+                for filt in filters:
+                    suffix = column[len(filt) + 1:] if column.startswith(filt + "_") else ""
+                    try:
+                        if np.isclose(float(suffix), float(radius)):
+                            ext = f"_{suffix}"
+                    except ValueError:
+                        pass
+                if ext is not None:
+                    break
+            if ext is None:
+                print(f"No {survey} local photometry with a radius of {radius} {ap_units} for {name}.")
+                continue
         elif phot_type == "global":
             title = f"{name} - {phot_type} SED"
             ext = ""
@@ -168,6 +186,7 @@ def plot_sed(
         phot_err = phot_err[mask]
         valid_filters = np.array(valid_filters)[mask]
         label = f'{survey}\n{", ".join(filt for filt in valid_filters)}'
+        n_plotted += 1
 
         if plot_flux is False:
             lims = phot_err > 1  # upper limits; inverted for magnitude plots
@@ -203,6 +222,11 @@ def plot_sed(
                 label=label,
             )
 
+    if n_plotted == 0:
+        print(f"There is no photometry to plot for {name}!")
+        plt.close(fig)
+        return None
+
     if len(phot_files) > 4:
         ncol = 2
     else:
@@ -212,7 +236,7 @@ def plot_sed(
         ax.invert_yaxis()  # for magnitude plot
         ax.set_ylabel("AB Magnitude", fontsize=24, font=font_family)
     else:
-        ax.set_ylabel("Flux (mJy)", fontsize=24, font=font_family)
+        ax.set_ylabel(r"Flux ($\mu$Jy)", fontsize=24, font=font_family)
     ax.set_xlabel(xlabel, fontsize=24, font=font_family)
     ax.set_title(title, fontsize=28, fontfamily=font_family)
 
