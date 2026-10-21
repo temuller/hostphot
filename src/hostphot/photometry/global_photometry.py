@@ -513,12 +513,14 @@ def load_aperture_params(
     # DataFrame to structured/record array
     gal_obj = gal_df.to_records()
 
-    # load image WCS
+    # load image WCS: the aperture parameters were measured on the image trimmed by remove_nan(),
+    # so the same trimming is applied to get the WCS of that frame
     fits_file = obj_dir / survey / f"{survey}_{filt}.fits"
-    hdu = fits.open(fits_file)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", AstropyWarning)
-        wcs = WCS(hdu[0].header, naxis=2)
+    with fits.open(fits_file) as hdu:
+        hdu = remove_nan(hdu)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", AstropyWarning)
+            wcs = WCS(hdu[0].header, naxis=2)
 
     return gal_obj, wcs, kronrad, scale, flip
 

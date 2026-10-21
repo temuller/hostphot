@@ -305,13 +305,15 @@ def load_mask_params(
     gal_obj = objects[:1]
     nongal_objs = objects[1:]
     
-    # load image WCS
+    # load image WCS: the mask parameters were measured on the image trimmed by remove_nan(),
+    # so the same trimming is applied to get the WCS of that frame
     fits_file = obj_dir / survey / f"{survey}_{filt}.fits"
-    hdu = fits.open(fits_file)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", AstropyWarning)
-        img_wcs = wcs.WCS(hdu[0].header, naxis=2)
-        
+    with fits.open(fits_file) as hdu:
+        hdu = remove_nan(hdu)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", AstropyWarning)
+            img_wcs = wcs.WCS(hdu[0].header, naxis=2)
+
     return gal_obj, nongal_objs, img_wcs, sigma, r, flip
 
 
