@@ -51,6 +51,7 @@ from hostphot.photometry.photometry_utils import (
 )
 from hostphot.surveys_utils import (
     get_survey_filters,
+    get_default_filters,
     check_filters_validity,
     check_survey_validity,
     survey_pixel_scale,
@@ -459,7 +460,7 @@ def multi_band_phot(
     if filters is None:
         if survey in ["HST", "JWST"]:
             raise ValueError(f"For {survey}, the filter needs to be specified!")
-        filters = get_survey_filters(survey)
+        filters = get_default_filters(survey)
     else:
         filters = normalize_filters(filters, survey)
         check_filters_validity(filters, survey)

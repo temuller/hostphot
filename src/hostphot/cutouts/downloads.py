@@ -9,6 +9,7 @@ from hostphot._constants import workdir
 from hostphot.utils import check_work_dir, store_input, image_has_data
 from hostphot.surveys_utils import (
     get_survey_filters,
+    get_default_filters,
     check_survey_validity,
     normalize_filters,
 )
@@ -67,7 +68,7 @@ def download_images(
     if filters is None:
         if survey in ["HST", "JWST"]:
             raise ValueError(f"For {survey}, the filters need to be specified!")
-        filters = get_survey_filters(survey)
+        filters = get_default_filters(survey)
     else:
         filters = normalize_filters(filters, survey)
     # check output directory

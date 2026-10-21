@@ -97,6 +97,30 @@ def get_survey_filters(survey: str) -> str | list:
     return filters
 
 
+# default filters (if not given) of the surveys with filters that are not usually needed
+# (e.g. narrow bands); the other surveys use all their filters by default
+default_filters = {
+    "HSC": ["g", "r", "i", "z", "Y"],  # broad bands (not r2, i2 or the narrow bands)
+}
+
+
+def get_default_filters(survey: str) -> Optional[list]:
+    """Gets the filters used by default (if none are given) for the given survey.
+
+    Parameters
+    ----------
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
+
+    Returns
+    -------
+    filters: Default filters (``None`` for HST and JWST, for which they need to be given).
+    """
+    if survey in default_filters:
+        check_survey_validity(survey)
+        return list(default_filters[survey])
+    return get_survey_filters(survey)
+
+
 def survey_zp(survey: str, filt: str) -> str | dict:
     """Returns the zero-point for a given survey.
 
@@ -116,14 +140,14 @@ def survey_zp(survey: str, filt: str) -> str | dict:
     return zp
 
 
-def survey_pixel_scale(survey: str, filt: Optional[str] = None) -> float:
-    """Returns the pixel scale for a given survey.
+def survey_pixel_scale(survey: str, filt: str) -> float:
+    """Returns the (nominal) pixel scale for a given survey and filter.
 
     Parameters
     ----------
     survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
-    filt: Filter to use by surveys that have different pixel scales
-          for different filters (e.g. Spitzer's IRAC and MIPS instruments).
+    filt: Filter (the pixel scale can be different for different filters, e.g. for
+          Spitzer's IRAC and MIPS instruments).
 
     Returns
     -------

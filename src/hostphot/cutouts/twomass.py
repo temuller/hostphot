@@ -24,7 +24,7 @@ def get_2MASS_images(
     ra: Right ascension in degrees.
     dec: Declination in degrees.
     size: Image size. If a float is given, the units are assumed to be arcmin.
-    filters:  Filters to use. If ``None``, uses ``FUV, NUV``.
+    filters:  Filters to use. If ``None``, uses ``J, H, Ks``.
 
     Return
     ------

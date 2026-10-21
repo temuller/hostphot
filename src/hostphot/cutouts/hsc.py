@@ -8,7 +8,7 @@ from typing import Optional
 from astropy.io import fits
 from astropy import units as u
 
-from hostphot.surveys_utils import get_survey_filters, check_filters_validity
+from hostphot.surveys_utils import get_survey_filters, get_default_filters, check_filters_validity
 
 # HSC SSP cutout API endpoint (PDR3)
 _CUTOUT_URL = "https://hsc-release.mtk.nao.ac.jp/das_cutout/pdr3/cgi-bin/cutout"
@@ -146,8 +146,8 @@ def get_HSC_images(
     ra: Right Ascension in degrees.
     dec: Declination in degrees.
     size: Image size. If a float, the units are assumed to be arcmin.
-    filters: Filters to download. If ``None``, uses all broadband filters
-             ``['g', 'r', 'i', 'z', 'Y']``.
+    filters: Filters to download. If ``None``, uses the broadband filters
+             ``['g', 'r', 'i', 'z', 'Y']`` (not r2, i2 or the narrow bands).
     version: HSC rerun / data layer to query. Use ``'pdr3_wide'`` (default,
              also used if ``None``) for the Wide layer or ``'pdr3_dud'`` for
              the Deep+UltraDeep layer.
@@ -164,7 +164,7 @@ def get_HSC_images(
     if version is None:
         version = "pdr3_wide"
     if filters is None:
-        filters = get_survey_filters(survey)
+        filters = get_default_filters(survey)
     check_filters_validity(filters, survey)
 
     # Convert requested size to cutout half-width/height in degrees

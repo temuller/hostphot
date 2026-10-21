@@ -55,6 +55,7 @@ from hostphot.photometry.image_utils import adapt_aperture, wrap_theta
 from hostphot.processing.background import masked_background
 from hostphot.surveys_utils import (
     get_survey_filters,
+    get_default_filters,
     check_filters_validity,
     check_survey_validity,
     flipped_surveys,
@@ -599,6 +600,8 @@ def photometry(
     flux: Aperture flux.
     flux_err: Total flux error on the aperture flux.
     zp: Zeropoint.
+    details: Only for Herschel, dictionary with details of the measurement (e.g. units, conversion
+        factor to Jy/pixel and blank-aperture noise), as a sixth value.
     """
     # initial checks
     check_survey_validity(survey)
@@ -653,6 +656,7 @@ def photometry(
             deblend_cont,
             save_plots,
             save_aperture_params,
+            save_input=False,  # (the inputs of the photometry are saved by multi_band_phot())
         )
     else:
         # common aperture photometry
@@ -882,7 +886,7 @@ def multi_band_phot(
     if filters is None:
         if survey in ["HST", "JWST"]:
             raise ValueError(f"For {survey}, the filter needs to be specified!")
-        filters = get_survey_filters(survey)
+        filters = get_default_filters(survey)
     else:
         filters = normalize_filters(filters, survey)
         check_filters_validity(filters, survey)
