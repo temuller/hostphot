@@ -209,12 +209,13 @@ def uncertainty_calculation(
         n_c = ap_area
         sigma_c = bkg_rms  # coadd noise; assumed to be ~background noise
 
+        # (absolute values, so that negative fluxes do not reduce the noise or give a smaller error)
         SNR = S / np.sqrt(
-            S / (gain * N_c)
+            np.abs(S) / (gain * N_c)
             + 4 * n_c * k_z ** 2 * sigma_c ** 2
         )
         # the aperture error includes the blank-aperture floor, which is kept if larger
-        mag_err = max(1.0857 / SNR, mag_err)
+        mag_err = max(np.abs(1.0857 / SNR), np.abs(mag_err))
         # global photometric calibration accuracy of ~1-2% (2MASS Explanatory Supplement)
         calib_err = 0.01
         mag_err = np.sqrt(mag_err**2 + calib_err**2)

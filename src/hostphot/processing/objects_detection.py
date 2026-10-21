@@ -193,21 +193,12 @@ def cross_match(
     dist_thresh: Distance in arcsec to crossmatch the objects with
         the given coordinates.
     """
-    # coordinates in arcsec
+    if len(objects) == 0 or len(coord) == 0:
+        return objects[:0]
+    # angular separations on the sky (i.e. including cos(dec) and the RA wrap at 0/360 deg)
     objs_coord = img_wcs.pixel_to_world(objects["x"], objects["y"])
-    objs_ra = objs_coord.ra.to(u.arcsec).value
-    objs_dec = objs_coord.dec.to(u.arcsec).value
-
-    cat_ra = np.array(coord.ra.to(u.arcsec).value)
-    cat_dec = np.array(coord.dec.to(u.arcsec).value)
-
-    objs_id = []
-    for i in range(len(objects)):
-        ra_dist = objs_ra[i] - cat_ra
-        dec_dist = objs_dec[i] - cat_dec
-        dist_arcsec = np.sqrt(ra_dist**2 + dec_dist**2)
-        if any(dist_arcsec <= dist_thresh):
-            objs_id.append(i)
+    _, sep2d, _ = objs_coord.match_to_catalog_sky(coord)
+    objs_id = np.where(sep2d.arcsec <= dist_thresh)[0]
 
     objs = objects.take(objs_id)
 
