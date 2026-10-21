@@ -211,8 +211,8 @@ VISTA
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2)`.
   
   
-HST/WFC3
-~~~~~~~~
+HST (WFC3, ACS/WFC and NICMOS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * **ZP**
   
@@ -230,7 +230,7 @@ HST/WFC3
   
 * **Error Propagation**
 
-  The aperture uncertainty (:math:`\sigma_{\text{ap}}`) includes the background and Poisson noise, with an additional component coming from the ZP calibration (`ERR_PHOTFLAM`; :math:`\sigma_{\text{ZP}}`), taken from the tables found in the photometric calibration websites of the instruments (see `UVIS photometric calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/uvis-photometric-calibration>`_ `IR photometric calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/ir-photometric-calibration>`_), which is of the order of a few percent at most.
+  The aperture uncertainty (:math:`\sigma_{\text{ap}}`) includes the background and Poisson noise, with an additional component coming from the ZP calibration (`ERR_PHOTFLAM`; :math:`\sigma_{\text{ZP}}`), taken from the tables found in the photometric calibration websites of the instruments (see `UVIS photometric calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/uvis-photometric-calibration>`_ `IR photometric calibration <https://www.stsci.edu/hst/instrumentation/wfc3/data-analysis/photometric-calibration/ir-photometric-calibration>`_), which is of the order of a few percent at most (2% is assumed for the WFC3/UVIS quad filters, which are not in the tables). For ACS/WFC, the absolute flux calibration is accurate to :math:`\sim1\%` (`Bohlin 2016 <https://ui.adsabs.harvard.edu/abs/2016AJ....152...60B/abstract>`_), and for NICMOS to :math:`\sim5\%` (`NICMOS Data Handbook <https://www.stsci.edu/documents/dhb/web/c20_nicdataanal.fm2.html>`_; note that NICMOS images are in counts (DN) per second, converted into electrons with the ``ADCGAIN`` keyword for the Poisson noise, and that NICMOS has a count-rate non-linearity, not corrected by HostPhot). These are used as :math:`\sigma_{\text{ZP}}`.
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}})`.
 

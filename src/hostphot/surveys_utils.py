@@ -218,16 +218,9 @@ def check_HST_filters(filt: str) -> None:
     """
     if filt is None:
         raise ValueError(f"'{filt}' is not a valid HST filter.")
-    # For UVIS, only the filters of UVIS1 are used as the
-    # detector 2 is scaled to match detector 1
-    detector = filt.split("_")[1]
-    if detector == "UVIS":
-        filt_ = filt.replace("UVIS", "UVIS1")
-    else:
-        filt_ = filt
-    filters_dir = hostphot_path / "filters/HST"
-    hst_filters = [file.name.split(".")[0] for file in filters_dir.rglob("*.dat")]
-    assert filt_ in hst_filters, f"Not a valid HST filter ({filt_}): {hst_filters}"
+    # the supported filters (WFC3/UVIS, WFC3/IR, ACS/WFC and NICMOS) are those in the configuration
+    hst_filters = list(load_yml(filters_file)["HST"])
+    assert filt in hst_filters, f"Not a valid HST filter ({filt}): {hst_filters}"
 
 
 def check_JWST_filters(filt: str) -> None:

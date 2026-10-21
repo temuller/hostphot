@@ -860,6 +860,463 @@ HST:
     pixel_scale: 0.04
     pixel_units: counts/second
     zeropoint: header
+  # ACS/WFC and NICMOS (nominal pixel scales; the photometry uses those of the images)
+  ACS_WFC_F435W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_F475W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_F502N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_F550M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_F555W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_F606W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_F625W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_F658N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_F660N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_F775W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_F814W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_F850LP:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_F892N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR1016N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR388N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR423N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR459M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR462N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR505N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR551N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR601N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR647M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR656N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR716N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR782N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR853N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR914M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  ACS_WFC_FR931N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.05
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F090M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F095N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F097N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F108N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F110M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F110W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F113N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F140W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F145M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F160W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F164N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F165M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F166N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F170M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F187N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS1_F190N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.043
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F110W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F160W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F165M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F171M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F180M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F187N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F187W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F190N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F204M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F205W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F207M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F212N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F215N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F216N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F222M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS2_F237M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.075
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F108N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F110W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F113N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F150W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F160W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F164N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F166N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F175W:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F187N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F190N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F196N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F200N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F212N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F215N:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F222M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
+  NICMOS3_F240M:
+    AB_offset: 0.0
+    magnitude_system: AB
+    pixel_scale: 0.2
+    pixel_units: counts/second
+    zeropoint: header
 # pixel scales taken from:
 # https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument#JWSTMidInfraredInstrument-Imager
 # https://jwst-docs.stsci.edu/jwst-near-infrared-camera#gsc.tab=0

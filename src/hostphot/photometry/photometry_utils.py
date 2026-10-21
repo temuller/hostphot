@@ -73,6 +73,14 @@ def get_HST_err(filt: str, header: fits.Header) -> float:
     filt = filt_split[-1]
     instrument = filt_split[-2]
 
+    if filt_split[0] == "ACS":
+        # absolute flux calibration of ACS/WFC accurate to ~1% (Bohlin 2016, AJ, 152, 60)
+        return 2.5 / np.log(10) * 0.01
+    if filt_split[0].startswith("NICMOS"):
+        # NICMOS photometric calibration accurate to ~5% (NICMOS Data Handbook; e.g. it improved
+        # from 10-15% to ~5% after the first calibrations)
+        return 2.5 / np.log(10) * 0.05
+
     if instrument == "UVIS":
         # chip from the aperture (e.g. UVIS1, UVIS1-FIX, UVIS2-C512C-SUB); the full-detector apertures
         # (e.g. UVIS, UVIS-CENTER, UVIS-FIX, UVIS-QUAD) span both chips, see
@@ -85,6 +93,12 @@ def get_HST_err(filt: str, header: fits.Header) -> float:
     err_file = hostphot_path.joinpath("filters", "HST", f"{instrument}_err.txt")
     err_df = pd.read_csv(err_file, sep="\\s+")
     filt_err_df = err_df[err_df.Filter == filt]
+    if len(filt_err_df) == 0:
+        # e.g. the WFC3/UVIS quad filters (FQ*) are not in the tables
+        warnings.warn(
+            f"HST {instrument} {filt}: no zeropoint uncertainty available, so 2% is assumed."
+        )
+        return 2.5 / np.log(10) * 0.02
     # error propagation
     flux = filt_err_df.PHOTFLAM.values[0]
     flux_err = filt_err_df.ERR_PHOTFLAM.values[0]
@@ -399,6 +413,9 @@ def get_effective_gain(header: fits.Header, survey: str, filt: str) -> float:
     if survey == "JWST" and float(header.get("EFFGAIN", 0)) > 0:
         # images in MJy/sr: effective gain in e-/(MJy/sr), from the Poisson variance (see update_JWST_header())
         return float(header["EFFGAIN"])
+    if survey == "HST" and "ELECTRON" not in str(header.get("BUNIT", "ELECTRONS/S")).upper():
+        # images in counts (DN) per second, e.g. NICMOS: gain (e-/DN) times the exposure time
+        return get_image_exptime(header, survey) * float(header.get("ADCGAIN", header.get("CCDGAIN", 1.0)))
     return get_image_exptime(header, survey)
 
 
@@ -557,7 +574,7 @@ def extract_filter(
             filt_ = filt.replace("UVIS", "UVIS2")
         else:
             filt_ = filt
-        filt_file = [file for file in filters_path.rglob(f"*{filt_}*")][0]
+        filt_file = [file for file in filters_path.rglob(f"{filt_}.dat")][0]  # exact name
     elif survey == "JWST":
         # the transmission functions are in a directory per instrument (e.g. NIRCam/NIRCam_F150W.dat)
         filt_file = filters_path / filt.split("_")[0] / f"{filt}.dat"

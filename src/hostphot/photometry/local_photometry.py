@@ -284,10 +284,10 @@ def photometry(
         ap_radii = [ap_radii]
 
     pixel_scale = survey_pixel_scale(survey, filt)
-    if survey in ["UKIDSS", "Herschel"]:
+    if survey in ["UKIDSS", "Herschel", "HST"]:
         # micro-stepped UKIDSS images (e.g. LAS J, or DXS/UDS) have smaller pixels than the nominal
-        # 0.4 arcsec (e.g. 0.2 arcsec), and the pixel size of the Herschel maps depends on their
-        # processing, so the pixel scale is taken from the image
+        # 0.4 arcsec (e.g. 0.2 arcsec), and the pixel size of the Herschel and HST (drizzled) maps
+        # depends on their processing, so the pixel scale is taken from the image
         pixel_scale = float(np.sqrt(np.abs(np.linalg.det(wcs.pixel_scale_matrix))) * 3600)
     if survey == "Herschel":
         # maps converted into Jy/pixel (PACS maps are in Jy/pixel and SPIRE maps in MJy/sr)

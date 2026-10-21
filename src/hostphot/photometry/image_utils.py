@@ -70,7 +70,8 @@ def get_image_gain(header: fits.Header, survey: str) -> float:
         # use median from http://casu.ast.cam.ac.uk/surveys-projects/vista/technical/vista-gain
         gain = 4.19
     elif survey == "HST":
-        gain = header["CCDGAIN"]
+        # NICMOS has ADCGAIN instead of CCDGAIN
+        gain = header.get("CCDGAIN", header.get("ADCGAIN", 1.0))
     elif survey == "SkyMapper":
         gain = header["GAIN"]
     elif survey == "SPLUS":

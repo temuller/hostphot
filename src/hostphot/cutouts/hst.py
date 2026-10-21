@@ -128,16 +128,21 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
         check_HST_filters(filt)
         # separate the instrument name from the actual filter
         split_filt = filt.split("_")
-        if len(split_filt) == 2:
-            filt_name = split_filt[-1]
-            instrument = split_filt[0]
+        filt_name = split_filt[-1]
+        if split_filt[0].startswith("NICMOS"):
+            # e.g. NICMOS2_F110W -> NICMOS/NIC2
+            instrument = f"NICMOS/NIC{split_filt[0][-1]}"
         elif len(split_filt) == 3:
-            filt_name = split_filt[-1]
+            # e.g. WFC3_UVIS_F275W -> WFC3/UVIS, ACS_WFC_F814W -> ACS/WFC
             instrument = f"{split_filt[0]}/{split_filt[1]}"
         else:
             raise ValueError(f"Incorrect filter name: {filt}")
-        # filter by filter and instrument
-        obs_df = results_df[results_df["filter"] == filt_name]
+        # filter by filter and instrument (the ACS filters can be given together with the
+        # clear filter of the other filter wheel, e.g. CLEAR1L;F814W)
+        filter_match = results_df["filter"].astype(str).apply(
+            lambda value: filt_name in [part.strip() for part in value.split(";")]
+        )
+        obs_df = results_df[filter_match]
         obs_df = obs_df[obs_df.instrument_name == instrument]
         # get only exposures shorter than one hour
         obs_df = obs_df[obs_df.exposure_duration < 3600]

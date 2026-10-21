@@ -129,7 +129,7 @@ This is the list of surveys in HostPhot:
 * Legacy Survey
 * Spitzer (SEIP)
 * VISTA (VHS, VIDEO, VIKING)
-* HST (WFC3 only)
+* HST (WFC3, ACS/WFC and NICMOS)
 * SkyMapper (not well calibrated for extended sources)
 * SPLUS
 * UKIDSS
