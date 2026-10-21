@@ -680,6 +680,13 @@ def photometry(
         flux, flux_err, herschel_details = herschel_kron_flux(
             data_sub, header, wcs, gal_obj, kronrad, scale, filt
         )
+        # as for the other surveys, the flux is not measured if the aperture lacks too much data
+        x, y, a, b, theta = _kron_ellipse(gal_obj, kronrad, scale)
+        kron_aperture = EllipticalAperture((x, y), a, b, theta=theta)
+        if not check_aperture_coverage(
+            data_sub, kron_aperture, f"{survey} {filt} (Kron aperture)", flux_weighted=True
+        ):
+            flux, flux_err = np.nan, np.nan
         zp = 3631.0
         if flux > 0 and flux_err > 0:
             mag = -2.5 * np.log10(flux / zp)

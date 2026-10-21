@@ -19,8 +19,8 @@ class TestHerschel(unittest.TestCase):
         os.makedirs(cls.test_dir, exist_ok=True)
 
         # Create mock M82-like image (1300 Jy total)
-        size = 300
-        center = 150
+        size = 600  # large enough for the (optimised) Kron aperture to fit in the image
+        center = 300
         total_flux = 1300  # Jy (matching catalog)
         sigma = 40  # pixels
 
