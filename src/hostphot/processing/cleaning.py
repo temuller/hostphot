@@ -120,36 +120,28 @@ def remove_nan(hdu: list[fits.ImageHDU]) -> list[fits.ImageHDU]:
         warnings.simplefilter("ignore", AstropyWarning)
         img_wcs = wcs.WCS(header, naxis=2)
 
-    mask = ~np.all(np.isnan(data), axis=0)
-    x_size = np.sum(np.ones_like(data[0])[mask])
-    x_pos = np.median(np.arange(data.shape[1])[mask])
-
-    mask = ~np.all(np.isnan(data), axis=1)
-    y_size = np.sum(np.ones_like(data[:, 0])[mask])
-    y_pos = np.median(np.arange(data.shape[0])[mask])
+    # first and last columns/rows with data: only the rows and columns without data at the edges
+    # are removed (those inside the image, e.g. chip gaps, are kept)
+    valid_x = np.where(~np.all(np.isnan(data), axis=0))[0]
+    valid_y = np.where(~np.all(np.isnan(data), axis=1))[0]
+    if len(valid_x) == 0 or len(valid_y) == 0:
+        return hdu  # no data at all
+    slices = (slice(valid_y[0], valid_y[-1] + 1), slice(valid_x[0], valid_x[-1] + 1))
 
     # trim data and update the header with the WCS
-    trimmed_data = Cutout2D(
-        data,
-        (x_pos, y_pos),
-        (y_size, x_size),  # has to be (ny, nx)
-        wcs=img_wcs,
-        copy=True,
-    )
-    header.update(trimmed_data.wcs.to_header())
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AstropyWarning)
+        header.update(img_wcs[slices].to_header())
     header["COMMENT"] = "= Trimmed fits file (hostphot)"
 
     trimmed_hdu = hdu.copy()
-    trimmed_hdu[0].data = trimmed_data.data
+    trimmed_hdu[0].data = np.array(data[slices])
     trimmed_hdu[0].header = header
 
     # trim other HDUs if they exist and have the same shape
     if len(hdu) > 1:
         for i in range(1, len(hdu)):
             if hdu[i].data is not None and hdu[i].data.shape == data.shape:
-                trimmed_hdu[i].data = hdu[i].data[
-                    trimmed_data.slices_original[0],
-                    trimmed_data.slices_original[1]
-                ]
+                trimmed_hdu[i].data = hdu[i].data[slices]
 
     return trimmed_hdu
