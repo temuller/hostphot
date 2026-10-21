@@ -36,6 +36,9 @@ from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, suppress_stdout, store_input
 from hostphot.processing.background import masked_background
 from hostphot.photometry.photometry_utils import (
+    HERSCHEL_CALIBRATION_FRACTION,
+    _herschel_data_to_jy_per_pixel,
+    _aperture_weighted_sum,
     magnitude_calculation,
     extract_invvar_aperture_flux,
     get_invvar_map,
@@ -281,10 +284,14 @@ def photometry(
         ap_radii = [ap_radii]
 
     pixel_scale = survey_pixel_scale(survey, filt)
-    if survey == "UKIDSS":
+    if survey in ["UKIDSS", "Herschel"]:
         # micro-stepped UKIDSS images (e.g. LAS J, or DXS/UDS) have smaller pixels than the nominal
-        # 0.4 arcsec (e.g. 0.2 arcsec), so the pixel scale is taken from the image
+        # 0.4 arcsec (e.g. 0.2 arcsec), and the pixel size of the Herschel maps depends on their
+        # processing, so the pixel scale is taken from the image
         pixel_scale = float(np.sqrt(np.abs(np.linalg.det(wcs.pixel_scale_matrix))) * 3600)
+    if survey == "Herschel":
+        # maps converted into Jy/pixel (PACS maps are in Jy/pixel and SPIRE maps in MJy/sr)
+        data_sub, _, _ = _herschel_data_to_jy_per_pixel(data_sub, header, wcs)
 
     mags, mags_err = [], []
     fluxes, fluxes_err = [], []
@@ -304,6 +311,18 @@ def photometry(
         aperture = CircularAperture((px, py), r=radius_pix)
         if not check_saturation(saturated, aperture, label) or not check_aperture_coverage(data_sub, aperture, label):
             flux, flux_err = np.nan, np.nan
+        elif survey == "Herschel":
+            # random uncertainty from the scatter of blank apertures (the maps have no error maps,
+            # and their noise is correlated), plus the absolute calibration uncertainty
+            flux = _aperture_weighted_sum(data_sub, px, py, radius_pix)[0]
+            if source_mask is None:
+                source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
+            blank_err = blank_aperture_floor(data_sub, 0.0, px, py, radius_pix, source_mask=source_mask)
+            if blank_err == 0.0:
+                warnings.warn(f"{label}: the blank-aperture uncertainty could not be estimated, so only "
+                              "the calibration uncertainty is included.")
+            cal_err = abs(flux) * HERSCHEL_CALIBRATION_FRACTION.get(filt, 0.0)
+            flux_err = float(np.sqrt(blank_err**2 + cal_err**2))
         elif invvar is not None:
             if source_mask is None:
                 source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
@@ -328,16 +347,25 @@ def photometry(
         #flux, flux_err = extract_aperture_flux(data_sub, bkg.background_rms, _exptime, px, py, radius_pix)
 
         ap_area = np.pi * (radius_pix**2)
-        mag, mag_err, flux, flux_err, zp = magnitude_calculation(
-            flux,
-            flux_err,
-            survey,
-            filt,
-            ap_area,
-            header,
-            bkg.globalrms,
-            #np.median(bkg.background_rms),
-        )
+        if survey == "Herschel":
+            # fluxes in Jy and AB magnitudes (as for the global photometry)
+            zp = 2.5 * np.log10(3631.0)
+            if flux > 0 and flux_err > 0:
+                mag = -2.5 * np.log10(flux) + zp
+                mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
+            else:
+                mag, mag_err = np.nan, np.nan
+        else:
+            mag, mag_err, flux, flux_err, zp = magnitude_calculation(
+                flux,
+                flux_err,
+                survey,
+                filt,
+                ap_area,
+                header,
+                bkg.globalrms,
+                #np.median(bkg.background_rms),
+            )
 
         if correct_extinction is True:
             A_ext = calc_extinction(filt, survey, ra, dec)

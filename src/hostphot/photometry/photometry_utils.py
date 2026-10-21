@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Optional
 
 from astropy.io import fits
+from astropy.wcs import WCS
+from astropy.wcs.utils import proj_plane_pixel_area
 from astropy.stats import sigma_clipped_stats
 from photutils.utils import calc_total_error
 from photutils.aperture import CircularAperture, EllipticalAperture, ApertureMask
@@ -1198,6 +1200,50 @@ def extract_invvar_kron_flux(
     return flux, blank_kron_floor(data, invvar_err, objects, kronrad, scale, pixel_scale, label)
 
 # Herschel-specific functions (similar to the inverse-variance ones above)
+# absolute calibration uncertainties (fraction of the flux)
+HERSCHEL_CALIBRATION_FRACTION = {
+    "PACS100": 0.05,
+    "PACS160": 0.05,
+    "SPIRE250": 0.06,
+    "SPIRE350": 0.06,
+    "SPIRE500": 0.06,
+}
+
+
+def _herschel_pixel_area_sr(wcs: WCS) -> float:
+    """Return projected pixel area in steradians for a Herschel map."""
+    pixel_area_deg2 = abs(float(proj_plane_pixel_area(wcs)))
+    if not np.isfinite(pixel_area_deg2) or pixel_area_deg2 <= 0:
+        raise RuntimeError("could not determine Herschel pixel area from WCS")
+    return pixel_area_deg2 * (np.pi / 180.0) ** 2
+
+
+def _herschel_data_to_jy_per_pixel(
+    data: np.ndarray, header: fits.Header, wcs: WCS
+) -> tuple[np.ndarray, str, float]:
+    """Convert Herschel image data into Jy/pixel for aperture summation."""
+    bunit = str(header.get("BUNIT", "")).strip().lower().replace(" ", "")
+    pixel_area_sr = _herschel_pixel_area_sr(wcs)
+
+    if bunit in {"jy/pixel", "jy/pix", "jy"}:
+        return data, "Jy", 1.0
+
+    if bunit == "mjy/sr":
+        factor = 1.0e6 * pixel_area_sr
+        return data * factor, "Jy", factor
+
+    if bunit == "jy/beam":
+        bmaj = header.get("BMAJ")
+        bmin = header.get("BMIN")
+        if bmaj is None or bmin is None:
+            raise RuntimeError("Herschel Jy/beam map has no BMAJ/BMIN beam keywords")
+        beam_area_sr = 1.1331 * float(bmaj) * float(bmin) * (np.pi / 180.0) ** 2
+        factor = pixel_area_sr / beam_area_sr
+        return data * factor, "Jy", factor
+
+    raise RuntimeError(f"unsupported Herschel BUNIT={header.get('BUNIT')!r}")
+
+
 def _herschel_ellipse_params(
     objects: np.ndarray, kronrad: float, scale: float
 ) -> tuple[float, float, float, float, float]:

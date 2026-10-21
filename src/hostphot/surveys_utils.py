@@ -18,6 +18,7 @@ bkg_surveys = [
     "UKIDSS",
     "Spitzer",  # SEIP mosaics only have a model of the zodiacal light subtracted
     "JWST",  # the sky is not subtracted from the i2d images (BKGSUB = False)
+    "Herschel",  # SPIRE extended-emission maps have an absolute (Planck-based) sky level, and PACS maps small offsets
 ]
 # surveys which are flipped respect to most others
 flipped_surveys = [

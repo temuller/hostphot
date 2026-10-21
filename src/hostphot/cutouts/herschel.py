@@ -217,9 +217,15 @@ def _candidate_filter(path: Path, header: fits.Header) -> Optional[str]:
     for filt, rule in FILTER_RULES.items():
         if rule["instrument"] not in instrument:
             continue
+        if wavelength is not None:
+            # the wavelength is used if available, as the PACS blue camera observes at either
+            # 70 or 100 microns, with the same product names (e.g. HPPJSMAPB)
+            if abs(float(wavelength) - rule["wavelength"]) < 1.0:
+                return filt
+            continue
         if any(token.lower() in path_text for token in rule["tokens"]):
-            return filt
-        if wavelength is not None and abs(float(wavelength) - rule["wavelength"]) < 1.0:
+            if filt == "PACS100" and "blue" in path_text:
+                continue  # 70-micron map ("blue"; the 100-micron maps are "green")
             return filt
     return None
 

@@ -46,6 +46,9 @@ from hostphot.photometry.photometry_utils import (
     _elliptical_weighted_sum,
     _herschel_blank_elliptical_rms,
     _herschel_ellipse_params,
+    HERSCHEL_CALIBRATION_FRACTION,
+    _herschel_pixel_area_sr,
+    _herschel_data_to_jy_per_pixel,
     get_effective_gain,
 )
 from hostphot.photometry.image_utils import adapt_aperture, wrap_theta
@@ -63,49 +66,6 @@ import warnings
 from astropy.utils.exceptions import AstropyWarning
 
 sep.set_sub_object_limit(1e4)
-
-HERSCHEL_CALIBRATION_FRACTION = {
-    "PACS100": 0.05,
-    "PACS160": 0.05,
-    "SPIRE250": 0.06,
-    "SPIRE350": 0.06,
-    "SPIRE500": 0.06,
-}
-
-
-def _herschel_pixel_area_sr(wcs: WCS) -> float:
-    """Return projected pixel area in steradians for a Herschel map."""
-    pixel_area_deg2 = abs(float(proj_plane_pixel_area(wcs)))
-    if not np.isfinite(pixel_area_deg2) or pixel_area_deg2 <= 0:
-        raise RuntimeError("could not determine Herschel pixel area from WCS")
-    return pixel_area_deg2 * (np.pi / 180.0) ** 2
-
-
-def _herschel_data_to_jy_per_pixel(
-    data: np.ndarray, header: fits.Header, wcs: WCS
-) -> tuple[np.ndarray, str, float]:
-    """Convert Herschel image data into Jy/pixel for aperture summation."""
-    bunit = str(header.get("BUNIT", "")).strip().lower().replace(" ", "")
-    pixel_area_sr = _herschel_pixel_area_sr(wcs)
-
-    if bunit in {"jy/pixel", "jy/pix", "jy"}:
-        return data, "Jy", 1.0
-
-    if bunit == "mjy/sr":
-        factor = 1.0e6 * pixel_area_sr
-        return data * factor, "Jy", factor
-
-    if bunit == "jy/beam":
-        bmaj = header.get("BMAJ")
-        bmin = header.get("BMIN")
-        if bmaj is None or bmin is None:
-            raise RuntimeError("Herschel Jy/beam map has no BMAJ/BMIN beam keywords")
-        beam_area_sr = 1.1331 * float(bmaj) * float(bmin) * (np.pi / 180.0) ** 2
-        factor = pixel_area_sr / beam_area_sr
-        return data * factor, "Jy", factor
-
-    raise RuntimeError(f"unsupported Herschel BUNIT={header.get('BUNIT')!r}")
-
 
 def herschel_kron_flux(
     data: np.ndarray,
@@ -405,7 +365,6 @@ def extract_aperture(
     data = data.astype(np.float64)
     bkg = _background(data)
     # background subtraction, if needed
-    # Note: Herschel images already have background removed in HSA processing
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         # background estimated with the sources (including the galaxy) masked
         data_sub = data - masked_background(data, wcs, host_ra, host_dec, label=f"{survey} {filt}")
@@ -645,7 +604,6 @@ def photometry(
     data = data.astype(np.float64)
     bkg = _background(data)
     # background subtraction, if needed
-    # Note: Herschel images already have background removed in HSA processing
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         # background estimated with the sources (including the galaxy) masked
         data_sub = data - masked_background(data, wcs, host_ra, host_dec, label=f"{survey} {filt}")

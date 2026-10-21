@@ -70,6 +70,7 @@ class TestHerschel(unittest.TestCase):
             ra=self.host_ra,
             dec=self.host_dec,
             use_mask=False,
+            bkg_sub=False,  # the mock image has no sky (and no noise)
             optimize_kronrad=True,
             save_plots=False,
         )
@@ -100,6 +101,7 @@ class TestHerschel(unittest.TestCase):
             survey="Herschel",
             filters="PACS100",
             use_mask=False,
+            bkg_sub=False,  # the mock image has no sky (and no noise)
             optimize_kronrad=True,
             save_plots=False,
             save_results=False,
