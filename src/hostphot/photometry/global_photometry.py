@@ -511,7 +511,7 @@ def load_aperture_params(
     _ = gal_df.pop("filt")
     _ = gal_df.pop("survey")
     # DataFrame to structured/record array
-    gal_obj = gal_df.to_records()
+    gal_obj = gal_df.to_records(index=False)  # (no extra "index" field, e.g. when saved again)
 
     # load image WCS: the aperture parameters were measured on the image trimmed by remove_nan(),
     # so the same trimming is applied to get the WCS of that frame

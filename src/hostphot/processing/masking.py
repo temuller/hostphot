@@ -226,8 +226,8 @@ def create_mask(
         # flagged as without measured data in the mask plane (e.g. HSC)
         replaced = ~np.isclose(masked_data, data_sub, equal_nan=True)
         if replaced.shape == masked_hdu["MASK"].data.shape and replaced.any():
-            for name in SATURATED_MASK_BITS:
-                key = f"MP_{name}"
+            for bit_name in SATURATED_MASK_BITS:
+                key = f"MP_{bit_name}"
                 if key in masked_hdu["MASK"].header:
                     bit = 1 << int(masked_hdu["MASK"].header[key])
                     mask_data = masked_hdu["MASK"].data.astype(np.int64)
@@ -245,7 +245,12 @@ def create_mask(
         # save detected objects and masking parameters
         objects_df = pd.concat([pd.DataFrame(gal_obj), pd.DataFrame(nongal_objs)])
         objects_df["sigma"] = sigma
-        objects_df["r"] = r
+        if np.ndim(r) > 0:
+            # one value per masked object (e.g. from reference parameters): placeholder for the
+            # host-galaxy row (first row), which is removed when loading the parameters
+            objects_df["r"] = np.concatenate([[np.nan], np.asarray(r, dtype=float)])
+        else:
+            objects_df["r"] = r
         objects_df["flip"] = flip
         objects_df["filt"] = filt
         objects_df["survey"] = survey
@@ -301,7 +306,7 @@ def load_mask_params(
     _ = objects_df.pop("filt")
     _ = objects_df.pop("survey")
     # DataFrame to structured/record array
-    objects = objects_df.to_records()
+    objects = objects_df.to_records(index=False)  # (no extra "index" field, e.g. when saved again)
     gal_obj = objects[:1]
     nongal_objs = objects[1:]
     
