@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Optional
 from pathlib import Path
 
 import astropy.units as u
@@ -77,7 +78,7 @@ def set_JWST_image(file: str, filt: str, name: str) -> None:
     hdu.writeto(outfile, overwrite=True)
     
 def get_JWST_images(ra: float, dec: float, size: float | u.Quantity = 3, 
-                        filters: list = ["WFC3_UVIS_F225W"]) -> list[fits.ImageHDU]:
+                        filters: Optional[list] = None) -> list[fits.ImageHDU]:
     """Downloads a set of JWST fits images for a given set
     of coordinates and filters using astroquery.
 
@@ -86,12 +87,16 @@ def get_JWST_images(ra: float, dec: float, size: float | u.Quantity = 3,
     ra: Right ascension in degrees.
     dec: Declination in degrees.
     size: Image size. If a float is given, the units are assumed to be arcmin.
-    filters: Filters to use, e.g. ``WFC3_UVIS_F225W``.
+    filters: Filters to use, e.g. ``NIRCam_F150W`` (they need to be specified).
 
     Return
     ------
     hdu_list: List with fits image for the given filter. ``None`` is returned if no image is found.
     """
+    if filters is None:
+        raise ValueError("For JWST, the filters need to be specified!")
+    if isinstance(filters, str):
+        filters = [filters]
     Jwst.get_status_messages()
     
     if isinstance(size, (float, int)):

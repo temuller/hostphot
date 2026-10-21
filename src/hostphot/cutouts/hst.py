@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Optional
 from pathlib import Path
 
 import astropy.units as u
@@ -25,17 +26,18 @@ def update_HST_header(hdu: fits.hdu.ImageHDU) -> None:
     hdu : Header Data Unit.
         HST FITS image.
     """
-    # Drizzlepac images have the info on hdu[0]
-    # MAST-archive images have the info on hdu[1]
+    # Drizzlepac images have the data on hdu[0]
+    # MAST-archive images have the data (SCI) on hdu[1]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
-        if "PHOTPLAM" not in hdu[0].header:
+        if hdu[0].data is None and len(hdu) > 1:
             # MAST image: move things to hdu[0] to homogenise
             img_wcs = WCS(hdu[1].header)
             hdu[0].header.update(img_wcs.to_header())
-            hdu[0].header["PHOTFLAM"] = hdu[1].header["PHOTFLAM"]
-            hdu[0].header["PHOTPLAM"] = hdu[1].header["PHOTPLAM"]
             hdu[0].data = hdu[1].data
+        for key in ["PHOTFLAM", "PHOTPLAM"]:
+            if key not in hdu[0].header and len(hdu) > 1 and key in hdu[1].header:
+                hdu[0].header[key] = hdu[1].header[key]
     # add zeropoints
     # https://www.stsci.edu/hst/instrumentation/acs/data-analysis/zeropoints
     photflam = hdu[0].header["PHOTFLAM"]
@@ -74,7 +76,7 @@ def set_HST_image(file: str, filt: str, name: str) -> None:
     hdu.writeto(outfile, overwrite=True)
 
 def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3, 
-                        filters: list = ["WFC3_UVIS_F225W"]) -> list[fits.ImageHDU]:
+                        filters: Optional[list] = None) -> list[fits.ImageHDU]:
     """Downloads a set of HST fits images for a given set
     of coordinates and filters using astroquery.
 
@@ -83,12 +85,16 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
     ra: Right ascension in degrees.
     dec: Declination in degrees.
     size: Image size. If a float is given, the units are assumed to be arcmin.
-    filters: Filters to use, e.g. ``WFC3_UVIS_F225W``.
+    filters: Filters to use, e.g. ``WFC3_UVIS_F225W`` (they need to be specified).
 
     Return
     ------
     hdu_list: List with fits image for the given filter. ``None`` is returned if no image is found.
     """
+    if filters is None:
+        raise ValueError("For HST, the filters need to be specified!")
+    if isinstance(filters, str):
+        filters = [filters]
     esahubble = ESAHubble()
     esahubble.get_status_messages()
     
