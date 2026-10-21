@@ -146,16 +146,18 @@ def get_JWST_images(ra: float, dec: float, size: float | u.Quantity = 3,
         if temp_file is None:
             return None
         hdu = fits.open(temp_file)
-        # copy data to avoid closing issue with temp_file deletion
-        hdu_copy = fits.HDUList([fits.PrimaryHDU(data=hdu[0].data.copy(), header=hdu[0].header.copy())])
-        if len(hdu) > 1:
-            for i in range(1, len(hdu)):
-                hdu_copy.append(fits.ImageHDU(data=hdu[i].data.copy(), header=hdu[i].header.copy()))
+        # copy the data to avoid closing issue with temp_file deletion (the primary HDU has no
+        # data and there are table extensions, e.g. HDRTAB, so each HDU is copied as it is)
+        hdu_copy = fits.HDUList([extension.copy() for extension in hdu])
         hdu.close()
         # remove the temporary files
         Path(temp_file).unlink()
         # add necessary information to the header
         update_JWST_header(hdu_copy)
+        # only the science image (moved into the primary HDU) is kept, as the other extensions are
+        # not used and are as large as the (full) image
+        if hdu_copy[0].data is not None:
+            hdu_copy = fits.HDUList([hdu_copy[0]])
         return hdu_copy
 
     with ThreadPoolExecutor() as executor:
