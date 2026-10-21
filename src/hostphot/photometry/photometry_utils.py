@@ -74,15 +74,12 @@ def get_HST_err(filt: str, header: fits.Header) -> float:
     instrument = filt_split[-2]
 
     if instrument == "UVIS":
-        # APERTURE usually points to UVIS2
-        instrument = header["APERTURE"]
-        # some images have a different APERTURE value
-        # see: https://hst-docs.stsci.edu/wfc3ihb/chapter-6-uvis-imaging-with-wfc3/6-4-uvis-field-geometry
-        # not sure if this is the correct solution
-        if instrument == "UVIS-CENTER":
-            instrument = "UVIS2"
-        if instrument == "UVIS":
-            instrument = "UVIS1"
+        # chip from the aperture (e.g. UVIS1, UVIS1-FIX, UVIS2-C512C-SUB); the full-detector apertures
+        # (e.g. UVIS, UVIS-CENTER, UVIS-FIX, UVIS-QUAD) span both chips, see
+        # https://hst-docs.stsci.edu/wfc3ihb/chapter-6-uvis-imaging-with-wfc3/6-4-uvis-field-geometry
+        # (the zeropoint uncertainties of both chips are the same)
+        aperture = str(header.get("APERTURE", "")).strip().upper()
+        instrument = "UVIS1" if aperture.startswith("UVIS1") else "UVIS2"
 
     # get uncertainty file
     err_file = hostphot_path.joinpath("filters", "HST", f"{instrument}_err.txt")
