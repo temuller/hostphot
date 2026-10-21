@@ -1119,13 +1119,13 @@ JWST:
 Herschel:
   PACS100:
     zeropoint: 0
-    pixel_scale: 3.5
+    pixel_scale: 1.6
     pixel_units: Jy/pixel
     magnitude_system: AB
     AB_offset: 0.0
   PACS160:
     zeropoint: 0
-    pixel_scale: 3.5
+    pixel_scale: 3.2
     pixel_units: Jy/pixel
     magnitude_system: AB
     AB_offset: 0.0
@@ -1143,7 +1143,7 @@ Herschel:
     AB_offset: 0.0
   SPIRE500:
     zeropoint: 0
-    pixel_scale: 18.0
+    pixel_scale: 14.0
     pixel_units: MJy/sr
     magnitude_system: AB
     AB_offset: 0.0

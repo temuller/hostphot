@@ -45,8 +45,8 @@ class TestHerschel(unittest.TestCase):
         header["CRVAL2"] = cls.host_dec
         header["CRPIX1"] = center
         header["CRPIX2"] = center
-        header["CDELT1"] = -3.5 / 3600  # PACS100 pixel scale
-        header["CDELT2"] = 3.5 / 3600
+        header["CDELT1"] = -1.6 / 3600  # PACS100 pixel scale
+        header["CDELT2"] = 1.6 / 3600
         header["BUNIT"] = "Jy/pixel"
         header["FILTER"] = "PACS100"
         header["SURVEY"] = "Herschel"
