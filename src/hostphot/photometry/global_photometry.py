@@ -446,7 +446,7 @@ def extract_aperture(
             gal_world = wcs.wcs_pix2world(gal_pixel_x, gal_pixel_y, 0)
             gal_coord = SkyCoord(ra=gal_world[0] * u.deg, dec=gal_world[1] * u.deg, frame="icrs")
             sn_coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame="icrs")
-            directional_light_radius = sn_coord.separation(gal_coord).arcsec
+            separation = sn_coord.separation(gal_coord).arcsec  # transient-galaxy separation
 
             a_scaled = gal_obj["a"][0] * scale * kronrad
             b_scaled = gal_obj["b"][0] * scale * kronrad
@@ -467,9 +467,10 @@ def extract_aperture(
             pixel_scale = proj_plane_pixel_scales(wcs)[0] * 3600  # deg → arcsec
             ellipse_radius_arcsec = ellipse_radius_in_dir * pixel_scale
 
-            directional_light_radius_norm = directional_light_radius / ellipse_radius_arcsec
+            # directional light-radius distance (separation in units of the aperture radius in that direction)
+            directional_light_radius_norm = separation / ellipse_radius_arcsec
 
-            gal_df["dlr"] = directional_light_radius
+            gal_df["sep_arcsec"] = separation
             gal_df["d_dlr"] = directional_light_radius_norm
             gal_df["a_scaled"] = a_scaled
             gal_df["b_scaled"] = b_scaled
