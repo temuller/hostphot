@@ -16,15 +16,15 @@ from astropy.utils.exceptions import AstropyWarning
 
 
 def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3, 
-                        filters: Optional[str] = None) -> list[fits.ImageHDU]:
+                        filters: Optional[str] = None, version: Optional[str] = None) -> list[fits.ImageHDU]:
     """Gets VISTA fits images for the given coordinates and
     filters.
 
     Note: the different surveys included in VISTA cover different
     parts of the sky and do not necessarily contain the same filters.
     
-    The available surveys are "VIDEO", "VIKING", "VHS", and chosen in
-    that order, depending on the coverage.
+    The available surveys are "VIDEO", "VIKING", "VHS". By default, the first one
+    (in that order, i.e. the deepest) covering the position is used.
 
     Parameters
     ----------
@@ -36,8 +36,9 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
         Image size. If a float is given, the units are assumed to be arcmin.
     filters: str, default ``None``
         Filters to use. If ``None``, uses ``Z, Y, J, H, Ks``.
-    version: str, default ``VHS``
-        Survey to use: ``VHS``, ``VIDEO`` or ``VIKING``.
+    version: str, default ``None``
+        Survey to use: ``VHS``, ``VIDEO`` or ``VIKING``. If ``None``, the deepest survey
+        covering the position is used.
 
     Returns
     -------
@@ -51,12 +52,22 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
     if not isinstance(size, (float, int)):
         size = size.to(u.arcmin).value
 
-    for version in ["VIDEO", "VIKING", "VHS"]:
-        overlap = contains_coords(ra, dec, version)
-        if overlap is True:
-            break
-    if overlap is False:
-        return [None] * len(filters)
+    versions = ["VIDEO", "VIKING", "VHS"]
+    if version is None:
+        # the deepest survey covering the position
+        for version in versions:
+            overlap = contains_coords(ra, dec, version)
+            if overlap is True:
+                break
+        if overlap is False:
+            return [None] * len(filters)
+    else:
+        version = version.upper()
+        if version not in versions:
+            raise ValueError(f"Not a valid VISTA version ({version}): {versions}")
+        if contains_coords(ra, dec, version) is False:
+            warnings.warn(f"The position is not covered by VISTA {version}.")
+            return [None] * len(filters)
     
     # Latest data releases
     database_dict = {
