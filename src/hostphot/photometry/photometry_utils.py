@@ -285,9 +285,16 @@ def uncertainty_calculation(
         zp_unc = 2.5 / np.log(10) * flux_unc
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
     elif survey in ["VISTA", "UKIDSS"]:
-        # add uncertainty from the ZP
+        # uncertainty of the ZP of the image (MAGZRR) and systematic uncertainty of the calibration
+        # (from 2MASS): 1.5% in JHK and 2% in ZY for UKIDSS (Hodgkin et al. 2009, MNRAS, 394, 675) and
+        # 2% in YJHKs and 3% in Z for VISTA (Gonzalez-Fernandez et al. 2018, MNRAS, 474, 5459)
+        if survey == "UKIDSS":
+            calib_frac = 0.02 if filt in ["Z", "Y"] else 0.015
+        else:
+            calib_frac = 0.03 if filt == "Z" else 0.02
+        calib_err = 2.5 / np.log(10) * calib_frac
         zp_unc = header["MAGZRR"]
-        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2 + calib_err**2)
 
     elif survey == "HST":
         zp_unc = get_HST_err(filt, header)

@@ -206,7 +206,7 @@ VISTA
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword).
+  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword), combined with the systematic uncertainty of the calibration from 2MASS: :math:`2\%` in :math:`YJHK_s` and :math:`3\%` in :math:`Z` (`González-Fernández et al. 2018 <https://ui.adsabs.harvard.edu/abs/2018MNRAS.474.5459G/abstract>`_), i.e. :math:`\sigma_{\text{ZP}} = \sqrt{MAGZRR^2 + \sigma_{\text{cal}}^2}`.
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2)`.
   
@@ -272,7 +272,7 @@ UKIDSS
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword).
+  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword), combined with the systematic uncertainty of the calibration from 2MASS: :math:`1.5\%` in :math:`JHK` and :math:`2\%` in :math:`ZY` (`Hodgkin et al. 2009 <https://ui.adsabs.harvard.edu/abs/2009MNRAS.394..675H/abstract>`_), i.e. :math:`\sigma_{\text{ZP}} = \sqrt{MAGZRR^2 + \sigma_{\text{cal}}^2}`.
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2)`.
 
