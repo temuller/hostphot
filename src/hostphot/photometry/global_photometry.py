@@ -336,8 +336,8 @@ def extract_aperture(
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
         the galaxy is considered as not found and a warning is printed. If a non-positive value
-        is given, the threshold is considered as infinite, i.e. the closest detected object is
-        considered as the galaxy (default option).
+        is given (default option), the closest detected object is considered as the galaxy only if
+        the galaxy coordinates are within its extent (see :func:`hostphot.processing.objects_detection.extract_objects`).
     deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
         To entirely disable deblending, set to 1.0.
     save_plots: If `True`, the mask and galaxy aperture figures are saved.
@@ -581,8 +581,8 @@ def photometry(
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
         the galaxy is considered as not found and a warning is printed. If a non-positive value
-        is given, the threshold is considered as infinite, i.e. the closest detected object is
-        considered as the galaxy (default option).
+        is given (default option), the closest detected object is considered as the galaxy only if
+        the galaxy coordinates are within its extent (see :func:`hostphot.processing.objects_detection.extract_objects`).
     deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
         To entirely disable deblending, set to 1.0.
     common_aperture: Whether to use common aperture photometry using the reference filter(s) and survey.
@@ -849,8 +849,8 @@ def multi_band_phot(
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
         the galaxy is considered as not found and a warning is printed. If a non-positive value
-        is given, the threshold is considered as infinite, i.e. the closest detected object is
-        considered as the galaxy (default option).
+        is given (default option), the closest detected object is considered as the galaxy only if
+        the galaxy coordinates are within its extent (see :func:`hostphot.processing.objects_detection.extract_objects`).
     deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
         To entirely disable deblending, set to 1.0.
     save_plots: If ``True``, the mask and galaxy aperture figures are saved.

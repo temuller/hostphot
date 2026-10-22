@@ -20,6 +20,12 @@ from requests.exceptions import HTTPError
 plt.rcParams["mathtext.fontset"] = "cm"
 
 
+# a detected object is considered the host galaxy if the host coordinates are inside its ellipse scaled
+# by this factor (roughly its extent at the detection threshold) or within MIN_HOST_DIST arcsec
+HOST_EXTENT_FACTOR = 3.0
+MIN_HOST_DIST = 2.0
+
+
 def extract_objects(
     data: np.ndarray,
     bkg: np.ndarray,
@@ -51,8 +57,9 @@ def extract_objects(
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
         the galaxy is considered as not found and a warning is printed. If a non-positive value
-        is given, the threshold is considered as infinite, i.e. the closest detected object is
-        considered as the galaxy (default option).
+        is given (default option), the closest detected object is considered as the galaxy only
+        if the galaxy coordinates are within its extent (inside its ellipse scaled by
+        ``HOST_EXTENT_FACTOR``, or within ``MIN_HOST_DIST`` arcsec).
     deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
         To entirely disable deblending, set to 1.0.
 
@@ -90,14 +97,33 @@ def extract_objects(
     distances = host_coords.separation(objs_coords).to(u.arcsec)
     dist_arcsec = distances.value
 
-    if dist_thresh <= 0.0:
-        dist_thresh = np.inf
-
-    if any(dist_arcsec <= dist_thresh):
-        gal_id = np.argmin(dist_arcsec)
+    if len(objects) == 0:
+        matched = False
+        gal_id = -99
+    else:
+        gal_id = int(np.argmin(dist_arcsec))
+        if dist_thresh > 0.0:
+            matched = dist_arcsec[gal_id] <= dist_thresh
+        else:
+            # the host position must be within the extent of the nearest detected object: inside its
+            # ellipse scaled by HOST_EXTENT_FACTOR (a and b, in pixels, are the second moments of the
+            # light distribution), or within MIN_HOST_DIST arcsec (e.g. small offsets of compact galaxies)
+            host_x, host_y = img_wcs.world_to_pixel_values(host_ra, host_dec)
+            obj = objects[gal_id]
+            dx, dy = host_x - obj["x"], host_y - obj["y"]
+            cos, sin = np.cos(obj["theta"]), np.sin(obj["theta"])
+            u_ = (dx * cos + dy * sin) / (HOST_EXTENT_FACTOR * obj["a"])
+            v_ = (-dx * sin + dy * cos) / (HOST_EXTENT_FACTOR * obj["b"])
+            matched = (np.hypot(u_, v_) <= 1) or (dist_arcsec[gal_id] <= MIN_HOST_DIST)
+    if matched:
         gal_obj = objects[gal_id : gal_id + 1]
     else:
         gal_obj = None
+        if gal_id >= 0:
+            warnings.warn(
+                "The galaxy was not detected: the nearest detected object is "
+                f"{dist_arcsec[gal_id]:.1f} arcsec away from the given coordinates (outside its extent)."
+            )
         gal_id = -99
         print("WARNING: the galaxy was not detected")
 

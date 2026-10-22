@@ -125,8 +125,8 @@ def create_mask(
         where the object nearest to the galaxy position is considered as the galaxy (within
         the given threshold). If no objects are found within the given distance threshold,
         the galaxy is considered as not found and a warning is printed. If a non-positive value
-        is given, the threshold is considered as infinite, i.e. the closest detected object is
-        considered as the galaxy (default option).
+        is given (default option), the closest detected object is considered as the galaxy only if
+        the galaxy coordinates are within its extent (see :func:`hostphot.processing.objects_detection.extract_objects`).
     deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
         To entirely disable deblending, set to 1.0.
     ref_filt: Reference filter (or coadd filters) from which to use the mask parameters. Note that the parameters
@@ -179,6 +179,11 @@ def create_mask(
             gal_dist_thresh,
             deblend_cont,
         )
+        if gal_obj is None:
+            raise ValueError(
+                f"The galaxy was not detected in {survey} {filt} (threshold={threshold} sigma). "
+                "Try a lower `threshold` or check the coordinates."
+            )
         # preprocessing: cross-match extracted objects with the stars of Gaia DR3 (with significant
         # proper motion or parallax, as Gaia and the catalogs based on it, e.g. TIC, also include
         # compact regions of the galaxies)
