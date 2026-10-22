@@ -55,6 +55,16 @@ def get_UKIDSS_images(ra: float, dec: float, size: float=3, filters: str='ZYJHK'
     for filt in filters:
         candidates = [url_to_hdu[url] for url in unique_urls if url_band(url) == filt]
         candidates = [hdu for hdu in candidates if hdu is not None]
+        # the archive can return frames without the image extension, which cannot be used
+        n_candidates = len(candidates)
+        candidates = [
+            hdu for hdu in candidates
+            if len(hdu) > 1 and hdu[1].data is not None and np.ndim(hdu[1].data) == 2
+        ]
+        if len(candidates) < n_candidates:
+            warnings.warn(
+                f"{survey} {filt}: {n_candidates - len(candidates)} image(s) without image data were skipped."
+            )
         images = []
         for hdu in candidates:
             with warnings.catch_warnings():
