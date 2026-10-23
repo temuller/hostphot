@@ -4,6 +4,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 from astropy import wcs
+import astropy.units as u
 from astropy.io import fits
 from photutils.aperture import EllipticalAperture
 
@@ -280,11 +281,12 @@ def adapt_aperture(
         obj["x"], obj["y"] = new_apertures.positions
         obj["a"] = new_apertures.a
         obj["b"] = new_apertures.b
-        # wether theta is a float or not seems to depend on the python version
-        if isinstance(new_apertures.theta, float):
-            obj["theta"] = new_apertures.theta
+        # photutils returns theta as an angle (in degrees in recent versions, e.g. photutils 3.0)
+        # or as a float (in radians); sep uses radians
+        if isinstance(new_apertures.theta, u.Quantity):
+            obj["theta"] = new_apertures.theta.to_value(u.rad)
         else:
-            obj["theta"] = new_apertures.theta.value
+            obj["theta"] = float(new_apertures.theta)
 
         if flip is True:
             # flip aperture orientation

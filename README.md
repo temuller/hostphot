@@ -165,6 +165,10 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 ## What's new
 
+v3.2.4
+
+* Fixed the orientation of the common apertures (`adapt_aperture`) with photutils >= 3.0, which returns the angle in degrees (issue #19)
+
 V3.2.3
 
 * Normalise RA to [0, 360) in `download_images` (solves issue with WISE)
