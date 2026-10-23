@@ -89,7 +89,7 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
         mosaic_links = []
     for filt in filters:
         hdu = None
-        mosaic_urls = _filter_urls(mosaic_links, filt)
+        mosaic_urls = _latest_version(_filter_urls(mosaic_links, filt))
         if len(mosaic_urls) > 0:
             # a few mosaics per filter: the deepest one covering the whole cutout is used
             mosaics = [h for h in open_fits_from_urls(mosaic_urls) if _has_image(h)]
@@ -143,6 +143,16 @@ def _query_links(database: str, ra: float, dec: float, size: float, frame_type: 
 def _filter_urls(links: list[str], filt: str) -> list[str]:
     """URLs of a filter (exact match, e.g. not a narrow band with the same prefix), without duplicates."""
     return list(dict.fromkeys(link for link in links if url_band(link) == filt))
+
+
+def _latest_version(urls: list[str]) -> list[str]:
+    """Keeps the URLs of the latest processing version of the mosaics (e.g. ``.../mosaics/20210908_v10/...``),
+    as the archive also returns superseded versions; all the URLs are kept if the version is not found."""
+    versions = [re.search(r"/mosaics/[^/]*_v(\d+)/", url) for url in urls]
+    if len(urls) == 0 or any(version is None for version in versions):
+        return urls
+    numbers = [int(version.group(1)) for version in versions]
+    return [url for url, number in zip(urls, numbers) if number == max(numbers)]
 
 
 def _has_image(hdu: Optional[fits.HDUList]) -> bool:
