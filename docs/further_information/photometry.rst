@@ -206,7 +206,7 @@ VISTA
   
 * **Error Propagation**
 
-  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword), combined with the systematic uncertainty of the calibration from 2MASS: :math:`2\%` in :math:`YJHK_s` and :math:`3\%` in :math:`Z` (`González-Fernández et al. 2018 <https://ui.adsabs.harvard.edu/abs/2018MNRAS.474.5459G/abstract>`_), i.e. :math:`\sigma_{\text{ZP}} = \sqrt{MAGZRR^2 + \sigma_{\text{cal}}^2}`.
+  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword), combined with the systematic uncertainty of the calibration from 2MASS: :math:`2\%` in :math:`YJHK_s` and :math:`3\%` in :math:`Z` (`González-Fernández et al. 2018 <https://ui.adsabs.harvard.edu/abs/2018MNRAS.474.5459G/abstract>`_), i.e. :math:`\sigma_{\text{ZP}} = \sqrt{MAGZRR^2 + \sigma_{\text{cal}}^2}`. Note that the Poisson noise of the sources is calculated from the image counts (ADU) without the detector gain (:math:`\sim4.2\,e^-/\text{ADU}`) or the number of combined exposures, so it is overestimated, which is conservative but negligible in practice (e.g. :math:`\lesssim0.003` mag for stars).
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2)`.
   

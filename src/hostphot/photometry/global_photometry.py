@@ -370,8 +370,9 @@ def extract_aperture(
     fits_file = obj_dir / survey / f"{survey}_{filt}{suffix}.fits"
 
     # image information
-    hdu = fits.open(fits_file)
-    hdu = remove_nan(hdu)
+    with fits.open(fits_file, memmap=False) as hdu_file:
+        _ = [extension.data for extension in hdu_file]  # (loaded before closing the file)
+        hdu = remove_nan(hdu_file)
     header = hdu[0].header
     data = hdu[0].data
     with warnings.catch_warnings():
@@ -614,8 +615,9 @@ def photometry(
     fits_file = obj_dir / survey / f"{survey}_{filt}{suffix}.fits"
 
     # image information
-    hdu = fits.open(fits_file)
-    hdu = remove_nan(hdu)
+    with fits.open(fits_file, memmap=False) as hdu_file:
+        _ = [extension.data for extension in hdu_file]  # (loaded before closing the file)
+        hdu = remove_nan(hdu_file)
     saturated = saturated_mask(hdu)  # e.g. HSC (None if not available)
     header = hdu[0].header
     data = hdu[0].data

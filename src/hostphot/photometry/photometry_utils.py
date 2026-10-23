@@ -413,6 +413,9 @@ def get_effective_gain(header: fits.Header, survey: str, filt: str) -> float:
         # probably a coadd, so only need one filter
         pixel_units = survey_pixel_units(survey, filt[0])
     if pixel_units == "counts":
+        # note: for images in counts (ADU), e.g. 2MASS, VISTA and UKIDSS, the detector gain and the
+        # number of combined exposures are not included, so the Poisson noise of the sources is
+        # overestimated (conservative; e.g. <= 0.003 mag for VISTA stars, below the calibration terms)
         return 1
     if survey == "Spitzer" and float(header.get("GAIN", 0)) > 0:
         # SEIP mosaics (MJy/sr): mean gain in e-/(MJy/sr), from the exposure time and coverage
