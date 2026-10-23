@@ -37,7 +37,8 @@ def update_HST_header(hdu: fits.hdu.ImageHDU) -> None:
             img_wcs = WCS(hdu[1].header)
             hdu[0].header.update(img_wcs.to_header())
             hdu[0].data = hdu[1].data
-        for key in ["PHOTFLAM", "PHOTPLAM"]:
+        # calibration keywords (and units/gain, e.g. BUNIT = COUNTS/S and ADCGAIN for NICMOS)
+        for key in ["PHOTFLAM", "PHOTPLAM", "BUNIT", "CCDGAIN", "ADCGAIN"]:
             if key not in hdu[0].header and len(hdu) > 1 and key in hdu[1].header:
                 hdu[0].header[key] = hdu[1].header[key]
     # add zeropoints
@@ -151,6 +152,8 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
                     best, best_coverage = hdu, coverage
                 if coverage >= FULL_COVERAGE:
                     break
+        if best is None:
+            warnings.warn(f"HST {filt}: none of the downloaded images covers the position.")
         if best is not None and best_coverage < FULL_COVERAGE:
             warnings.warn(
                 f"HST {filt}: none of the downloaded images covers the whole cutout; using the one with the "
@@ -214,13 +217,45 @@ def _candidate_observations(results_df, filt: str, coords: SkyCoord):
     obs_df = results_df[filter_match & instrument_match & not_total].copy()
     if len(obs_df) == 0:
         return obs_df
-    # images whose centre is too far for them to cover the position are skipped
-    if {"ra", "dec", "fov_size"}.issubset(obs_df.columns):
-        centres = SkyCoord(obs_df["ra"].values, obs_df["dec"].values, unit="deg")
-        separation = centres.separation(coords).deg
-        fov = obs_df["fov_size"].astype(float).values
-        obs_df = obs_df[~(np.isfinite(fov) & (separation > fov))]
+    # images whose footprint (``stc_s`` polygons) does not contain the position are skipped; if the
+    # footprint is not available, those whose centre is further than half the field of view
+    covers = [_footprint_contains(row, coords) for _, row in obs_df.iterrows()]
+    obs_df = obs_df[np.array(covers, dtype=bool)]
     return obs_df.sort_values(by=["exposure_duration"], ascending=False)
+
+
+def _footprint_contains(row, coords: SkyCoord) -> bool:
+    """Whether the footprint of an observation (``stc_s`` polygons, or its centre and field of view)
+    contains the position."""
+    from matplotlib.path import Path as MplPath
+
+    ra0, dec0 = coords.ra.deg, coords.dec.deg
+    stc = str(row.get("stc_s", ""))
+    polygons = []
+    for part in stc.split("Polygon")[1:]:
+        values = []
+        for token in part.split():
+            try:
+                values.append(float(token))
+            except ValueError:
+                if values:
+                    break  # end of this polygon
+        if len(values) >= 6 and len(values) % 2 == 0:
+            polygons.append(np.array(values).reshape(-1, 2))
+    if polygons:
+        for polygon in polygons:
+            # local tangent plane around the position (degrees)
+            dx = ((polygon[:, 0] - ra0 + 180) % 360 - 180) * np.cos(np.radians(dec0))
+            dy = polygon[:, 1] - dec0
+            if MplPath(np.column_stack([dx, dy])).contains_point((0.0, 0.0)):
+                return True
+        return False
+    try:
+        fov = float(row["fov_size"])
+        separation = SkyCoord(row["ra"], row["dec"], unit="deg").separation(coords).deg
+        return not (np.isfinite(fov) and separation > fov / 2)
+    except (KeyError, TypeError, ValueError):
+        return True
 
 
 def _download_observation(esahubble, obs_id: str, tmp_dir: Path) -> Optional[fits.HDUList]:

@@ -1,5 +1,6 @@
 import os
 import sys
+import threading
 import csv
 import requests
 import numpy as np
@@ -234,19 +235,31 @@ def add_fields(arr: np.ndarray, names: str | list, dtypes: str | list, data: np.
 
     return new_arr
 
+_stdout_lock = threading.Lock()
+_stdout_state = {"depth": 0, "saved": None, "devnull": None}
+
+
 @contextmanager
 def suppress_stdout():
     """Suppresses annoying outputs.
 
-    Useful with astroquery and aplpy packages.
+    Useful with astroquery and aplpy packages. It can be used from several threads at the same time
+    (e.g. parallel downloads): the output is restored when the last one finishes.
     """
-    with open(os.devnull, "w") as devnull:
-        old_stdout = sys.stdout
-        sys.stdout = devnull
-        try:
-            yield
-        finally:
-            sys.stdout = old_stdout
+    with _stdout_lock:
+        if _stdout_state["depth"] == 0:
+            _stdout_state["saved"] = sys.stdout
+            _stdout_state["devnull"] = open(os.devnull, "w")
+            sys.stdout = _stdout_state["devnull"]
+        _stdout_state["depth"] += 1
+    try:
+        yield
+    finally:
+        with _stdout_lock:
+            _stdout_state["depth"] -= 1
+            if _stdout_state["depth"] == 0:
+                sys.stdout = _stdout_state["saved"]
+                _stdout_state["devnull"].close()
             
 def store_input(input_params: dict, inputs_file: Path) -> None:
     """Stores the input parameters of a function.
