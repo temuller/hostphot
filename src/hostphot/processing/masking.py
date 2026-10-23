@@ -24,7 +24,7 @@ from .objects_detection import (
 )
 from hostphot.utils import suppress_stdout, store_input
 from hostphot.photometry.image_utils import adapt_aperture
-from hostphot.processing.background import masked_background
+from hostphot.processing.background import masked_background, sep_background
 from hostphot.surveys_utils import (
     check_survey_validity,
     bkg_surveys,
@@ -154,7 +154,7 @@ def create_mask(
         img_wcs = wcs.WCS(header, naxis=2)
 
     data = data.astype(np.float64)
-    bkg = sep.Background(data)
+    bkg = sep_background(data)
     bkg_rms = bkg.globalrms
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         # background estimated with the sources (including the galaxy) masked

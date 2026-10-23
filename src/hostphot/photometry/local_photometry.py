@@ -34,7 +34,7 @@ from hostphot._constants import workdir, font_family
 from hostphot.processing.cleaning import remove_nan, saturated_mask
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, suppress_stdout, store_input
-from hostphot.processing.background import masked_background
+from hostphot.processing.background import masked_background, sep_background
 from hostphot.photometry.photometry_utils import (
     HERSCHEL_CALIBRATION_FRACTION,
     _herschel_data_to_jy_per_pixel,
@@ -273,7 +273,7 @@ def photometry(
     #box_size = int(0.1 * np.sqrt(data.size))
     #bkg = SExtractorBackground(sigma_clip=None)
     #bkg = Background2D(data, box_size=box_size, bkg_estimator=bkg)
-    bkg = sep.Background(data)
+    bkg = sep_background(data)
     # background subtraction, if needed
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         # background estimated with the sources masked (the transient position is used to find the host)
@@ -320,10 +320,8 @@ def photometry(
             flux = _aperture_weighted_sum(data_sub, px, py, radius_pix)[0]
             if source_mask is None:
                 source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
+            # (a warning is given if the blank-aperture uncertainty cannot be estimated)
             blank_err = blank_aperture_floor(data_sub, 0.0, px, py, radius_pix, source_mask=source_mask)
-            if blank_err == 0.0:
-                warnings.warn(f"{label}: the blank-aperture uncertainty could not be estimated, so only "
-                              "the calibration uncertainty is included.")
             cal_err = abs(flux) * HERSCHEL_CALIBRATION_FRACTION.get(filt, 0.0)
             flux_err = float(np.sqrt(blank_err**2 + cal_err**2))
         elif invvar is not None:

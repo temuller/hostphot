@@ -22,6 +22,22 @@ FALLBACK_FWHM_ARCSEC = 2.5
 FALLBACK_FWHM_MAX_PIX = 10.0
 
 
+def _safe_mesh(npix: int, mesh: int) -> int:
+    """Returns a background mesh size close to ``mesh`` that does not leave a strip of 1 or 2 pixels at
+    the image edge (``npix % mesh``), where :func:`sep.Background` gives unstable values (e.g. +17 sigma)."""
+    for delta in [0, 1, -1, 2, -2, 3, -3, 4, -4]:
+        size = mesh + delta
+        if size >= 4 and (npix % size == 0 or npix % size >= 3 or size >= npix):
+            return size
+    return mesh
+
+
+def sep_background(data: np.ndarray, mask: Optional[np.ndarray] = None, bw: int = 64, bh: int = 64, **kwargs):
+    """:func:`sep.Background` with mesh sizes adjusted to the image size (see :func:`_safe_mesh`)."""
+    ny, nx = data.shape
+    return sep.Background(data, mask=mask, bw=_safe_mesh(nx, bw), bh=_safe_mesh(ny, bh), **kwargs)
+
+
 def _set_pixstack(size: int) -> None:
     """Scales the sep buffer of pixels above the detection threshold with the image size (with a cap)."""
     sep.set_extract_pixstack(int(min(max(300000, size), 1e7)))
@@ -105,7 +121,7 @@ def source_mask(
     nan_mask = ~np.isfinite(data)
     filled = np.ascontiguousarray(np.where(nan_mask, 0.0, data), dtype=np.float64)
     if back is None or rms is None:
-        bkg = sep.Background(filled, mask=nan_mask)
+        bkg = sep_background(filled, mask=nan_mask)
         back, rms = bkg.back(), bkg.globalrms
     sub = np.ascontiguousarray(filled - back)
 
@@ -221,7 +237,7 @@ def _masked_background(
             median = sigma_clipped_stats(pixels, sigma=3.0, maxiters=10)[1]
             back = np.full(data.shape, median)
         else:
-            back = sep.Background(filled, mask=mask, bw=mesh, bh=mesh, fw=3, fh=3).back()
+            back = sep_background(filled, mask=mask, bw=mesh, bh=mesh, fw=3, fh=3).back()
             if not np.any(back):
                 # sep returns zero everywhere if all the meshes are mostly masked: constant background instead
                 constant = True

@@ -52,7 +52,7 @@ from hostphot.photometry.photometry_utils import (
     get_effective_gain,
 )
 from hostphot.photometry.image_utils import adapt_aperture, wrap_theta
-from hostphot.processing.background import masked_background
+from hostphot.processing.background import masked_background, sep_background
 from hostphot.surveys_utils import (
     get_survey_filters,
     get_default_filters,
@@ -136,7 +136,7 @@ def _background(data: np.ndarray) -> sep.Background:
     """Estimates the background of an image, masking the pixels without data (NaN)."""
     nan_mask = ~np.isfinite(data)
     filled = np.ascontiguousarray(np.where(nan_mask, 0.0, data), dtype=np.float64)
-    return sep.Background(filled, mask=nan_mask)
+    return sep_background(filled, mask=nan_mask)
 
 
 def _kron_radius(data: np.ndarray, objects: np.ndarray) -> float:

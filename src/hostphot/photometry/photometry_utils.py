@@ -739,8 +739,10 @@ def _source_mask(
                 break
     except Exception:
         mask = np.zeros(data.shape, dtype=bool)
-    # fill holes inside sources (e.g. faint regions between spiral arms), which are not blank sky
-    mask = binary_fill_holes(mask)
+    # fill holes inside sources (e.g. faint regions between spiral arms), which are not blank sky; only
+    # the source mask is filled (otherwise, if the pixels without data surround the valid region, e.g.
+    # rotated maps, the whole valid region would be a hole)
+    mask = binary_fill_holes(mask & valid)
     return mask | ~valid
 
 
@@ -771,7 +773,9 @@ def _background_residuals(
     """
     filled = np.ascontiguousarray(np.where(np.isfinite(data), data, 0.0), dtype=np.float64)
     try:
-        bkg = sep.Background(filled, mask=source_mask, bw=mesh_size, bh=mesh_size)
+        from hostphot.processing.background import sep_background
+
+        bkg = sep_background(filled, mask=source_mask, bw=mesh_size, bh=mesh_size)
         return np.where(np.isfinite(data), filled - bkg.back(), np.nan)
     except Exception:
         return data
@@ -1144,7 +1148,13 @@ def blank_aperture_floor(
     -------
     flux_err: Flux uncertainty including the floor.
     """
-    return _apply_floor(flux_err, _blank_aperture_rms(data, px, py, radius, source_mask=source_mask))
+    blank_rms = _blank_aperture_rms(data, px, py, radius, source_mask=source_mask)
+    if blank_rms is None:
+        warnings.warn(
+            f"The blank-aperture noise floor could not be estimated for a {radius:.1f}-pixel aperture (not enough "
+            "blank sky in the image), so the uncertainty might be underestimated. Consider downloading a larger image."
+        )
+    return _apply_floor(flux_err, blank_rms)
 
 
 def blank_kron_floor(
