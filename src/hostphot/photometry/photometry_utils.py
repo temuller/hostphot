@@ -791,6 +791,7 @@ def _blank_rms(
     rmax: float,
     n_apertures: int = 80,
     source_mask: Optional[np.ndarray] = None,
+    residual_background: bool = True,
 ) -> float | None:
     """Estimate an empirical noise floor from the scatter of blank (source-free) apertures.
 
@@ -820,7 +821,9 @@ def _blank_rms(
         source_mask = _source_mask(data, host_xy=(x0, y0))
     # background mesh of at least 4 times the aperture size
     mesh_size = int(max(16, 4 * half_size))
-    residuals = _background_residuals(data, source_mask, mesh_size)
+    # (without the residual background, structure on intermediate scales, e.g. the pedestal/quadrant
+    # residuals of NICMOS mosaics, is included in the floor)
+    residuals = _background_residuals(data, source_mask, mesh_size) if residual_background else data
     max_trials = max(400, n_apertures * 20)
     blank_fluxes = []
 
@@ -869,6 +872,7 @@ def _blank_aperture_rms(
     rmin_factor: float = 2.5,
     rmax_factor: float = 6.0,
     source_mask: Optional[np.ndarray] = None,
+    residual_background: bool = True,
 ) -> float | None:
     """Estimate an empirical noise floor from blank circular apertures (see :func:`_blank_rms`)."""
     return _blank_rms(
@@ -881,6 +885,7 @@ def _blank_aperture_rms(
         rmax_factor * radius,
         n_apertures,
         source_mask,
+        residual_background,
     )
 
 
@@ -895,6 +900,7 @@ def _blank_elliptical_rms(
     rmin_factor: float = 2.5,
     rmax_factor: float = 6.0,
     source_mask: Optional[np.ndarray] = None,
+    residual_background: bool = True,
 ) -> float | None:
     """Estimate an empirical noise floor from blank elliptical apertures (see :func:`_blank_rms`)."""
     step_scale = max(a, b)
@@ -908,6 +914,7 @@ def _blank_elliptical_rms(
         rmax_factor * step_scale,
         n_apertures,
         source_mask,
+        residual_background,
     )
 
 
@@ -917,6 +924,7 @@ def _extrapolated_blank_rms(
     y0: float,
     area: float,
     source_mask: np.ndarray,
+    residual_background: bool = True,
     fractions: tuple = (1 / 64, 1 / 32, 1 / 16, 1 / 8, 1 / 4, 1 / 2),
 ) -> float | None:
     """Estimate the blank-aperture noise of apertures too large to fit in the image.
@@ -943,7 +951,9 @@ def _extrapolated_blank_rms(
         radius = target_radius * np.sqrt(fraction)
         if radius < 1.5:
             continue
-        rms = _blank_aperture_rms(data, x0, y0, radius, source_mask=source_mask)
+        rms = _blank_aperture_rms(
+            data, x0, y0, radius, source_mask=source_mask, residual_background=residual_background
+        )
         if rms is not None and rms > 0:
             points.append((np.pi * radius**2, rms))
     if len(points) < 3:
@@ -1122,6 +1132,13 @@ def _apply_floor(flux_err: float, blank_rms: float | None) -> float:
     return max(flux_err, blank_rms)
 
 
+def floor_residual_background(survey: str, filt: str) -> bool:
+    """Whether the blank-aperture floor is measured on the residuals from a smooth background (default), or on
+    the image itself, for images with structured backgrounds that are part of the noise of the photometry
+    (NICMOS mosaics have pedestal/quadrant residuals, which make the errors ~2-6 times too small otherwise)."""
+    return not (survey == "HST" and str(filt).upper().startswith("NICMOS"))
+
+
 def blank_aperture_floor(
     data: np.ndarray,
     flux_err: float,
@@ -1129,6 +1146,7 @@ def blank_aperture_floor(
     py: float,
     radius: float,
     source_mask: Optional[np.ndarray] = None,
+    residual_background: bool = True,
 ) -> float:
     """Applies a blank-aperture noise floor to the error of a circular-aperture flux.
 
@@ -1148,7 +1166,9 @@ def blank_aperture_floor(
     -------
     flux_err: Flux uncertainty including the floor.
     """
-    blank_rms = _blank_aperture_rms(data, px, py, radius, source_mask=source_mask)
+    blank_rms = _blank_aperture_rms(
+        data, px, py, radius, source_mask=source_mask, residual_background=residual_background
+    )
     if blank_rms is None:
         warnings.warn(
             f"The blank-aperture noise floor could not be estimated for a {radius:.1f}-pixel aperture (not enough "
@@ -1165,6 +1185,7 @@ def blank_kron_floor(
     scale: float,
     pixel_scale: float = 1.0,
     label: str = "Kron aperture",
+    residual_background: bool = True,
 ) -> float:
     """Applies a blank-aperture noise floor to the error of a Kron flux.
 
@@ -1188,9 +1209,11 @@ def blank_kron_floor(
     """
     x, y, a, b, theta = _kron_ellipse(objects, kronrad, scale)
     source_mask = _source_mask(data, pixel_scale, host_xy=(x, y))
-    rms = _blank_elliptical_rms(data, x, y, a, b, theta, source_mask=source_mask)
+    rms = _blank_elliptical_rms(
+        data, x, y, a, b, theta, source_mask=source_mask, residual_background=residual_background
+    )
     if rms is None:
-        rms = _extrapolated_blank_rms(data, x, y, np.pi * a * b, source_mask)
+        rms = _extrapolated_blank_rms(data, x, y, np.pi * a * b, source_mask, residual_background=residual_background)
         if rms is None:
             warnings.warn(
                 f"{label}: the blank-aperture noise floor could not be estimated (not enough blank sky "

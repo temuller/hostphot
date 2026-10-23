@@ -39,6 +39,7 @@ from hostphot.photometry.photometry_utils import (
     extract_invvar_kron_flux,
     get_invvar_map,
     blank_kron_floor,
+    floor_residual_background,
     blank_floor_surveys,
     check_aperture_coverage,
     check_saturation,
@@ -751,7 +752,8 @@ def photometry(
         )
         if survey in blank_floor_surveys:
             flux_err = blank_kron_floor(
-                data_sub, flux_err, gal_obj, kronrad, scale, pixel_scale=pixel_scale, label=label
+                data_sub, flux_err, gal_obj, kronrad, scale, pixel_scale=pixel_scale, label=label,
+                residual_background=floor_residual_background(survey, filt),
             )
     
     # aperture area of the (scaled) Kron ellipse

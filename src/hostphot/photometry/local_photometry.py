@@ -43,6 +43,7 @@ from hostphot.photometry.photometry_utils import (
     extract_invvar_aperture_flux,
     get_invvar_map,
     blank_aperture_floor,
+    floor_residual_background,
     blank_floor_surveys,
     check_aperture_coverage,
     check_saturation,
@@ -343,7 +344,8 @@ def photometry(
                 if source_mask is None:
                     source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
                 flux_err = blank_aperture_floor(
-                    data_sub, flux_err, px, py, radius_pix, source_mask=source_mask
+                    data_sub, flux_err, px, py, radius_pix, source_mask=source_mask,
+                    residual_background=floor_residual_background(survey, filt),
                 )
         #flux, flux_err = extract_aperture_flux(data_sub, bkg.background_rms, _exptime, px, py, radius_pix)
 
