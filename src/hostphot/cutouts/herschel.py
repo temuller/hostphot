@@ -76,6 +76,7 @@ FILTER_RULES = {
 }
 
 BAD_PRODUCT_TOKENS = (
+    "hpppmap",  # PACS point-source maps (high-pass filtered, without extended emission)
     "context",
     "diag",
     "diagnostic",
@@ -97,6 +98,21 @@ def _normalise_filters(filters: Optional[str | Iterable[str]]) -> list[str]:
     return filters
 
 
+def _footprint_area_deg2(polygon) -> float:
+    """Area (deg^2) of an observation footprint from the HSA ``polygon_fov`` column (vertices in radians,
+    e.g. ``{(ra1, dec1),(ra2, dec2),...}``), or NaN if it cannot be read."""
+    import re
+
+    values = [float(value) for value in re.findall(r"[-+]?\d+\.?\d*(?:[eE][-+]?\d+)?", str(polygon))]
+    if len(values) < 6 or len(values) % 2 != 0:
+        return np.nan
+    vertices = np.degrees(np.array(values).reshape(-1, 2))
+    ra, dec = vertices[:, 0], vertices[:, 1]
+    ra = (ra - ra[0] + 180) % 360 - 180  # (continuous across RA = 0)
+    x, y = ra * np.cos(np.radians(np.mean(dec))), dec
+    return float(0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))))
+
+
 def query_hsa_observations(
     ra: float,
     dec: float,
@@ -108,7 +124,8 @@ def query_hsa_observations(
 
     Spectroscopy, calibration and engineering observations are excluded. Observations
     in SPIRE/PACS parallel mode are listed once per instrument. The observations are
-    sorted by duration (longest, i.e. deepest, first).
+    sorted by depth, estimated as the duration per unit area of their footprint (deepest first;
+    e.g. large survey maps have long durations but are shallower than dedicated observations).
 
     ``radius_arcmin`` is kept for backward compatibility, but it is not used (the
     footprints of the observations are used instead of the distance to their centres).
@@ -117,13 +134,18 @@ def query_hsa_observations(
     modes = ",".join(str(mode) for mode in PHOTOMETRY_MODES)
     query = (
         f"select top {max_obs} observation_id, instrument_oid, observing_mode_oid, target_name, "
-        "ra, dec, duration from hsa.v_active_observation "
+        "ra, dec, duration, polygon_fov from hsa.v_active_observation "
         f"where contains(point('ICRS', {ra}, {dec}), polygon_fov)=1 "
         f"and observing_mode_oid in ({modes})"
     )
     df = HSA.query_hsa_tap(query).to_pandas()
     if df.empty:
         return df
+    df = df.drop_duplicates("observation_id")  # (the query can return duplicated rows)
+    area = df["polygon_fov"].apply(_footprint_area_deg2)
+    df["depth"] = df["duration"].astype(float) / area.where(area > 0)
+    df["depth"] = df["depth"].fillna(df["duration"].astype(float))  # (if the area is not available)
+    df = df.drop(columns=["polygon_fov"])
 
     keep = {inst.upper() for inst in instruments}
     rows = []
@@ -134,7 +156,7 @@ def query_hsa_observations(
     df = pd.DataFrame(rows)
     if df.empty:
         return df
-    df = df.sort_values("duration", ascending=False, kind="stable")
+    df = df.sort_values("depth", ascending=False, kind="stable")
     order = ["observation_id", "instrument_name", "instrument_oid", "target_name", "ra", "dec"]
     order += [col for col in df.columns if col not in order]
     return df[order].reset_index(drop=True)
@@ -437,7 +459,7 @@ def get_Herschel_images(
             ]
             if len(pending) == 0:
                 continue
-            obs_id, duration = row["observation_id"], float(row["duration"])
+            obs_id, duration = row["observation_id"], float(row["depth"])  # depth (duration per unit area)
             # final maps first; whole processing levels only if they do not include the filters
             for level in [None] + list(product_levels):
                 level_name = level or "STANDALONE"

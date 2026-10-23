@@ -45,7 +45,6 @@ from hostphot.photometry.photometry_utils import (
     check_saturation,
     _kron_ellipse,
     _elliptical_weighted_sum,
-    _herschel_blank_elliptical_rms,
     _herschel_ellipse_params,
     HERSCHEL_CALIBRATION_FRACTION,
     _herschel_pixel_area_sr,
@@ -89,8 +88,13 @@ def herschel_kron_flux(
     x, y, a, b, theta = _herschel_ellipse_params(objects, kronrad, scale)
     flux, weights, _ = _elliptical_weighted_sum(jy_data, x, y, a, b, theta)
 
-    blank_rms = _herschel_blank_elliptical_rms(jy_data, x, y, a, b, theta)
-    if blank_rms is None or not np.isfinite(blank_rms):
+    # blank-aperture noise, as for the other surveys (with the sources masked; extrapolated from smaller
+    # apertures if needed, or NaN with a warning if it cannot be estimated)
+    pixel_scale = float(np.sqrt(np.abs(np.linalg.det(wcs.pixel_scale_matrix))) * 3600)
+    blank_rms = blank_kron_floor(
+        jy_data, 0.0, objects, kronrad, scale, pixel_scale=pixel_scale, label=f"Herschel {filt} (Kron aperture)"
+    )
+    if not np.isfinite(blank_rms) or blank_rms <= 0:
         blank_rms = np.nan
 
     cal_fraction = HERSCHEL_CALIBRATION_FRACTION.get(filt, 0.0)
@@ -505,6 +509,11 @@ def load_aperture_params(
         filt = "".join(f for f in filt)
     obj_dir = Path(workdir, name)
     aper_params_file = obj_dir / survey / f"aperture_parameters_{filt}.csv"
+    if not aper_params_file.is_file():
+        raise FileNotFoundError(
+            f"No aperture parameters found for {survey} {filt} of {name} ({aper_params_file}). Run the global "
+            "photometry of the reference filter(s) and survey first with `save_aperture_params=True`."
+        )
     gal_df = pd.read_csv(aper_params_file)
 
     # split parameters

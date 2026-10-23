@@ -412,6 +412,10 @@ def get_effective_gain(header: fits.Header, survey: str, filt: str) -> float:
     except Exception:
         # probably a coadd, so only need one filter
         pixel_units = survey_pixel_units(survey, filt[0])
+    if survey == "Herschel":
+        # no Poisson noise of the sources (the maps are in Jy/pixel or MJy/sr; the noise is estimated
+        # with blank apertures)
+        return np.inf
     if pixel_units == "counts":
         # note: for images in counts (ADU), e.g. 2MASS, VISTA and UKIDSS, the detector gain and the
         # number of combined exposures are not included, so the Poisson noise of the sources is
@@ -1313,46 +1317,3 @@ def _herschel_ellipse_params(
     b = float(np.ravel(objects["b"])[0]) * scale * kronrad
     theta = _normalized_theta(float(np.ravel(objects["theta"])[0]))
     return x, y, a, b, theta
-
-def _herschel_blank_elliptical_rms(
-    data: np.ndarray,
-    x0: float,
-    y0: float,
-    a: float,
-    b: float,
-    theta: float,
-    n_apertures: int = 80,
-    rmin_factor: float = 2.5,
-    rmax_factor: float = 6.0,
-) -> float | None:
-    """Estimate a local empirical floor from blank elliptical apertures around the host."""
-    rng = np.random.default_rng(12345)
-    ny, nx = data.shape
-    blank_fluxes = []
-    max_trials = max(400, n_apertures * 20)
-    step_scale = max(a, b)
-    rmin = rmin_factor * step_scale
-    rmax = rmax_factor * step_scale
-
-    for _ in range(max_trials):
-        if len(blank_fluxes) >= n_apertures:
-            break
-        phi = rng.uniform(0, 2 * np.pi)
-        rho = rng.uniform(rmin, rmax)
-        x = x0 + rho * np.cos(phi)
-        y = y0 + rho * np.sin(phi)
-        if x - step_scale < 0 or x + step_scale >= nx or y - step_scale < 0 or y + step_scale >= ny:
-            continue
-        try:
-            flux, _, _ = _elliptical_weighted_sum(data, x, y, a, b, theta)
-        except Exception:
-            continue
-        if np.isfinite(flux):
-            blank_fluxes.append(flux)
-
-    if len(blank_fluxes) < 10:
-        return None
-
-    arr = np.asarray(blank_fluxes, dtype=float)
-    med = np.nanmedian(arr)
-    return float(1.4826 * np.nanmedian(np.abs(arr - med)))
