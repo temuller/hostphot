@@ -715,6 +715,7 @@ def photometry(
             A_ext = calc_extinction(filt, survey, host_ra, host_dec)
             mag -= A_ext
             flux *= 10 ** (0.4 * A_ext)
+            flux_err *= 10 ** (0.4 * A_ext)  # (the magnitude error is unchanged)
 
         if save_plots is True:
             outfile = obj_dir / survey / f"global_{survey}_{filt}.jpg"
@@ -781,6 +782,7 @@ def photometry(
         A_ext = calc_extinction(filt, survey, host_ra, host_dec)
         mag -= A_ext
         flux *= 10 ** (0.4 * A_ext)
+        flux_err *= 10 ** (0.4 * A_ext)  # (the magnitude error is unchanged)
 
     if save_plots is True:
         outfile = obj_dir / survey / f"global_{survey}_{filt}.jpg"

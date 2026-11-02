@@ -374,6 +374,7 @@ def photometry(
             A_ext = calc_extinction(filt, survey, ra, dec)
             mag -= A_ext
             flux *= 10 ** (0.4 * A_ext)
+            flux_err *= 10 ** (0.4 * A_ext)  # (the magnitude error is unchanged)
 
         mags.append(mag)
         mags_err.append(mag_err)
