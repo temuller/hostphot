@@ -50,6 +50,7 @@ from hostphot.photometry.photometry_utils import (
     get_source_mask,
     get_effective_gain,
     warn_non_detection,
+    ab_photometry,
 )
 from hostphot.surveys_utils import (
     get_survey_filters,
@@ -513,6 +514,9 @@ def multi_band_phot(
                 results_dict[f"{filt}_{radius}_err"] = mag_err
                 results_dict[f"{filt}_{radius}_flux"] = flux
                 results_dict[f"{filt}_{radius}_flux_err"] = flux_err
+                # AB magnitude, flux density (microjanskys) and upper limit, the same for all the surveys
+                for key, value in ab_photometry(survey, filt, flux, flux_err, zp).items():
+                    results_dict[f"{filt}_{radius}_{key}"] = value
             results_dict[f"{filt}_zeropoint"] = zp
         except Exception as exc:
             if raise_exception is True:
@@ -527,6 +531,8 @@ def multi_band_phot(
                 results_dict[f"{filt}_{radius}_err"] = np.nan
                 results_dict[f"{filt}_{radius}_flux"] = np.nan
                 results_dict[f"{filt}_{radius}_flux_err"] = np.nan
+                for key in ["AB", "flux_uJy", "flux_uJy_err", "AB_ulim"]:
+                    results_dict[f"{filt}_{radius}_{key}"] = np.nan
             results_dict[f"{filt}_zeropoint"] = np.nan
     # store photometry
     phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})

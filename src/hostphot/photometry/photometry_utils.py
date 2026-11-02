@@ -20,6 +20,8 @@ from hostphot.surveys_utils import (
     survey_pixel_units,
     survey_pixel_scale,
     survey_zp,
+    filters_file,
+    _load_yml_cached,
 )
 from hostphot.photometry.image_utils import (
     get_image_exptime,
@@ -563,6 +565,57 @@ def magnitude_calculation(
         mag, mag_err = np.nan, np.nan
 
     return mag, mag_err, flux, flux_err, zp
+
+
+# significance of the upper limits given with the photometry (e.g. for non-detections)
+UPPER_LIMIT_SIGMA = 3
+
+
+def survey_ab_offset(survey: str, filt: str) -> float:
+    """AB offset of a filter (``m_AB = m + AB_offset``; zero for surveys in AB). For coadds of several
+    filters (e.g. ``riz``), the common offset of the filters, or NaN if they differ."""
+    filters_config = _load_yml_cached(filters_file)  # read only
+    survey_config = filters_config.get(survey, {})
+    if filt in survey_config:
+        return float(survey_config[filt]["AB_offset"])
+    offsets = {float(survey_config[f]["AB_offset"]) for f in filt if f in survey_config}
+    if len(offsets) == 1 and all(f in survey_config for f in filt):
+        return offsets.pop()
+    return np.nan
+
+
+def ab_photometry(survey: str, filt: str, flux: float, flux_err: float, zp: float) -> dict:
+    """Converts the photometry of a survey into AB magnitudes and flux densities in microjanskys.
+
+    The flux densities are converted from the (linear) fluxes, so they are also given for negative
+    fluxes (e.g. non-detections), and the upper limit is calculated from the flux uncertainty.
+
+    Parameters
+    ----------
+    survey: Survey name.
+    filt: Filter.
+    flux: Flux in the units of the survey images, as returned by the photometry (Jy for Herschel).
+    flux_err: Flux uncertainty.
+    zp: Zeropoint (``mag = -2.5 log10(flux) + zp``; not used for Herschel).
+
+    Returns
+    -------
+    phot: Dictionary with the AB magnitude (``AB``), the flux density and its uncertainty in microjanskys
+        (``flux_uJy`` and ``flux_uJy_err``) and the upper limit in AB magnitudes (``AB_ulim``; at
+        ``UPPER_LIMIT_SIGMA`` sigma).
+    """
+    offset = survey_ab_offset(survey, filt)
+    if survey == "Herschel":
+        scale = 1e6  # fluxes in Jy
+    else:
+        # m_AB = -2.5 log10(flux) + zp + offset = -2.5 log10(f_uJy) + 23.9
+        scale = 10 ** (-0.4 * (zp + offset - 23.9))
+    flux_ujy = flux * scale
+    flux_ujy_err = np.abs(flux_err * scale)
+    mag_ab = -2.5 * np.log10(flux_ujy) + 23.9 if flux_ujy > 0 else np.nan
+    limit = UPPER_LIMIT_SIGMA * flux_ujy_err
+    mag_ulim = -2.5 * np.log10(limit) + 23.9 if limit > 0 else np.nan
+    return {"AB": mag_ab, "flux_uJy": flux_ujy, "flux_uJy_err": flux_ujy_err, "AB_ulim": mag_ulim}
 
 
 def warn_non_detection(survey: str, filt: str, flux: float) -> None:

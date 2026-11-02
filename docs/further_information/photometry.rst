@@ -19,6 +19,27 @@ Note that the global and local photometry are calculates in a similar way as in 
 
 Any offsets added to the zeropoints are instead propagated into the fluxes, such that the zeropoints remain unchaged.
 
+Output columns
+~~~~~~~~~~~~~~
+
+For each filter (``{filt}`` for the global photometry and ``{filt}_{radius}`` for the local photometry), the
+results of :func:`multi_band_phot` include:
+
+* ``{filt}`` and ``{filt}_err``: magnitude and its uncertainty in the magnitude system of the survey (Vega for 2MASS,
+  WISE, unWISE, VISTA, UKIDSS and UHS; AB for the other surveys);
+* ``{filt}_flux`` and ``{filt}_flux_err``: flux in the units of the images (e.g. counts per second; Jy for Herschel),
+  and ``{filt}_zeropoint``;
+* ``{filt}_AB``: magnitude in the AB system (the same for all the surveys), using the AB offsets of the filters
+  configuration file;
+* ``{filt}_flux_uJy`` and ``{filt}_flux_uJy_err``: flux density and its uncertainty in microjanskys
+  (:math:`m_{\text{AB}} = -2.5\log_{10}(f_{\mu\text{Jy}}) + 23.9`). They are converted from the fluxes, so they are
+  also given for non-detections (negative or zero fluxes, for which the magnitudes are NaN);
+* ``{filt}_AB_ulim``: :math:`3\sigma` upper limit in AB magnitudes (from the flux uncertainty), e.g. for
+  non-detections.
+
+The AB magnitudes and flux densities are the most convenient to combine the photometry of different surveys
+(e.g. for SED fitting). If the Milky-Way extinction correction is applied, all the columns are corrected.
+
 
 PS1
 ~~~

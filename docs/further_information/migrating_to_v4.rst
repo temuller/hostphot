@@ -119,6 +119,9 @@ New in v4
   position.
 * HST: ACS/WFC and NICMOS support.
 * Herschel: local photometry.
+* New output columns for all the surveys: AB magnitudes (``{filt}_AB``), flux densities in microjanskys
+  (``{filt}_flux_uJy``) and :math:`3\sigma` upper limits (``{filt}_AB_ulim``), see the photometry page. The
+  existing columns are unchanged.
 * Clearer warnings: failed downloads, images without data, apertures without data, galaxies not detected and
   non-detections.
 

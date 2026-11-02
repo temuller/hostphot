@@ -144,7 +144,7 @@ def plot_sed(
             raise ValueError(f"Invalid photometry type: {phot_type}")
 
         
-        waves, phot, phot_err = [], [], []
+        waves, phot, phot_err, is_limit = [], [], [], []
         valid_filters = []
         for filt in filters:
             filt_str = filt + ext
@@ -157,11 +157,21 @@ def plot_sed(
             if survey == "LegacySurvey":
                 version = "DECam"
             wave = get_eff_wave(filt, survey, version)
-            mag = phot_df[filt_str].values[0] + ab_offset[filt]
             mag_err = phot_df[filt_err_str].values[0]
+            if f"{filt_str}_AB" in phot_df.columns:
+                # AB magnitudes, with upper limits for non-detections
+                mag = phot_df[f"{filt_str}_AB"].values[0]
+                limit = False
+                if not np.isfinite(mag):
+                    mag, mag_err, limit = phot_df[f"{filt_str}_AB_ulim"].values[0], 0.0, True
+            else:
+                # photometry from previous versions (without AB columns)
+                mag = phot_df[filt_str].values[0] + ab_offset[filt]
+                limit = bool(mag_err > 1)
             waves.append(wave)
             phot.append(mag)
             phot_err.append(mag_err)
+            is_limit.append(limit)
             valid_filters.append(filt)
 
         if z is not None:
@@ -178,18 +188,20 @@ def plot_sed(
             phot = np.array(phot)
             xlabel = r"Observed Wavelength ($\AA$)"
         phot_err = np.array(phot_err)
+        is_limit = np.array(is_limit, dtype=bool)
 
-        # NaN mask
-        mask = ~np.isnan(phot) * phot_err > 0
+        # NaN mask (upper limits are kept)
+        mask = np.isfinite(phot) & ((phot_err > 0) | is_limit)
         waves = waves[mask]
         phot = phot[mask]
         phot_err = phot_err[mask]
+        is_limit = is_limit[mask]
         valid_filters = np.array(valid_filters)[mask]
         label = f'{survey}\n{", ".join(filt for filt in valid_filters)}'
         n_plotted += 1
 
         if plot_flux is False:
-            lims = phot_err > 1  # upper limits; inverted for magnitude plots
+            lims = is_limit  # upper limits (in flux); inverted for magnitude plots
             phot_err[lims] = 0.3  # for visualization
             ax.errorbar(
                 waves,
@@ -208,6 +220,7 @@ def plot_sed(
         else:
             flux = 10 ** (-0.4 * (phot - 23.9))
             flux_err = np.abs(flux * 0.4 * np.log(10) * phot_err)
+            flux_err[is_limit] = 0.3 * flux[is_limit]  # for visualization
             ax.errorbar(
                 waves,
                 flux,
@@ -220,6 +233,7 @@ def plot_sed(
                 mec="k",
                 capsize=6,
                 label=label,
+                uplims=is_limit,
             )
 
     if n_plotted == 0:
