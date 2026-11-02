@@ -1,3 +1,4 @@
+import pytest
 import shutil
 import socket
 import tempfile
@@ -71,6 +72,7 @@ class TestDownloadsUtils(unittest.TestCase):
         with self.assertRaises(ValueError):
             download_images("HST_no_filters_test", 10.0, 10.0, survey="HST", save_input=False)
 
+    @pytest.mark.network
     def test_VISTA_no_coverage(self):
         # no VISTA coverage in the far north: one None per filter (not False)
         self.assertEqual(get_VISTA_images(10.0, 80.0, 1, ["J", "H"]), [None, None])

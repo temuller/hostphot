@@ -37,6 +37,15 @@ To run the tests, go to the parent directory and run the following command:
 pytest -v
 ```
 
+Some tests download images and catalogues from the survey archives (marked as `network`). To run only the tests that do not need the archives (as in the continuous integration on every push), or only the network tests:
+
+```code
+pytest -v -m "not network"
+pytest -v -m network
+```
+
+Network tests are reported as skipped (not failed) if an archive is not available.
+
 ## Modules
 
 ### Cutouts

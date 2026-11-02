@@ -1,44 +1,53 @@
 import unittest
-from hostphot.cutouts import download_images
+import pytest
+from tests.helpers import install_test_images
 from hostphot.processing import coadd_images
 from hostphot.processing import create_mask
 
 
 class TestHostPhot(unittest.TestCase):
-    def test_processing(self):
-        coadd_filters = "riz"
-        survey = "PanSTARRS"
-        sn_name = "2002fk"
-        host_ra = 50.527333
-        host_dec = -15.400056
+    sn_name = "2002fk"
+    host_ra = 50.527333
+    host_dec = -15.400056
+    survey = "PanSTARRS"
+    coadd_filters = "riz"
 
-        download_images(sn_name, host_ra, host_dec, survey=survey, overwrite=False)
+    def _run_processing(self, crossmatch: bool) -> None:
+        install_test_images(self.sn_name, self.survey)  # offline test images (3 arcmin cutouts)
 
         # coadd
-        coadd_images(sn_name, coadd_filters, survey)
+        coadd_images(self.sn_name, self.coadd_filters, self.survey)
 
         # masking
         create_mask(
-            sn_name,
-            host_ra,
-            host_dec,
-            filt=coadd_filters,
-            survey=survey,
+            self.sn_name,
+            self.host_ra,
+            self.host_dec,
+            filt=self.coadd_filters,
+            survey=self.survey,
             save_mask_params=True,
-            crossmatch=True,
+            crossmatch=crossmatch,
         )
 
         # apply mask on single-filter images
         for filt in "grizy":
             create_mask(
-                sn_name,
-                host_ra,
-                host_dec,
+                self.sn_name,
+                self.host_ra,
+                self.host_dec,
                 filt,
-                survey=survey,
-                ref_filt=coadd_filters,
-                ref_survey=survey,
+                survey=self.survey,
+                ref_filt=self.coadd_filters,
+                ref_survey=self.survey,
             )
+
+    def test_processing(self):
+        self._run_processing(crossmatch=False)
+
+    @pytest.mark.network
+    def test_processing_crossmatch(self):
+        # cross-match of the detected sources with the Gaia and TIC catalogues
+        self._run_processing(crossmatch=True)
 
 
 if __name__ == "__main__":

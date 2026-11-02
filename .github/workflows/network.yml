@@ -1,0 +1,33 @@
+name: Network tests
+# tests that download data from the external archives (marked with @pytest.mark.network): weekly, manually
+# and before releases. Tests failing because an archive is not available are reported as skipped (see
+# tests/conftest.py), and failures are retried, as the archives can fail temporarily.
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # Mondays at 06:00 UTC
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  network-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip pytest pytest-rerunfailures
+          python -m pip install -e .
+      - name: Run network tests
+        run: pytest -v -m network -rs --reruns 2 --reruns-delay 60

@@ -40,7 +40,8 @@ jobs:
       - name: Lint
         run: flake8 . || true
       - name: Run tests
-        run: pytest -v -n auto --cov --cov-report=term --cov-report=xml
+        # tests that do not need the external archives (see network.yml for the others)
+        run: pytest -v -n auto -m "not network" --cov --cov-report=term --cov-report=xml
       - name: Coverage badge and comment
         # only once (one job of the matrix); the badge is updated on pushes to the default branch
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'

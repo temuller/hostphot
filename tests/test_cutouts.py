@@ -17,6 +17,7 @@ class TestHostPhot(unittest.TestCase):
         self.ra = 50.527333
         self.dec = -15.400056
 
+    @pytest.mark.network
     def test_cutouts_PanSTARRS(self):
         try:
             download_images(
@@ -26,6 +27,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for PanSTARRS: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for PanSTARRS: {e}")
 
+    @pytest.mark.network
     def test_cutouts_DES(self):
         try:
             download_images(
@@ -35,6 +37,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for DES: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for DES: {e}")
 
+    @pytest.mark.network
     def test_cutouts_SDSS(self):
         try:
             download_images(
@@ -44,6 +47,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for SDSS: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for SDSS: {e}")
 
+    @pytest.mark.network
     def test_cutouts_GALEX(self):
         try:
             download_images(
@@ -53,6 +57,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for GALEX: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for GALEX: {e}")
 
+    @pytest.mark.network
     def test_cutouts_WISE(self):
         try:
             download_images(
@@ -62,6 +67,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for WISE: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for WISE: {e}")
 
+    @pytest.mark.network
     def test_cutouts_2MASS(self):
         try:
             download_images(
@@ -71,6 +77,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for 2MASS: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for 2MASS: {e}")
 
+    @pytest.mark.network
     def test_cutouts_unWISE(self):
         try:
             for version in ["neo1", "neo2", "allwise"]:
@@ -86,6 +93,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for unWISE: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for unWISE: {e}")
 
+    @pytest.mark.network
     def test_cutouts_LegacySurvey(self):
         try:
             download_images(
@@ -99,6 +107,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for LegacySurvey: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for LegacySurvey: {e}")
 
+    @pytest.mark.network
     def test_cutouts_Spitzer(self):
         try:
             name = "Spitzer_test"
@@ -108,6 +117,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for Spitzer: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for Spitzer: {e}")
 
+    @pytest.mark.network
     def test_cutouts_Spitzer_SHA(self):
         """Position only observed during the warm mission (not in SEIP): SHA fallback."""
         try:
@@ -121,6 +131,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for Spitzer: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for Spitzer: {e}")
 
+    @pytest.mark.network
     def test_cutouts_VISTA(self):
         try:
             name = "VISTA_test"
@@ -145,6 +156,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for VISTA: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for VISTA: {e}")
 
+    @pytest.mark.network
     def test_cutouts_SkyMapper(self):
         try:
             download_images(
@@ -158,6 +170,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"SkyMapper service failed: {e}", RuntimeWarning)
             pytest.skip(f"SkyMapper service unavailable: {e}")
 
+    @pytest.mark.network
     def test_cutouts_SPLUS(self):
         try:
             name = "SPLUS_test"
@@ -167,6 +180,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for SPLUS: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for SPLUS: {e}")
 
+    @pytest.mark.network
     def test_cutouts_UKIDSS(self):
         try:
             name = "UKIDSS_test"
@@ -176,6 +190,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for UKIDSS: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for UKIDSS: {e}")
         
+    @pytest.mark.network
     def test_cutouts_UHS(self):
         try:
             name = "UHS_test"
@@ -205,6 +220,7 @@ class TestHostPhot(unittest.TestCase):
             # this test only runs locally as the file is too large
             set_JWST_image(file, filt, name)
 
+    @pytest.mark.network
     def test_cutouts_HSC(self):
         try:
             name = "HSC_test"
@@ -227,6 +243,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for HSC: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for HSC: {e}")
 
+    @pytest.mark.network
     def test_cutouts_KiDS(self):
         try:
             name = "KiDS_test"
@@ -240,6 +257,7 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for KiDS: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for KiDS: {e}")
 
+    @pytest.mark.network
     def test_cutouts_Euclid(self):
         try:
             name = "Euclid_test"

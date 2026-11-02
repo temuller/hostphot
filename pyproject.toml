@@ -8,3 +8,8 @@ line-length = 79
 # coverage of the package only (not the tests); relative paths are needed for the coverage badge action
 source = ["hostphot"]
 relative_files = true
+
+[tool.pytest.ini_options]
+markers = [
+    "network: tests that download data from the external archives (deselect with '-m \"not network\"')",
+]

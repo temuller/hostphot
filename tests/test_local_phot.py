@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from hostphot.cutouts import download_images
+from tests.helpers import install_test_images
 from hostphot.photometry import local_photometry as lp
 
 
@@ -13,7 +13,7 @@ class TestHostPhot(unittest.TestCase):
         survey = "PanSTARRS"
 
         ap_radii = 4  # in units of kpc
-        download_images(sn_name, ra, dec, survey=survey, overwrite=False)
+        install_test_images(sn_name, survey)  # offline test images (3 arcmin cutouts)
         phot = lp.multi_band_phot(
             sn_name,
             ra,

@@ -18,6 +18,7 @@ class TestSurveyPhotometryAgreement(unittest.TestCase):
     """Test that 2MASS, VISTA, and UKIDSS produce consistent photometry
     for overlapping fields."""
 
+    @pytest.mark.network
     def test_survey_photometry_agreement(self):
         """Compare photometry from 2MASS, VISTA, and UKIDSS surveys."""
         sn_name = "2002fk_comparison"
@@ -73,6 +74,8 @@ class TestSurveyPhotometryAgreement(unittest.TestCase):
                 except Exception as e:
                     print(f"{survey}: Error - {e}")
 
+            if len(mags) < 2:
+                pytest.skip(f"Fewer than two surveys could be measured in {filt} (archives not available?)")
             if len(mags) >= 2:
                 surveys_list = list(mags.keys())
                 for i, s1 in enumerate(surveys_list):
@@ -84,6 +87,7 @@ class TestSurveyPhotometryAgreement(unittest.TestCase):
                         print(f"{s1} - {s2}: {diff:.4f} (tolerance {tolerance:.3f})")
                         assert abs(diff) < tolerance, f"{s1} - {s2} = {diff:.3f} mag in {filt}"
 
+    @pytest.mark.network
     def test_catalog_stars(self):
         """Compare 2MASS, VISTA and UKIDSS photometry of stars with the 2MASS
         Point Source Catalog, transformed into each photometric system."""

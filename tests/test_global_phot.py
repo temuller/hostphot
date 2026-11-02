@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from hostphot.cutouts import download_images
+from tests.helpers import install_test_images
 from hostphot.photometry import global_photometry as gp
 
 
@@ -11,7 +11,7 @@ class TestHostPhot(unittest.TestCase):
         host_dec = -15.400056
         survey = "PanSTARRS"
 
-        download_images(sn_name, host_ra, host_dec, survey=survey, overwrite=False)
+        install_test_images(sn_name, survey)  # offline test images (3 arcmin cutouts)
         phot = gp.multi_band_phot(
             sn_name,
             host_ra,
