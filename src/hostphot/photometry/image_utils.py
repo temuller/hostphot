@@ -76,7 +76,7 @@ def get_image_gain(header: fits.Header, survey: str) -> float:
         gain = header["GAIN"]
     elif survey == "SPLUS":
         gain = header["GAIN"]
-    elif survey == "UKIDSS":
+    elif survey in ["UKIDSS", "UHS"]:
         gain = header["GAIN"]
     else:
         gain = 1.0
@@ -136,7 +136,7 @@ def get_image_readnoise(header: fits.Header, survey: str) -> float:
         readnoise = 5  # electrons
     elif survey == "SPLUS":
         readnoise = header["HIERARCH OAJ QC NCNOISE"]
-    elif survey == "UKIDSS":
+    elif survey in ["UKIDSS", "UHS"]:
         readnoise = header["READNOIS"]
     else:
         readnoise = 0.0
@@ -173,8 +173,11 @@ def get_image_exptime(header: fits.Header, survey: str) -> float:
         exptime = 1.0  # ???
     elif survey == "SPLUS":
         exptime = header["TEXPOSED"]
-    elif survey == "UKIDSS":
-        exptime = header["EXP_TIME"] * header["NEXP"]
+    elif survey in ["UKIDSS", "UHS"]:
+        # the pixel values of the WFCAM stacks are per exposure, i.e. the NEXP exposures of each
+        # integration are averaged (e.g. UHS H stacks have NEXP = 2: multiplying by NEXP gave
+        # magnitudes 0.75 mag too faint compared to the UHS catalogue)
+        exptime = float(header["EXP_TIME"])
     elif survey == "JWST":
         exptime = header["XPOSURE"]
     else:

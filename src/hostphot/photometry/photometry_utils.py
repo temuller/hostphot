@@ -32,7 +32,7 @@ hostphot_path = Path(hostphot.__path__[0])
 # to the aperture uncertainties (accounts for correlated noise in the coadds, e.g. drizzled HST and
 # JWST images: https://hst-docs.stsci.edu/drizzpac/chapter-3-description-of-the-drizzle-algorithm/3-3-weight-maps-and-correlated-noise)
 blank_floor_surveys = [
-    "PanSTARRS", "DES", "SDSS", "2MASS", "SkyMapper", "SPLUS", "VISTA", "UKIDSS", "Spitzer", "HST", "JWST"
+    "PanSTARRS", "DES", "SDSS", "2MASS", "SkyMapper", "SPLUS", "VISTA", "UKIDSS", "UHS", "Spitzer", "HST", "JWST"
 ]
 
 
@@ -284,11 +284,12 @@ def uncertainty_calculation(
         flux_unc = 0.04 if "MIPS" in filt else 0.03
         zp_unc = 2.5 / np.log(10) * flux_unc
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
-    elif survey in ["VISTA", "UKIDSS"]:
+    elif survey in ["VISTA", "UKIDSS", "UHS"]:
         # uncertainty of the ZP of the image (MAGZRR) and systematic uncertainty of the calibration
-        # (from 2MASS): 1.5% in JHK and 2% in ZY for UKIDSS (Hodgkin et al. 2009, MNRAS, 394, 675) and
-        # 2% in YJHKs and 3% in Z for VISTA (Gonzalez-Fernandez et al. 2018, MNRAS, 474, 5459)
-        if survey == "UKIDSS":
+        # (from 2MASS): 1.5% in JHK and 2% in ZY for UKIDSS (Hodgkin et al. 2009, MNRAS, 394, 675; the
+        # same WFCAM calibration is used for UHS) and 2% in YJHKs and 3% in Z for VISTA
+        # (Gonzalez-Fernandez et al. 2018, MNRAS, 474, 5459)
+        if survey in ["UKIDSS", "UHS"]:
             calib_frac = 0.02 if filt in ["Z", "Y"] else 0.015
         else:
             calib_frac = 0.03 if filt == "Z" else 0.02
@@ -531,14 +532,14 @@ def magnitude_calculation(
         flux_err = np.sqrt(flux_err**2 + (flux * ap_corr_err / ap_corr) ** 2)
 
     pixel_units = survey_pixel_units(survey, filt)
-    if pixel_units == "counts" and survey not in ["2MASS", "VISTA", "UKIDSS"]:
+    if pixel_units == "counts" and survey not in ["2MASS", "VISTA", "UKIDSS", "UHS"]:
         # flux needs to be in units of counts per second
         # but only after the error propagation
         exptime = get_image_exptime(header, survey)
         flux /= exptime
         flux_err /= exptime
-    elif survey in ["VISTA", "UKIDSS"]:
-        # VISTA and UKIDSS images are always in counts (not counts/second)
+    elif survey in ["VISTA", "UKIDSS", "UHS"]:
+        # VISTA and UKIDSS (and UHS) images are always in counts (not counts/second)
         # regardless of the pixel_units config setting
         exptime = get_image_exptime(header, survey)
         flux /= exptime

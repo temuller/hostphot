@@ -268,13 +268,26 @@ UKIDSS
 
 * **ZP**
   
-  UKIDSS images include their own ZP in their headers and an "effective" zeropoint has to be calculated (stored in the ``MAGZP`` keyword in the header), correcting for atmospheric extinction, in the same way as for the VISTA images. In addition, the flux is rescaled by the exposure time, in the same way as for the PS1 images.
+  UKIDSS images include their own ZP in their headers and an "effective" zeropoint has to be calculated (stored in the ``MAGZP`` keyword in the header), correcting for atmospheric extinction, in the same way as for the VISTA images. In addition, the flux is rescaled by the exposure time of a single exposure (``EXP_TIME``; the exposures of each integration are averaged in the stacks), in the same way as for the PS1 images.
   
 * **Error Propagation**
 
   The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword), combined with the systematic uncertainty of the calibration from 2MASS: :math:`1.5\%` in :math:`JHK` and :math:`2\%` in :math:`ZY` (`Hodgkin et al. 2009 <https://ui.adsabs.harvard.edu/abs/2009MNRAS.394..675H/abstract>`_), i.e. :math:`\sigma_{\text{ZP}} = \sqrt{MAGZRR^2 + \sigma_{\text{cal}}^2}`.
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2)`.
+
+UHS
+~~~
+
+* **ZP**
+
+  The same as for UKIDSS (same pipeline and calibration). The fluxes are divided by the exposure time of a single exposure (``EXP_TIME``), as the exposures of each integration are averaged in the stacks (e.g. :math:`H`-band stacks have two 5-second exposures per integration).
+
+* **Error Propagation**
+
+  The same as for UKIDSS.
+
+  HostPhot photometry has been checked against the UHS DR3 catalogue (``AperMag3``, corrected to total for point sources) with 110 isolated stars in 6 fields: for apertures of 4 arcsec radius, the magnitudes agree within :math:`\sim0.01` mag in :math:`JHK`. For 24 galaxies of the 2MASS Extended Source Catalog (7 arcsec radius apertures, transformed into the WFCAM system with the colour terms of `Hodgkin et al. 2009 <https://ui.adsabs.harvard.edu/abs/2009MNRAS.394..675H/abstract>`_), the median differences are :math:`0.01`, :math:`-0.02` and :math:`-0.03` mag in :math:`J`, :math:`H` and :math:`K`, respectively.
 
 HSC
 ~~~

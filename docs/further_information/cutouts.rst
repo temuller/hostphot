@@ -143,6 +143,11 @@ These images are downloaded from the VISTA science archive (for more information
 
   UKIDSS survey footprint. Image from the `CASU WFCAM Survey Progress and QC website <http://casu.ast.cam.ac.uk/wfcamsp/overview>`_.
 
+UHS
+~~~
+
+The UKIRT Hemisphere Survey (UHS; `Dye et al. 2018 <https://ui.adsabs.harvard.edu/abs/2018MNRAS.473.5113D/abstract>`_) images are WFCAM stacks downloaded from the `WFCAM Science Archive <http://wsa.roe.ac.uk/>`_ (data release 3), in the same way as for UKIDSS (same camera, filters, pipeline and calibration). UHS covers the northern sky (roughly :math:`0^\circ < \delta < 60^\circ`) outside the area of the UKIDSS Large Area Survey (use UKIDSS there). The pixel scaling of the images is 0.4 arcsec/pixel (taken from the images, as some are micro-stepped). The available filters are: :math:`J`, :math:`H` and :math:`K` (:math:`H` does not cover the whole survey area).
+
 Note that UKIDSS images are flipped with respect to most other surveys.
 
 

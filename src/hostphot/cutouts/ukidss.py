@@ -53,13 +53,36 @@ def get_UKIDSS_images(ra: float, dec: float, size: float=3, filters: str='ZYJHK'
     fits_files: list
         List of fits images.
     """
-    survey = "UKIDSS"
+    # all the UKIDSS programmes: LAS, GPS, GCS, DXS and UDS
+    return get_WFCAM_images(ra, dec, size, filters, survey="UKIDSS", database="UKIDSSDR11PLUS")
+
+
+def get_WFCAM_images(
+    ra: float, dec: float, size: float, filters: str | list, survey: str, database: str
+) -> list[fits.HDUList]:
+    """Gets WFCAM (UKIRT) stack images from the WFCAM Science Archive (e.g. UKIDSS and UHS) for the
+    given coordinates and filters.
+
+    The effective zeropoint (``MAGZPT`` corrected for atmospheric extinction) is stored in the
+    ``MAGZP`` keyword.
+
+    Parameters
+    ----------
+    ra: Right Ascension in degrees.
+    dec: Declination in degrees.
+    size: Image size. If a float is given, the units are assumed to be arcmin.
+    filters: Filters to use. If ``None``, uses all the filters of the survey.
+    survey: Survey name (``UKIDSS`` or ``UHS``).
+    database: WFCAM Science Archive database (e.g. ``UKIDSSDR11PLUS`` or ``UHSDR3``).
+
+    Returns
+    -------
+    fits_files: list
+        List of fits images.
+    """
     if filters is None:
         filters = get_survey_filters(survey)
     check_filters_validity(filters, survey)
-
-    database = 'UKIDSSDR11PLUS'
-    # programme = 'LAS'  # ['UDS', 'GCS', 'GPS', 'DXS', 'LAS']
 
     if isinstance(size, (float, int)):
         size = (size * u.arcmin)

@@ -163,6 +163,19 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for UKIDSS: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for UKIDSS: {e}")
         
+    def test_cutouts_UHS(self):
+        try:
+            name = "UHS_test"
+            ra, dec = 200.0, 50.0
+            download_images(name, ra, dec, size=1, overwrite=True, survey="UHS")
+            for filt in ["J", "K"]:
+                with fits.open(Path(workdir, name, "UHS", f"UHS_{filt}.fits")) as hdu:
+                    assert hdu[0].data is not None and hdu[0].data.ndim == 2
+                    assert np.isfinite(hdu[0].header["MAGZP"])
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for UHS: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for UHS: {e}")
+
     def test_cutouts_HST(self):
         name = "HST_test"
         filt = 'WFC3_UVIS_F275W'

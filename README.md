@@ -133,6 +133,7 @@ This is the list of surveys in HostPhot:
 * SkyMapper (not well calibrated for extended sources)
 * SPLUS
 * UKIDSS
+* UHS (UKIRT Hemisphere Survey)
 * JWST (NIRCam only)
 * Herschel (PACS, SPIRE)
 * HSC (Hyper Suprime-Cam SSP PDR3; requires login credentials — see [hsc-release.mtk.nao.ac.jp](https://hsc-release.mtk.nao.ac.jp/datasearch/))

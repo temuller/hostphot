@@ -287,7 +287,7 @@ def photometry(
         ap_radii = [ap_radii]
 
     pixel_scale = survey_pixel_scale(survey, filt)
-    if survey in ["UKIDSS", "VISTA", "Herschel", "HST"]:
+    if survey in ["UKIDSS", "UHS", "VISTA", "Herschel", "HST"]:
         # micro-stepped UKIDSS images (e.g. LAS J, or DXS/UDS) have smaller pixels than the nominal
         # 0.4 arcsec (e.g. 0.2 arcsec), and the pixel size of the Herschel and HST (drizzled) maps
         # depends on their processing (also the VISTA deep mosaics, with 0.2 arcsec pixels), so the pixel scale

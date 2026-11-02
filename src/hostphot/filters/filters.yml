@@ -396,6 +396,27 @@ UKIDSS:
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 1.900
+UHS:
+  # WFCAM stacks (same filters, pipeline and calibration as UKIDSS); 0.4 arcsec/pixel (0.2 for micro-stepped
+  # images, taken from the WCS of the images)
+  J:
+    zeropoint: "header"
+    pixel_scale: 0.4
+    pixel_units: "counts"
+    magnitude_system: "Vega"
+    AB_offset: 0.938  # table 7 of http://www.ukidss.org/technical/photom/hewett-ukidss.pdf
+  H:
+    zeropoint: "header"
+    pixel_scale: 0.4
+    pixel_units: "counts"
+    magnitude_system: "Vega"
+    AB_offset: 1.379
+  K:
+    zeropoint: "header"
+    pixel_scale: 0.4
+    pixel_units: "counts"
+    magnitude_system: "Vega"
+    AB_offset: 1.900
 # HST pixel scales from https://hst-docs.stsci.edu/wfc3ihb/chapter-1-introduction-to-wfc3/1-3-key-features-of-wfc3#:~:text=Key%20features%20of%20WFC3%20include,V=29.2%20(ABMAG).
 HST:
   WFC3_IR_F098M:
