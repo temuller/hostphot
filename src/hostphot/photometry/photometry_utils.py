@@ -328,6 +328,12 @@ def uncertainty_calculation(
         zp_unc = 0.01
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
+    elif survey == "Euclid":
+        # flux uncertainties from the RMS maps are calculated together with the flux (outside this
+        # function); ~1% absolute flux calibration uncertainty assumed (calibration on CALSPEC standard stars)
+        zp_unc = 2.5 / np.log(10) * 0.01  # ~0.011 mag
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
+
     else:
         raise Exception(f"Survey {survey} has not been added for error propagation.")
 
@@ -415,6 +421,9 @@ def get_effective_gain(header: fits.Header, survey: str, filt: str) -> float:
     if survey == "Herschel":
         # no Poisson noise of the sources (the maps are in Jy/pixel or MJy/sr; the noise is estimated
         # with blank apertures)
+        return np.inf
+    if survey == "Euclid":
+        # the Poisson noise of the sources is already included in the RMS maps
         return np.inf
     if pixel_units == "counts":
         # note: for images in counts (ADU), e.g. 2MASS, VISTA and UKIDSS, the detector gain and the
@@ -653,8 +662,8 @@ def get_invvar_map(hdu: fits.HDUList, survey: str) -> np.ndarray | None:
         return None
     if survey in ["LegacySurvey", "unWISE"]:
         return hdu[1].data
-    elif survey == "HSC":
-        # HSC provides a variance map (sigma^2); invert to get inverse-variance
+    elif survey in ["HSC", "Euclid"]:
+        # variance map (sigma^2; for Euclid, the square of the RMS map); invert to get inverse-variance
         if "VARIANCE" not in hdu:
             return None
         var = hdu["VARIANCE"].data

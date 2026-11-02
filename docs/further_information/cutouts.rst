@@ -163,3 +163,9 @@ Alternatively, you can export them as environment variables (e.g. ``export HSC_S
 .. figure:: static/hsc_footprint.png
 
   HSC-SSP PDR3 footprint, showing the centres of the Wide and Deep+UltraDeep patches with data, from the ``patch_qa`` tables of the `HSC PDR3 database <https://hsc-release.mtk.nao.ac.jp/datasearch/>`_.
+
+
+Euclid
+~~~~~~
+
+These images are cutouts of the background-subtracted MER mosaics of `Euclid <https://www.cosmos.esa.int/web/euclid>`_ (Quick Data Release 1, Q1: the Euclid Deep Fields North, Fornax and South, and the LDN 1641 field), downloaded from `IRSA <https://irsa.ipac.caltech.edu/Missions/euclid.html>`_ with the Simple Image Access (SIA) service and its cutout service. Each cutout includes the science image and the RMS map (stored as a variance map), which is used for the photometric uncertainties. Masked pixels (zeros in the images and an RMS of :math:`10^{16}`) are set to NaN. When several MER tiles cover the position, the one covering the whole cutout is used (the deepest one, from the RMS maps, if there are several). The pixel scaling of the images is 0.1 arcsec/pixel in all the filters, as described in the `Euclid Q1 documentation <https://euclid.esac.esa.int/dr/q1/dpdd/merdpd/dpcards/mer_bksmosaic.html>`_. The available filters are: :math:`VIS` (VIS) and :math:`Y`, :math:`J`, :math:`H` (NISP). The ground-based images included in the MER tiles are not used. The data release can be chosen with the ``version`` parameter (``q1``, the default).

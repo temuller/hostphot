@@ -290,3 +290,18 @@ HSC
   Thus, :math:`\sigma = sqrt(\sigma_{\text{var}}^2 + \sigma_{\text{ZP}}^2)`.
 
   HostPhot aperture photometry has been checked against the HSC-SSP PDR3 Wide catalog: for apertures of 1 arcsec radius (``apertureflux_20``, i.e. 2 arcsec diameter), the magnitudes agree within :math:`\sim0.005` mag for point sources and :math:`\sim0.01` mag for galaxies in the :math:`grizy` bands.
+
+Euclid
+~~~~~~
+
+* **ZP**
+
+  The ZPs (AB) of the MER mosaics are in the ``MAGZERO`` keyword of the images, stored in the header under the ``MAGZP`` keyword to follow HostPhot convention. They apply directly to the pixel values, in ADU/s for VIS and electrons for NISP (see the `Euclid Q1 documentation <https://euclid.esac.esa.int/dr/q1/dpdd/merdpd/dpcards/mer_bksmosaic.html>`_).
+
+* **Error Propagation**
+
+  The uncertainties come from the RMS maps of the mosaics (which include the Poisson noise of the sources), propagated in the same way as the inverse-variance maps of the Legacy Survey (including the blank-aperture noise floor, as the noise of the mosaics is correlated), and from the absolute flux calibration, assumed to be :math:`1\%`.
+
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{var}}^2 + \sigma_{\text{ZP}}^2)`.
+
+  HostPhot Kron photometry has been checked against the Euclid Q1 MER catalogue (``flux_detection_total``, Kron apertures) for bright galaxies in the Euclid Deep Field Fornax: the :math:`VIS` magnitudes agree within :math:`\sim0.01` mag (median) with ``optimize_kronrad=True``.

@@ -1,4 +1,5 @@
 import os
+import time
 import sys
 import threading
 import csv
@@ -181,12 +182,16 @@ def select_image(
     return best
 
 
-def open_fits_from_urls(urls: list[str | None]) -> list[fits.HDUList | None]:
+def open_fits_from_urls(
+    urls: list[str | None], max_workers: Optional[int] = None, attempts: int = 2
+) -> list[fits.HDUList | None]:
     """Opens multiple FITS files from URLs in parallel.
 
     Parameters
     ----------
     urls: List of links to the files.
+    max_workers: Maximum number of parallel downloads (default of ``ThreadPoolExecutor`` if ``None``).
+    attempts: Number of attempts for each download (with increasing waits between them).
 
     Returns
     -------
@@ -197,16 +202,18 @@ def open_fits_from_urls(urls: list[str | None]) -> list[fits.HDUList | None]:
     def safe_open(url: str | None) -> fits.HDUList | None:
         if url is None:
             return None
-        # one retry, as servers can fail temporarily (e.g. with parallel requests)
-        for attempt in range(2):
+        # retries, as servers can fail temporarily (e.g. with parallel requests)
+        for attempt in range(attempts):
             try:
                 return open_fits_from_url(url)
             except Exception as exc:
                 error = exc
+                if attempt < attempts - 1:
+                    time.sleep(2 * (attempt + 1))
         warnings.warn(f"The image could not be downloaded from {url}: {error!r}")
         return None
 
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         hdus = list(executor.map(safe_open, urls))
     return hdus
 

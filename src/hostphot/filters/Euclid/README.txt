@@ -1,0 +1,5 @@
+# Filters taken from SVO: http://svo2.cab.inta-csic.es/theory/fps/index.php?id=Euclid/VIS.vis (wavelengths in Angstroms)
+VIS = Euclid/VIS.vis  (~0.55-0.90 μm)
+Y   = Euclid/NISP.Y   (~1.0 μm)
+J   = Euclid/NISP.J   (~1.2 μm)
+H   = Euclid/NISP.H   (~1.7 μm)

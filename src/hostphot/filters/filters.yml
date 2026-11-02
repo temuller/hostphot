@@ -1675,3 +1675,32 @@ HSC:
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+Euclid:
+  # MER background-subtracted mosaics, with 0.1 arcsec/pixel in all the filters
+  # (https://euclid.esac.esa.int/dr/q1/dpdd/merdpd/dpcards/mer_bksmosaic.html)
+  # Zeropoint: MAGZERO header keyword (copied to MAGZP), in AB, applying directly to the pixel values
+  # (ADU/s for VIS and electrons for NISP), so no exposure time is needed ("counts/second")
+  VIS:
+    zeropoint: "header"
+    pixel_scale: 0.1
+    pixel_units: "counts/second"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  Y:
+    zeropoint: "header"
+    pixel_scale: 0.1
+    pixel_units: "counts/second"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  J:
+    zeropoint: "header"
+    pixel_scale: 0.1
+    pixel_units: "counts/second"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  H:
+    zeropoint: "header"
+    pixel_scale: 0.1
+    pixel_units: "counts/second"
+    magnitude_system: "AB"
+    AB_offset: 0.0

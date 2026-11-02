@@ -32,7 +32,7 @@ def download_images(
     The surveys that use the ``version`` parameter are: GALEX (``AIS``, ``MIS``,
     ``DIS``, ``NGS`` and ``GII``),  unWISE (``allwise`` and ``neo{i}`` for {i}=1-7),
     VISTA (``VHS``, ``VIDEO`` and ``VIKING``), SDSS (``dr{i}`` for {i}=12-17),
-    LegacySurvey (``dr{i}`` for {i}=?-10), and HSC (``pdr3_wide`` or ``pdr3_dud``).
+    LegacySurvey (``dr{i}`` for {i}=?-10), HSC (``pdr3_wide`` or ``pdr3_dud``), and Euclid (``q1``).
 
     Parameters
     ----------
@@ -104,7 +104,7 @@ def download_images(
 
     # download the images
     get_images = getattr(survey_module, f"get_{survey}_images")  # this is a function
-    if survey in ["SDSS", "GALEX", "unWISE", "LegacySurvey", "HSC", "VISTA"]:
+    if survey in ["SDSS", "GALEX", "unWISE", "LegacySurvey", "HSC", "VISTA", "Euclid"]:
         hdu_list = get_images(ra, dec, size, filters, version)
     elif survey == "Herschel":
         hdu_list = get_images(ra, dec, size, filters, output_dir=survey_dir, overwrite=overwrite)

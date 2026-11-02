@@ -6,6 +6,8 @@ All notable changes to HostPhot are listed here.
 
 * Adding HSC (Hyper Suprime-Cam SSP PDR3) support: broadband (g, r, r2, i, i2, z, Y) and narrowband (NB387, NB816, NB921, NB1010) filters via HTTP Basic Auth cutout API. Set the `HSC_SSP_USERNAME` and `HSC_SSP_PASSWORD` environment variables (e.g. in a `.env` file) to use.
 * HSC aperture photometry agrees within ~0.01 mag with the HSC-SSP PDR3 catalog for compact sources (stars)
+* Adding Euclid support (Q1 MER background-subtracted mosaics; VIS, Y, J and H), downloaded from IRSA. The uncertainties come from the RMS maps (with a blank-aperture noise floor) and a 1% calibration uncertainty. The VIS Kron magnitudes agree within ~0.01 mag (median) with those of the Euclid Q1 MER catalogue (with `optimize_kronrad=True`)
+* Image downloads of most surveys (e.g. PanSTARRS, DES, WISE, Spitzer and Euclid) now wait before retrying a failed download (servers can reset the connections when receiving several requests at once)
 * The `.env` file is now searched for from the current working directory (previously from the HostPhot installation directory)
 * Fixing JWST zeropoint uncertainty: 1% of the flux (~0.011 mag) instead of 1% of the zeropoint in magnitudes (~0.27 mag). JWST magnitude and flux errors from previous versions were overestimated
 * Fixing the aperture area used for the uncertainties of the global photometry: it now includes the Kron radius and its scale (it was underestimated by a factor of ~10-100). Global photometry errors of 2MASS increase (e.g. from ~0.003 to ~0.02-0.04 mag for bright galaxies); optical surveys are barely affected
