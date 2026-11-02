@@ -1,4 +1,5 @@
 import copy
+import numpy as np
 import yaml
 from pathlib import Path
 from typing import Optional
@@ -159,6 +160,30 @@ def survey_pixel_scale(survey: str, filt: str) -> float:
     filters_config = _load_yml_cached(filters_file)  # read only
     pixel_scale = float(filters_config[survey][filt]["pixel_scale"])
     return pixel_scale
+
+
+def survey_psf_fwhm(survey: str, filt: str) -> float:
+    """Returns the typical PSF FWHM (in arcsec) of a filter (``psf_fwhm`` in the filters configuration file),
+    or NaN if not available (e.g. HST and JWST). For coadds of several filters (e.g. ``riz``), the largest
+    FWHM of the filters.
+
+    Parameters
+    ----------
+    survey: Survey name: e.g. ``PanSTARRS``, ``GALEX``.
+    filt: Filter.
+
+    Returns
+    -------
+    psf_fwhm: PSF FWHM in arcsec.
+    """
+    filters_config = _load_yml_cached(filters_file)  # read only
+    survey_config = filters_config.get(survey, {})
+    names = [filt] if filt in survey_config else list(filt)
+    values = [survey_config[name].get("psf_fwhm") for name in names if name in survey_config]
+    values = [float(value) for value in values if value is not None]
+    if len(values) == 0 or len(values) != len(names):
+        return np.nan
+    return max(values)
 
 
 def survey_pixel_units(survey: str, filt: str) -> str:

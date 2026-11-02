@@ -239,5 +239,10 @@ def _prepare_image(hdu: fits.HDUList) -> fits.HDUList:
     ) / 2
     extinction = float(_keyword(hdu, "EXTINCT", 0.0)) * (airmass - 1)
     header["MAGZP"] = float(_keyword(hdu, "MAGZPT")) - extinction
+    # PSF FWHM in arcsec (SEEING is in pixels)
+    seeing = float(_keyword(hdu, "SEEING", 0.0) or 0.0)
+    if seeing > 0:
+        pixel_scale = np.sqrt(np.abs(np.linalg.det(_image_wcs(hdu).pixel_scale_matrix))) * 3600
+        header["PSF_FWHM"] = (seeing * pixel_scale, "PSF FWHM (arcsec), from SEEING")
     # only the science image is kept
     return fits.HDUList([fits.PrimaryHDU(data=hdu[1].data, header=header)])

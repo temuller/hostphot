@@ -51,6 +51,7 @@ from hostphot.photometry.photometry_utils import (
     get_effective_gain,
     warn_non_detection,
     ab_photometry,
+    image_psf_fwhm,
 )
 from hostphot.surveys_utils import (
     get_survey_filters,
@@ -304,6 +305,7 @@ def photometry(
     px, py = wcs.wcs_world2pix(ra, dec, 0)  # object's coordinates
 
     source_mask = None  # for the blank-aperture noise floor (calculated once, if needed)
+    psf_fwhm = image_psf_fwhm(header, survey, filt)
     for ap_radius in ap_radii:
         # aperture photometry
         if ap_units == "kpc":
@@ -311,6 +313,12 @@ def photometry(
         else:
             radius_arcsec = ap_radius
         radius_pix = radius_arcsec / pixel_scale
+        if radius_arcsec < psf_fwhm:
+            warnings.warn(
+                f"{survey} {filt}: the aperture radius ({radius_arcsec:.3g} arcsec) is smaller than the PSF FWHM "
+                f"({psf_fwhm:.3g} arcsec), so the flux depends strongly on the resolution; compare it with other "
+                "surveys with care or use a larger aperture."
+            )
 
         invvar = get_invvar_map(hdu, survey)
         label = f"{survey} {filt} ({radius_arcsec:.3g} arcsec aperture)"
@@ -518,6 +526,9 @@ def multi_band_phot(
                 for key, value in ab_photometry(survey, filt, flux, flux_err, zp).items():
                     results_dict[f"{filt}_{radius}_{key}"] = value
             results_dict[f"{filt}_zeropoint"] = zp
+            # PSF FWHM of the image (in arcsec), e.g. to compare the aperture sizes with the resolution
+            image_header = fits.getheader(Path(workdir, name, survey, f"{survey}_{filt}.fits"))
+            results_dict[f"{filt}_psf_fwhm"] = image_psf_fwhm(image_header, survey, filt)
         except Exception as exc:
             if raise_exception is True:
                 # only raise if it's not a FileNotFoundError (missing filter)
@@ -534,6 +545,7 @@ def multi_band_phot(
                 for key in ["AB", "flux_uJy", "flux_uJy_err", "AB_ulim"]:
                     results_dict[f"{filt}_{radius}_{key}"] = np.nan
             results_dict[f"{filt}_zeropoint"] = np.nan
+            results_dict[f"{filt}_psf_fwhm"] = np.nan
     # store photometry
     phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
     if save_results is True:

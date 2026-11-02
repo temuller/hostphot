@@ -165,6 +165,10 @@ def get_WFCAM_images(
                 # calculate effective ZP
                 zp = header_info['MAGZPT']
                 header['MAGZP'] = zp - extinction
+                # PSF FWHM in arcsec (SEEING is in pixels)
+                pixel_scale = np.sqrt(np.abs(np.linalg.det(img_wcs.pixel_scale_matrix))) * 3600
+                if float(header_info.get('SEEING', 0) or 0) > 0:
+                    header['PSF_FWHM'] = (float(header_info['SEEING']) * pixel_scale, "PSF FWHM (arcsec), from SEEING")
 
                 hdu = fits.HDUList([fits.PrimaryHDU(data=data, header=header)])
         hdu_list.append(hdu)

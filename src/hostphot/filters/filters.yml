@@ -5,30 +5,35 @@ PanSTARRS:
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.31  # typical PSF FWHM in arcsec (see the documentation)
   r:
     zeropoint: 25
     pixel_scale: 0.25  
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.19  # typical PSF FWHM in arcsec (see the documentation)
   i:
     zeropoint: 25
     pixel_scale: 0.25 
     pixel_units: "counts" 
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.11  # typical PSF FWHM in arcsec (see the documentation)
   z:
     zeropoint: 25
     pixel_scale: 0.25  
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.07  # typical PSF FWHM in arcsec (see the documentation)
   y:
     zeropoint: 25
     pixel_scale: 0.25 
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.02  # typical PSF FWHM in arcsec (see the documentation)
 DES:
   g:
     zeropoint: 30
@@ -36,30 +41,35 @@ DES:
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.12  # typical PSF FWHM in arcsec (see the documentation)
   r:
     zeropoint: 30
     pixel_scale: 0.263  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.96  # typical PSF FWHM in arcsec (see the documentation)
   i:
     zeropoint: 30
     pixel_scale: 0.263  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.88  # typical PSF FWHM in arcsec (see the documentation)
   z:
     zeropoint: 30
     pixel_scale: 0.263  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.84  # typical PSF FWHM in arcsec (see the documentation)
   Y:
     zeropoint: 30
     pixel_scale: 0.263 
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.9  # typical PSF FWHM in arcsec (see the documentation)
 SDSS:
   u:
     zeropoint: 22.5
@@ -67,30 +77,35 @@ SDSS:
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
   g:
     zeropoint: 22.5
     pixel_scale: 0.396
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.4  # typical PSF FWHM in arcsec (see the documentation)
   r:
     zeropoint: 22.5
     pixel_scale: 0.396  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.3  # typical PSF FWHM in arcsec (see the documentation)
   i:
     zeropoint: 22.5
     pixel_scale: 0.396  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.3  # typical PSF FWHM in arcsec (see the documentation)
   z:
     zeropoint: 22.5
     pixel_scale: 0.396  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.3  # typical PSF FWHM in arcsec (see the documentation)
 GALEX:
   FUV:
     zeropoint: 18.82
@@ -98,12 +113,14 @@ GALEX:
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 4.2  # typical PSF FWHM in arcsec (see the documentation)
   NUV:
     zeropoint: 20.08
     pixel_scale: 1.5
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 5.3  # typical PSF FWHM in arcsec (see the documentation)
 2MASS:
   J:
     zeropoint: "header"
@@ -111,18 +128,21 @@ GALEX:
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 0.91  # see https://www.astronomy.ohio-state.edu/martini.10/usefuldata.html
+    psf_fwhm: 2.5  # typical PSF FWHM in arcsec (see the documentation)
   H:
     zeropoint: "header"
     pixel_scale: 1.0
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 1.39
+    psf_fwhm: 2.5  # typical PSF FWHM in arcsec (see the documentation)
   Ks:
     zeropoint: "header"
     pixel_scale: 1.0
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 1.85
+    psf_fwhm: 2.5  # typical PSF FWHM in arcsec (see the documentation)
 WISE:
   W1:
     zeropoint: "header"
@@ -130,24 +150,28 @@ WISE:
     pixel_units: "counts/second"
     magnitude_system: "Vega"
     AB_offset: 2.699  # see https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4h.html
+    psf_fwhm: 6.1  # typical PSF FWHM in arcsec (see the documentation)
   W2:
     zeropoint: "header"
     pixel_scale: 1.375
     pixel_units: "counts/second"
     magnitude_system: "Vega"
     AB_offset: 3.339
+    psf_fwhm: 6.4  # typical PSF FWHM in arcsec (see the documentation)
   W3:
     zeropoint: "header"
     pixel_scale: 1.375
     pixel_units: "counts/second"
     magnitude_system: "Vega"
     AB_offset: 5.174
+    psf_fwhm: 6.5  # typical PSF FWHM in arcsec (see the documentation)
   W4:
     zeropoint: "header"
     pixel_scale: 1.375
     pixel_units: "counts/second"
     magnitude_system: "Vega"
     AB_offset: 6.620
+    psf_fwhm: 12.0  # typical PSF FWHM in arcsec (see the documentation)
 unWISE:
   W1:
     zeropoint: 22.5
@@ -155,24 +179,28 @@ unWISE:
     pixel_units: "counts/second"
     magnitude_system: "Vega"
     AB_offset: 2.699  # see https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4h.html
+    psf_fwhm: 6.1  # typical PSF FWHM in arcsec (see the documentation)
   W2:
     zeropoint: 22.5
     pixel_scale: 2.75
     pixel_units: "counts/second"
     magnitude_system: "Vega"
     AB_offset: 3.339
+    psf_fwhm: 6.4  # typical PSF FWHM in arcsec (see the documentation)
   W3:
     zeropoint: 22.5
     pixel_scale: 2.75
     pixel_units: "counts/second"
     magnitude_system: "Vega"
     AB_offset: 5.174
+    psf_fwhm: 6.5  # typical PSF FWHM in arcsec (see the documentation)
   W4:
     zeropoint: 22.5
     pixel_scale: 2.75
     pixel_units: "counts/second"
     magnitude_system: "Vega"
     AB_offset: 6.620
+    psf_fwhm: 12.0  # typical PSF FWHM in arcsec (see the documentation)
 LegacySurvey:
   g:
     zeropoint: 22.5
@@ -180,18 +208,21 @@ LegacySurvey:
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.3  # typical PSF FWHM in arcsec (see the documentation)
   r:
     zeropoint: 22.5
     pixel_scale: 0.262  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.2  # typical PSF FWHM in arcsec (see the documentation)
   z:
     zeropoint: 22.5
     pixel_scale: 0.262  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.1  # typical PSF FWHM in arcsec (see the documentation)
 Spitzer:
   IRAC.1:
     zeropoint: "header"
@@ -200,30 +231,35 @@ Spitzer:
     pixel_units: "counts/second" # is this correct ????
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.66  # typical PSF FWHM in arcsec (see the documentation)
   IRAC.2:
     zeropoint: "header"
     pixel_scale: 0.6  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.72  # typical PSF FWHM in arcsec (see the documentation)
   IRAC.3:
     zeropoint: "header"
     pixel_scale: 0.6  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.88  # typical PSF FWHM in arcsec (see the documentation)
   IRAC.4:
     zeropoint: "header"
     pixel_scale: 0.6  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.98  # typical PSF FWHM in arcsec (see the documentation)
   MIPS.1:
     zeropoint: "header"
     pixel_scale: 2.45
     pixel_units: "counts/second"  # ????
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 5.9  # typical PSF FWHM in arcsec (see the documentation)
 VISTA:
   Z:
     zeropoint: "header"
@@ -231,30 +267,35 @@ VISTA:
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 0.502  # Appendix of https://ui.adsabs.harvard.edu/abs/2018MNRAS.474.5459G/abstract
+    psf_fwhm: 1.0  # typical PSF FWHM in arcsec (see the documentation)
   Y:
     zeropoint: "header"
     pixel_scale: 0.339
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 0.600
+    psf_fwhm: 1.0  # typical PSF FWHM in arcsec (see the documentation)
   J:
     zeropoint: "header"
     pixel_scale: 0.339
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 0.916
+    psf_fwhm: 1.0  # typical PSF FWHM in arcsec (see the documentation)
   H:
     zeropoint: "header"
     pixel_scale: 0.339
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 1.366
+    psf_fwhm: 1.0  # typical PSF FWHM in arcsec (see the documentation)
   Ks:
     zeropoint: "header"
     pixel_scale: 0.339
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 1.827
+    psf_fwhm: 1.0  # typical PSF FWHM in arcsec (see the documentation)
 SkyMapper:
   u:
     zeropoint: "header"
@@ -262,36 +303,42 @@ SkyMapper:
     pixel_units: "counts/second"  # is this correct???
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 2.5  # typical PSF FWHM in arcsec (see the documentation)
   v:
     zeropoint: "header"
     pixel_scale: 0.5  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 2.5  # typical PSF FWHM in arcsec (see the documentation)
   g:
     zeropoint: "header"
     pixel_scale: 0.5
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 2.5  # typical PSF FWHM in arcsec (see the documentation)
   r:
     zeropoint: "header"
     pixel_scale: 0.5  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 2.5  # typical PSF FWHM in arcsec (see the documentation)
   i:
     zeropoint: "header"
     pixel_scale: 0.5  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 2.5  # typical PSF FWHM in arcsec (see the documentation)
   z:
     zeropoint: "header"
     pixel_scale: 0.5  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 2.5  # typical PSF FWHM in arcsec (see the documentation)
 SPLUS:
   u:
     zeropoint: "header"
@@ -299,72 +346,84 @@ SPLUS:
     pixel_units: "counts/second"  # is this correct???
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
   F378:
     zeropoint: "header"
     pixel_scale: 0.55  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
   F395:
     zeropoint: "header"
     pixel_scale: 0.55
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
   F410:
     zeropoint: "header"
     pixel_scale: 0.55  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
   F430:
     zeropoint: "header"
     pixel_scale: 0.55  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
   g:
     zeropoint: "header"
     pixel_scale: 0.55  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
   F515:
     zeropoint: "header"
     pixel_scale: 0.55  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
   r:
     zeropoint: "header"
     pixel_scale: 0.55  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
   F660:
     zeropoint: "header"
     pixel_scale: 0.55  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
   i:
     zeropoint: "header"
     pixel_scale: 0.55  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
   F861:
     zeropoint: "header"
     pixel_scale: 0.55  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
   z:
     zeropoint: "header"
     pixel_scale: 0.55  
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.5  # typical PSF FWHM in arcsec (see the documentation)
 UKIDSS:
   Z:
     zeropoint: "header"
@@ -372,30 +431,35 @@ UKIDSS:
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 0.528  # table 7 of http://www.ukidss.org/technical/photom/hewett-ukidss.pdf
+    psf_fwhm: 0.8  # typical PSF FWHM in arcsec (see the documentation)
   Y:
     zeropoint: "header"
     pixel_scale: 0.4
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 0.634
+    psf_fwhm: 0.8  # typical PSF FWHM in arcsec (see the documentation)
   J:
     zeropoint: "header"
     pixel_scale: 0.4
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 0.938
+    psf_fwhm: 0.8  # typical PSF FWHM in arcsec (see the documentation)
   H:
     zeropoint: "header"
     pixel_scale: 0.4
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 1.379
+    psf_fwhm: 0.8  # typical PSF FWHM in arcsec (see the documentation)
   K:
     zeropoint: "header"
     pixel_scale: 0.4
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 1.900
+    psf_fwhm: 0.8  # typical PSF FWHM in arcsec (see the documentation)
 UHS:
   # WFCAM stacks (same filters, pipeline and calibration as UKIDSS); 0.4 arcsec/pixel (0.2 for micro-stepped
   # images, taken from the WCS of the images)
@@ -405,18 +469,21 @@ UHS:
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 0.938  # table 7 of http://www.ukidss.org/technical/photom/hewett-ukidss.pdf
+    psf_fwhm: 0.8  # typical PSF FWHM in arcsec (see the documentation)
   H:
     zeropoint: "header"
     pixel_scale: 0.4
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 1.379
+    psf_fwhm: 0.8  # typical PSF FWHM in arcsec (see the documentation)
   K:
     zeropoint: "header"
     pixel_scale: 0.4
     pixel_units: "counts"
     magnitude_system: "Vega"
     AB_offset: 1.900
+    psf_fwhm: 0.8  # typical PSF FWHM in arcsec (see the documentation)
 # HST pixel scales from https://hst-docs.stsci.edu/wfc3ihb/chapter-1-introduction-to-wfc3/1-3-key-features-of-wfc3#:~:text=Key%20features%20of%20WFC3%20include,V=29.2%20(ABMAG).
 HST:
   WFC3_IR_F098M:
@@ -1601,30 +1668,35 @@ Herschel:
     pixel_units: Jy/pixel
     magnitude_system: AB
     AB_offset: 0.0
+    psf_fwhm: 6.8  # typical PSF FWHM in arcsec (see the documentation)
   PACS160:
     zeropoint: 0
     pixel_scale: 3.2
     pixel_units: Jy/pixel
     magnitude_system: AB
     AB_offset: 0.0
+    psf_fwhm: 11.4  # typical PSF FWHM in arcsec (see the documentation)
   SPIRE250:
     zeropoint: 0
     pixel_scale: 6.0
     pixel_units: MJy/sr
     magnitude_system: AB
     AB_offset: 0.0
+    psf_fwhm: 18.1  # typical PSF FWHM in arcsec (see the documentation)
   SPIRE350:
     zeropoint: 0
     pixel_scale: 10.0
     pixel_units: MJy/sr
     magnitude_system: AB
     AB_offset: 0.0
+    psf_fwhm: 25.2  # typical PSF FWHM in arcsec (see the documentation)
   SPIRE500:
     zeropoint: 0
     pixel_scale: 14.0
     pixel_units: MJy/sr
     magnitude_system: AB
     AB_offset: 0.0
+    psf_fwhm: 36.6  # typical PSF FWHM in arcsec (see the documentation)
 
 HSC:
   # Pixel scale: 0.168 arcsec/pixel (https://hsc.mtk.nao.ac.jp/ssp/survey/)
@@ -1636,66 +1708,77 @@ HSC:
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.8  # typical PSF FWHM in arcsec (see the documentation)
   r:
     zeropoint: "header"
     pixel_scale: 0.168
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.75  # typical PSF FWHM in arcsec (see the documentation)
   r2:
     zeropoint: "header"
     pixel_scale: 0.168
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.75  # typical PSF FWHM in arcsec (see the documentation)
   i:
     zeropoint: "header"
     pixel_scale: 0.168
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.6  # typical PSF FWHM in arcsec (see the documentation)
   i2:
     zeropoint: "header"
     pixel_scale: 0.168
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.6  # typical PSF FWHM in arcsec (see the documentation)
   z:
     zeropoint: "header"
     pixel_scale: 0.168
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.7  # typical PSF FWHM in arcsec (see the documentation)
   Y:
     zeropoint: "header"
     pixel_scale: 0.168
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.7  # typical PSF FWHM in arcsec (see the documentation)
   NB387:
     zeropoint: "header"
     pixel_scale: 0.168
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.8  # typical PSF FWHM in arcsec (see the documentation)
   NB816:
     zeropoint: "header"
     pixel_scale: 0.168
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.7  # typical PSF FWHM in arcsec (see the documentation)
   NB921:
     zeropoint: "header"
     pixel_scale: 0.168
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.7  # typical PSF FWHM in arcsec (see the documentation)
   NB1010:
     zeropoint: "header"
     pixel_scale: 0.168
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.7  # typical PSF FWHM in arcsec (see the documentation)
 KiDS:
   # DR5 co-added tiles (Astro-WISE), 0.2 arcsec/pixel (https://kids.strw.leidenuniv.nl/DR5/)
   # Zeropoint: PHOTZP + DMAG header keywords (copied to MAGZP), in AB; the pixel values are calibrated
@@ -1706,24 +1789,28 @@ KiDS:
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 1.0  # typical PSF FWHM in arcsec (see the documentation)
   g:
     zeropoint: "header"
     pixel_scale: 0.2
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.9  # typical PSF FWHM in arcsec (see the documentation)
   r:
     zeropoint: "header"
     pixel_scale: 0.2
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.7  # typical PSF FWHM in arcsec (see the documentation)
   i:
     zeropoint: "header"
     pixel_scale: 0.2
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.8  # typical PSF FWHM in arcsec (see the documentation)
 Euclid:
   # MER background-subtracted mosaics, with 0.1 arcsec/pixel in all the filters
   # (https://euclid.esac.esa.int/dr/q1/dpdd/merdpd/dpcards/mer_bksmosaic.html)
@@ -1735,21 +1822,25 @@ Euclid:
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.16  # typical PSF FWHM in arcsec (see the documentation)
   Y:
     zeropoint: "header"
     pixel_scale: 0.1
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.5  # typical PSF FWHM in arcsec (see the documentation)
   J:
     zeropoint: "header"
     pixel_scale: 0.1
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.5  # typical PSF FWHM in arcsec (see the documentation)
   H:
     zeropoint: "header"
     pixel_scale: 0.1
     pixel_units: "counts/second"
     magnitude_system: "AB"
     AB_offset: 0.0
+    psf_fwhm: 0.5  # typical PSF FWHM in arcsec (see the documentation)

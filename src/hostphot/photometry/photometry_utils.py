@@ -20,6 +20,7 @@ from hostphot.surveys_utils import (
     survey_pixel_units,
     survey_pixel_scale,
     survey_zp,
+    survey_psf_fwhm,
     filters_file,
     _load_yml_cached,
 )
@@ -616,6 +617,24 @@ def ab_photometry(survey: str, filt: str, flux: float, flux_err: float, zp: floa
     limit = UPPER_LIMIT_SIGMA * flux_ujy_err
     mag_ulim = -2.5 * np.log10(limit) + 23.9 if limit > 0 else np.nan
     return {"AB": mag_ab, "flux_uJy": flux_ujy, "flux_uJy_err": flux_ujy_err, "AB_ulim": mag_ulim}
+
+
+# header keywords with the PSF FWHM of the images (in arcsec): KiDS, and UKIDSS/UHS/VISTA (converted from
+# the SEEING keyword when downloading the images); SkyMapper; S-PLUS
+PSF_FWHM_KEYWORDS = ("PSF_FWHM", "QAFWHM", "HIERARCH OAJ PRO FWHMMEAN")
+
+
+def image_psf_fwhm(header: fits.Header, survey: str, filt: str) -> float:
+    """PSF FWHM (in arcsec) of an image: from its header, if available, or the typical value of the filter
+    (see :func:`hostphot.surveys_utils.survey_psf_fwhm`; NaN if not available, e.g. for HST and JWST)."""
+    for keyword in PSF_FWHM_KEYWORDS:
+        try:
+            value = float(header[keyword])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if np.isfinite(value) and value > 0:
+            return value
+    return survey_psf_fwhm(survey, filt)
 
 
 def warn_non_detection(survey: str, filt: str, flux: float) -> None:
