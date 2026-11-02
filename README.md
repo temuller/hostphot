@@ -182,6 +182,8 @@ If you make use of HostPhot, please cite the following [paper](https://joss.theo
 
 See the [changelog](https://github.com/temuller/hostphot/blob/main/CHANGELOG.md) for the changes in each version.
 
+**Upgrading from v3?** v4 fixes many errors in the photometry and uncertainties and changes some defaults (e.g. the Milky-Way extinction correction is no longer applied by default), so results from v3 and v4 should not be mixed. See [Migrating from v3 to v4](https://hostphot.readthedocs.io/en/latest/further_information/migrating_to_v4.html) for what changes and how to update your code.
+
 ## Acknowledgements
 
 I thank Yuchen LIU for helping me adding Spitzer as part of AstroHackWeek 2022. I also thank Lisa Kelsay for helping add HST and JWST.

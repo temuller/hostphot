@@ -54,6 +54,7 @@ HostPhot is being actively developed in `a public repository on GitHub
    :maxdepth: 2
    :caption: Further Information
 
+   further_information/migrating_to_v4.rst
    further_information/adding_surveys.rst
    further_information/cutouts.rst
    further_information/photometry.rst

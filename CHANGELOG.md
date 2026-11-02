@@ -6,6 +6,7 @@ All notable changes to HostPhot are listed here.
 
 * Adding HSC (Hyper Suprime-Cam SSP PDR3) support: broadband (g, r, r2, i, i2, z, Y) and narrowband (NB387, NB816, NB921, NB1010) filters via HTTP Basic Auth cutout API. Set the `HSC_SSP_USERNAME` and `HSC_SSP_PASSWORD` environment variables (e.g. in a `.env` file) to use.
 * HSC aperture photometry agrees within ~0.01 mag with the HSC-SSP PDR3 catalog for compact sources (stars)
+* Documentation: new page summarising the changes for users of v3 (Migrating from v3 to v4)
 * A negative or zero flux (not detected) now gives a NaN magnitude and magnitude uncertainty, with a warning (the flux and its uncertainty are kept, e.g. for upper limits). Previously, the magnitude was NaN (or infinite) with only a numpy warning, while the magnitude uncertainty had a finite value
 * Herschel downloads: the whole processing levels of an observation are now only downloaded if its final maps are not available. Previously, they were also downloaded when the observation did not include a requested filter (e.g. PACS observations at 70 microns when the 100-micron maps were requested), which could mean hundreds of MB for nothing
 * Documentation: note on the different K (WFCAM: UKIDSS and UHS) and Ks (VISTA and 2MASS) filters, whose magnitudes can differ by ~0.05-0.12 mag for red galaxies
