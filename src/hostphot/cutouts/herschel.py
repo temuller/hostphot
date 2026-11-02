@@ -460,7 +460,10 @@ def get_Herschel_images(
             if len(pending) == 0:
                 continue
             obs_id, duration = row["observation_id"], float(row["depth"])  # depth (duration per unit area)
-            # final maps first; whole processing levels only if they do not include the filters
+            instrument_filters = [filt for filt, rule in FILTER_RULES.items() if rule["instrument"] == instrument]
+            # final maps first; whole processing levels only if they do not include maps of the instrument
+            # (e.g. not available), as otherwise the missing filters were not observed (e.g. PACS observations
+            # at 70 microns when 100 microns are requested)
             for level in [None] + list(product_levels):
                 level_name = level or "STANDALONE"
                 try:
@@ -478,14 +481,15 @@ def get_Herschel_images(
                     tarball.unlink(missing_ok=True)
                     shutil.rmtree(extract_dir, ignore_errors=True)
                     continue
-                candidates = _scan_science_maps(extract_dir, pending)
+                all_candidates = _scan_science_maps(extract_dir, instrument_filters)
+                candidates = all_candidates[all_candidates["filter"].isin(pending)] if not all_candidates.empty else all_candidates
                 downloads_log.append(
                     {"observation_id": obs_id, "instrument": instrument, "product_level": level_name,
                      "tarball": str(tarball), "n_candidates": len(candidates)}
                 )
                 found = add_maps(candidates, obs_id, instrument, level_name, duration) if not candidates.empty else set()
                 pending = [filt for filt in pending if filt not in found]
-                if len(pending) == 0:
+                if len(pending) == 0 or (level is None and not all_candidates.empty):
                     break
             if covered.issuperset(requested_filters):
                 break  # all the filters have a map covering the whole area

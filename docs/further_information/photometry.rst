@@ -209,6 +209,10 @@ VISTA
   The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor), with an additional component coming from the ZP calibration (:math:`\sigma_{\text{ZP}}`), found in the header of the images (``MAGZRR`` keyword), combined with the systematic uncertainty of the calibration from 2MASS: :math:`2\%` in :math:`YJHK_s` and :math:`3\%` in :math:`Z` (`González-Fernández et al. 2018 <https://ui.adsabs.harvard.edu/abs/2018MNRAS.474.5459G/abstract>`_), i.e. :math:`\sigma_{\text{ZP}} = \sqrt{MAGZRR^2 + \sigma_{\text{cal}}^2}`. Note that the Poisson noise of the sources is calculated from the image counts (ADU) without the detector gain (:math:`\sim4.2\,e^-/\text{ADU}`) or the number of combined exposures, so it is overestimated, which is conservative but negligible in practice (e.g. :math:`\lesssim0.003` mag for stars).
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2)`.
+
+* **Filter systems**
+
+  The VISTA :math:`K_s` filter is different from the WFCAM :math:`K` filter of UKIDSS and UHS (see the note in the UKIDSS section).
   
   
 HST (WFC3, ACS/WFC and NICMOS)
@@ -276,6 +280,10 @@ UKIDSS
   
   Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2)`.
 
+* **Filter systems**
+
+  The WFCAM :math:`K` filter (UKIDSS and UHS) is different from the :math:`K_s` filter of VISTA and 2MASS, so their magnitudes are not directly comparable: for red galaxies, the WFCAM :math:`K` and VISTA :math:`K_s` magnitudes in a common aperture can differ by :math:`\sim0.05`-:math:`0.12` mag (a few hundredths in :math:`J` and :math:`H`). HostPhot does not convert between filter systems; colour equations can be used to combine the surveys (e.g. `Hodgkin et al. 2009 <https://ui.adsabs.harvard.edu/abs/2009MNRAS.394..675H/abstract>`_ for WFCAM, and those of the `CASU VISTA website <http://casu.ast.cam.ac.uk/surveys-projects/vista/technical/photometric-properties>`_ for VISTA, both relative to 2MASS).
+
 UHS
 ~~~
 
@@ -286,6 +294,8 @@ UHS
 * **Error Propagation**
 
   The same as for UKIDSS.
+
+  As for UKIDSS, the WFCAM :math:`K` filter is different from the VISTA and 2MASS :math:`K_s` filters (see the note in the UKIDSS section).
 
   HostPhot photometry has been checked against the UHS DR3 catalogue (``AperMag3``, corrected to total for point sources) with 110 isolated stars in 6 fields: for apertures of 4 arcsec radius, the magnitudes agree within :math:`\sim0.01` mag in :math:`JHK`. For 24 galaxies of the 2MASS Extended Source Catalog (7 arcsec radius apertures, transformed into the WFCAM system with the colour terms of `Hodgkin et al. 2009 <https://ui.adsabs.harvard.edu/abs/2009MNRAS.394..675H/abstract>`_), the median differences are :math:`0.01`, :math:`-0.02` and :math:`-0.03` mag in :math:`J`, :math:`H` and :math:`K`, respectively.
 

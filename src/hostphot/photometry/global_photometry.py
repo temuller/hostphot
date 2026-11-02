@@ -50,6 +50,7 @@ from hostphot.photometry.photometry_utils import (
     _herschel_pixel_area_sr,
     _herschel_data_to_jy_per_pixel,
     get_effective_gain,
+    warn_non_detection,
 )
 from hostphot.photometry.image_utils import adapt_aperture, wrap_theta
 from hostphot.processing.background import masked_background, sep_background
@@ -705,6 +706,8 @@ def photometry(
             mag = -2.5 * np.log10(flux / zp)
             mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
         else:
+            if flux <= 0:
+                warn_non_detection(survey, filt, flux)
             mag = np.nan
             mag_err = np.nan
         herschel_details["magnitude_system"] = "AB"

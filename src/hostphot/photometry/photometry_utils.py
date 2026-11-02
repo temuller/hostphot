@@ -555,10 +555,23 @@ def magnitude_calculation(
         flux /= exptime
         flux_err /= exptime
 
-    mag = -2.5 * np.log10(flux) + zp
-    mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
+    if flux > 0:
+        mag = -2.5 * np.log10(flux) + zp
+        mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
+    else:
+        warn_non_detection(survey, filt, flux)
+        mag, mag_err = np.nan, np.nan
 
     return mag, mag_err, flux, flux_err, zp
+
+
+def warn_non_detection(survey: str, filt: str, flux: float) -> None:
+    """Warns that the magnitude is NaN because the flux is negative or zero (not detected)."""
+    if np.isfinite(flux):
+        warnings.warn(
+            f"{survey} {filt}: the flux is negative or zero (not detected), so the magnitude is NaN; "
+            "the flux and its uncertainty are kept (e.g. for upper limits)."
+        )
 
 
 def extract_filter(

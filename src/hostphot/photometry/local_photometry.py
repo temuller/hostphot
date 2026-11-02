@@ -49,6 +49,7 @@ from hostphot.photometry.photometry_utils import (
     check_saturation,
     get_source_mask,
     get_effective_gain,
+    warn_non_detection,
 )
 from hostphot.surveys_utils import (
     get_survey_filters,
@@ -357,6 +358,8 @@ def photometry(
                 mag = -2.5 * np.log10(flux) + zp
                 mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
             else:
+                if flux <= 0:
+                    warn_non_detection(survey, filt, flux)
                 mag, mag_err = np.nan, np.nan
         else:
             mag, mag_err, flux, flux_err, zp = magnitude_calculation(
