@@ -196,11 +196,11 @@ class TestUncertainties(unittest.TestCase):
         y, x = np.mgrid[0:301, 0:301]
         galaxy = 1000 * np.exp(-np.hypot(x - 150, y - 150) / 6)
         aperture = EllipticalAperture((150, 150), 60, 60, theta=0)
-        total = aperture.to_mask("exact").multiply(galaxy).sum()
+        total = aperture.to_mask(method="exact").multiply(galaxy).sum()
         for offset, usable in [(20, True), (10, False)]:
             data = galaxy + np.random.default_rng(0).normal(0, 1, galaxy.shape)
             data[:, 150 + offset:] = np.nan  # image edge
-            true_missing = 1 - aperture.to_mask("exact").multiply(np.where(np.isfinite(data), galaxy, 0)).sum() / total
+            true_missing = 1 - aperture.to_mask(method="exact").multiply(np.where(np.isfinite(data), galaxy, 0)).sum() / total
             estimated = elliptical_missing_flux_fraction(data, aperture)
             np.testing.assert_allclose(estimated, true_missing, atol=0.015)
             self.assertGreater(aperture_missing_fraction(data, aperture), 0.25)  # large missing area

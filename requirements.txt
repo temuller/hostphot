@@ -1,4 +1,3 @@
-pip
 numpy>=2.2.0
 pandas
 matplotlib
@@ -13,4 +12,6 @@ sfdmap2
 mocpy
 pyvo
 sep
-pytest
+requests
+scipy
+pyyaml

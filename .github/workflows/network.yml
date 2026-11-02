@@ -27,7 +27,7 @@ jobs:
           cache: "pip"
       - name: Install dependencies
         run: |
-          python -m pip install -U pip pytest pytest-rerunfailures
-          python -m pip install -e .
+          python -m pip install -U pip
+          python -m pip install -e ".[test]"
       - name: Run network tests
         run: pytest -v -m network -rs --reruns 2 --reruns-delay 60

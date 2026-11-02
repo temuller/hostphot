@@ -723,7 +723,7 @@ def _elliptical_weighted_sum(
     data: np.ndarray, x: float, y: float, a: float, b: float, theta: float
 ) -> tuple[float, np.ndarray, ApertureMask]:
     """Return the exact-weight elliptical (e.g. Kron) aperture sum."""
-    aperture = EllipticalAperture((x, y), a, b, theta)
+    aperture = EllipticalAperture((x, y), a, b, theta=theta)
     mask = aperture.to_mask(method="exact")
     cutout = mask.cutout(data, fill_value=np.nan)
     if cutout is None:
