@@ -32,7 +32,7 @@ hostphot_path = Path(hostphot.__path__[0])
 # to the aperture uncertainties (accounts for correlated noise in the coadds, e.g. drizzled HST and
 # JWST images: https://hst-docs.stsci.edu/drizzpac/chapter-3-description-of-the-drizzle-algorithm/3-3-weight-maps-and-correlated-noise)
 blank_floor_surveys = [
-    "PanSTARRS", "DES", "SDSS", "2MASS", "SkyMapper", "SPLUS", "VISTA", "UKIDSS", "UHS", "Spitzer", "HST", "JWST"
+    "PanSTARRS", "DES", "SDSS", "2MASS", "SkyMapper", "SPLUS", "VISTA", "UKIDSS", "UHS", "Spitzer", "HST", "JWST", "KiDS"
 ]
 
 
@@ -329,6 +329,12 @@ def uncertainty_calculation(
         zp_unc = 0.01
         mag_err = np.sqrt(mag_err**2 + zp_unc**2)
 
+    elif survey == "KiDS":
+        # systematic zero-point uncertainties of DR5 (after the stellar-locus regression and Gaia
+        # recalibration): 0.05 mag in u and 0.03 mag in gri (Section 3.5.2 of Wright et al. 2024)
+        zp_unc = 0.05 if filt == "u" else 0.03
+        mag_err = np.sqrt(mag_err**2 + zp_unc**2)
+
     elif survey == "Euclid":
         # flux uncertainties from the RMS maps are calculated together with the flux (outside this
         # function); ~1% absolute flux calibration uncertainty assumed (calibration on CALSPEC standard stars)
@@ -425,6 +431,10 @@ def get_effective_gain(header: fits.Header, survey: str, filt: str) -> float:
         return np.inf
     if survey == "Euclid":
         # the Poisson noise of the sources is already included in the RMS maps
+        return np.inf
+    if survey == "KiDS":
+        # the pixel values are calibrated fluxes (zeropoint of ~0), without the gain, so the Poisson noise of the
+        # sources is not included (negligible compared to the calibration uncertainties for bright galaxies)
         return np.inf
     if pixel_units == "counts":
         # note: for images in counts (ADU), e.g. 2MASS, VISTA and UKIDSS, the detector gain and the

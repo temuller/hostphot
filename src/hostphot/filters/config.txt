@@ -17,3 +17,4 @@ JWST       NIRCam_F090W,NIRCam_F150W,NIRCam_F277W	header  	0.031,0.031,0.063   A
 HSC           g,r,r2,i,i2,z,Y,NB387,NB816,NB921,NB1010    header    0.168    AB    0.0
 Euclid          VIS,Y,J,H    header    0.1    AB    0.0
 UHS             JHK      					header  	0.4       		Vega        	0.938,1.379,1.900
+KiDS            ugri    header    0.2    AB    0.0

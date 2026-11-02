@@ -214,6 +214,19 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for HSC: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for HSC: {e}")
 
+    def test_cutouts_KiDS(self):
+        try:
+            name = "KiDS_test"
+            ra, dec = 180.0, 0.5  # KiDS-North
+            download_images(name, ra, dec, size=0.5, overwrite=True, survey="KiDS")
+            for filt in ["u", "r"]:
+                with fits.open(Path(workdir, name, "KiDS", f"KiDS_{filt}.fits")) as hdu:
+                    assert hdu[0].data is not None and hdu[0].data.ndim == 2
+                    assert np.isfinite(hdu[0].header["MAGZP"])
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for KiDS: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for KiDS: {e}")
+
     def test_cutouts_Euclid(self):
         try:
             name = "Euclid_test"

@@ -170,6 +170,11 @@ Alternatively, you can export them as environment variables (e.g. ``export HSC_S
   HSC-SSP PDR3 footprint, showing the centres of the Wide and Deep+UltraDeep patches with data, from the ``patch_qa`` tables of the `HSC PDR3 database <https://hsc-release.mtk.nao.ac.jp/datasearch/>`_.
 
 
+KiDS
+~~~~
+
+These images are cutouts of the co-added tiles of the fifth data release of the Kilo-Degree Survey (KiDS-DR5; `Wright et al. 2024 <https://arxiv.org/abs/2503.19439>`_), obtained with OmegaCAM on the VST, downloaded from the `ESO archive <https://archive.eso.org/>`_ (ObsCore table and SODA cutout service). The pixel scaling of the images is 0.2 arcsec/pixel. The available filters are: :math:`ugri`. DR5 includes two :math:`i`-band passes; when several tiles cover the position, the one covering the whole cutout is used (the deepest one if there are several). The weight maps are not available as cutouts, so the uncertainties are estimated with blank apertures.
+
 Euclid
 ~~~~~~
 

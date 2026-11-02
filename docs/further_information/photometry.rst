@@ -304,6 +304,21 @@ HSC
 
   HostPhot aperture photometry has been checked against the HSC-SSP PDR3 Wide catalog: for apertures of 1 arcsec radius (``apertureflux_20``, i.e. 2 arcsec diameter), the magnitudes agree within :math:`\sim0.005` mag for point sources and :math:`\sim0.01` mag for galaxies in the :math:`grizy` bands.
 
+KiDS
+~~~~
+
+* **ZP**
+
+  The pixel values of the KiDS-DR5 tiles are calibrated with the nightly zeropoints (``PHOTZP`` keyword, equal to zero), which are corrected with the offsets of the stellar-locus regression and Gaia recalibration of DR5 (``DMAG`` keyword, typically below :math:`\sim0.07` mag). Thus, the AB zeropoint is :math:`ZP = PHOTZP + DMAG`, stored in the header under the ``MAGZP`` keyword to follow HostPhot convention.
+
+* **Error Propagation**
+
+  The errors are propagated in the same way as for PS1 (including the blank-aperture noise floor; the Poisson noise of the sources is not included, as the gain is not available), with an additional component from the systematic zero-point uncertainties of DR5: :math:`0.05` mag in :math:`u` and :math:`0.03` mag in :math:`gri` (`Wright et al. 2024 <https://arxiv.org/abs/2503.19439>`_).
+
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{ZP}}^2)`.
+
+  HostPhot photometry has been checked against SDSS (PSF magnitudes) with 29 stars in 5 tiles: for apertures of 4 arcsec radius, the median differences are :math:`0.01`, :math:`0.02`, :math:`0.01` and :math:`0.04` mag in :math:`ugri`, respectively, within the systematic uncertainties. For 13 galaxies (5 and 10 arcsec radius apertures), the median differences with HostPhot SDSS photometry are within :math:`0.03` mag in :math:`gri` (KiDS magnitudes are :math:`\sim0.08`-:math:`0.10` mag fainter than those of the Legacy Survey for red galaxies, due to the different filters).
+
 Euclid
 ~~~~~~
 

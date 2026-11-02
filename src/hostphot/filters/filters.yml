@@ -1696,6 +1696,34 @@ HSC:
     pixel_units: "counts"
     magnitude_system: "AB"
     AB_offset: 0.0
+KiDS:
+  # DR5 co-added tiles (Astro-WISE), 0.2 arcsec/pixel (https://kids.strw.leidenuniv.nl/DR5/)
+  # Zeropoint: PHOTZP + DMAG header keywords (copied to MAGZP), in AB; the pixel values are calibrated
+  # fluxes, so no exposure time is needed ("counts/second")
+  u:
+    zeropoint: "header"
+    pixel_scale: 0.2
+    pixel_units: "counts/second"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  g:
+    zeropoint: "header"
+    pixel_scale: 0.2
+    pixel_units: "counts/second"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  r:
+    zeropoint: "header"
+    pixel_scale: 0.2
+    pixel_units: "counts/second"
+    magnitude_system: "AB"
+    AB_offset: 0.0
+  i:
+    zeropoint: "header"
+    pixel_scale: 0.2
+    pixel_units: "counts/second"
+    magnitude_system: "AB"
+    AB_offset: 0.0
 Euclid:
   # MER background-subtracted mosaics, with 0.1 arcsec/pixel in all the filters
   # (https://euclid.esac.esa.int/dr/q1/dpdd/merdpd/dpcards/mer_bksmosaic.html)
