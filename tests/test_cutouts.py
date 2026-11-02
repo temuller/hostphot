@@ -108,6 +108,19 @@ class TestHostPhot(unittest.TestCase):
             warnings.warn(f"Connection error for Spitzer: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for Spitzer: {e}")
 
+    def test_cutouts_Spitzer_SHA(self):
+        """Position only observed during the warm mission (not in SEIP): SHA fallback."""
+        try:
+            name = "Spitzer_SHA_test"
+            ra, dec = 55.079872, -18.931526
+            download_images(name, ra, dec, size=1, overwrite=True, survey="Spitzer", filters=["IRAC.1"])
+            with fits.open(Path(workdir, name, "Spitzer", "Spitzer_IRAC.1.fits")) as hdu:
+                assert hdu[0].header["ARCHIVE"] == "SHA"
+                assert np.isfinite(hdu[0].header["MAGZP"]) and hdu[0].header["GAIN"] > 0
+        except requests.exceptions.ConnectionError as e:
+            warnings.warn(f"Connection error for Spitzer: {e}", RuntimeWarning)
+            pytest.skip(f"Connection error for Spitzer: {e}")
+
     def test_cutouts_VISTA(self):
         try:
             name = "VISTA_test"
