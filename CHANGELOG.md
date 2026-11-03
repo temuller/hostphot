@@ -4,6 +4,7 @@ All notable changes to HostPhot are listed here.
 
 ## v4.0.0
 
+* Masking: the default detection threshold of `create_mask` is now 10 sigma (previously 15 sigma), the same as for the photometry, so that fainter neighbours are also masked. At 15 sigma, only ~30-70% of the neighbours brighter than r = 20 within 6 effective radii of the host were detected (and masked) in PanSTARRS and SDSS images
 * Adding HSC (Hyper Suprime-Cam SSP PDR3) support: broadband (g, r, r2, i, i2, z, Y) and narrowband (NB387, NB816, NB921, NB1010) filters via HTTP Basic Auth cutout API. Set the `HSC_SSP_USERNAME` and `HSC_SSP_PASSWORD` environment variables (e.g. in a `.env` file) to use.
 * HSC aperture photometry agrees within ~0.01 mag with the HSC-SSP PDR3 catalog for compact sources (stars)
 * Provenance: the saved images include the HostPhot version (`HPVERS`), the download date (`HPDATE`), the survey (`HPSURVEY`) and, if given, the survey version (`HPDATAV`), the requested size (`HPSIZE`) and the source file (`HPSOURCE`, e.g. the WISE, unWISE and Spitzer SEIP images used; Herschel images also include `OBSID` and `PRODLVL`). The local and global photometry outputs include the HostPhot version (`hostphot_version`) and, for each filter, an identifier of the image used (`{filt}_image_id`, from the image header, e.g. the PanSTARRS skycell or the SDSS run/camcol/frame) and its download date (`{filt}_download_date`), and the saved input parameters include the HostPhot version

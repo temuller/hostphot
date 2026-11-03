@@ -89,7 +89,7 @@ def create_mask(
     ra: Optional[float] = None,
     dec: Optional[float] = None,
     bkg_sub: Optional[bool] = None,
-    threshold: float = 15,
+    threshold: float = 10,
     sigma: float | np.ndarray = 8,
     r: float | np.ndarray = 6,
     crossmatch: bool = False,
@@ -115,7 +115,8 @@ def create_mask(
     bkg_sub: If ``True``, the image gets background subtracted. By default, only
         the images that need it get background subtracted (WISE, 2MASS and
         VISTA).
-    threshold: Threshold used by :func:`sep.extract()` to extract objects.
+    threshold: Threshold used by :func:`sep.extract()` to extract objects (in units of the background RMS).
+        Default is 10.
     sigma: Standard deviation in pixel units of the 2D Gaussian kernel
         used to convolve the image.
     r: Scale of the aperture size for the sources to be masked.

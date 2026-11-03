@@ -44,6 +44,8 @@ The same call can give different results because some defaults changed:
 * **Background subtraction:** now applied by default to Spitzer, JWST and Herschel images (besides 2MASS, WISE,
   VISTA, SkyMapper, UKIDSS and UHS), with a new estimation (sources and host galaxy masked, 30 arcsec mesh).
   GALEX images are downloaded already background subtracted (``intbgsub``).
+* **Masking:** sources are detected at 10 sigma by default (``create_mask(threshold=10)``; previously 15 sigma),
+  so fainter neighbours are also masked. Use ``threshold=15`` to reproduce the v3 masks.
 * **Default filters:** HSC uses only the broadband filters (:math:`grizY`).
 
 
