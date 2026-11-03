@@ -268,6 +268,95 @@ def suppress_stdout():
                 sys.stdout = _stdout_state["saved"]
                 _stdout_state["devnull"].close()
             
+def add_provenance(
+    header: fits.Header,
+    survey: str,
+    version: Optional[str] = None,
+    size: Optional[float] = None,
+    source: Optional[str] = None,
+) -> None:
+    """Adds provenance keywords to the header of an image saved by HostPhot: the HostPhot version (``HPVERS``),
+    the time it was saved (``HPDATE``, UTC), the survey (``HPSURVEY``) and, if given, the version of the survey
+    (``HPDATAV``, e.g. a data release), the requested size (``HPSIZE``, in arcmin) and the source file
+    (``HPSOURCE``, e.g. for images given by the user).
+
+    Parameters
+    ----------
+    header: Header of the image (updated in place).
+    survey: Survey name.
+    version: Version of the survey (the ``version`` parameter of the downloads).
+    size: Requested image size in arcmin.
+    source: Source of the image (e.g. a file name).
+    """
+    from hostphot._version import __version__
+
+    header["HPVERS"] = (__version__, "HostPhot version")
+    header["HPDATE"] = (datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"), "Date saved by HostPhot (UTC)")
+    header["HPSURVEY"] = (survey, "Survey (HostPhot)")
+    if version is not None:
+        header["HPDATAV"] = (str(version), "Survey version/data release (HostPhot)")
+    if size is not None:
+        header["HPSIZE"] = (round(float(size), 4), "Requested image size in arcmin (HostPhot)")
+    if source is not None:
+        header["HPSOURCE"] = (str(source)[-68:], "Source of the image (HostPhot)")
+
+
+# header keywords identifying the source image of each survey (see :func:`image_provenance`)
+IMAGE_ID_KEYWORDS = {
+    "PanSTARRS": ["SKYCELL"],
+    "DES": ["TILENAME"],
+    "SDSS": ["RUN", "CAMCOL", "FRAME"],
+    "GALEX": ["TILENAME"],
+    "2MASS": ["ORDATE", "SCANNO"],
+    "UKIDSS": ["PROJECT", "OBJECT"],
+    "UHS": ["PROJECT", "OBJECT"],
+    "VISTA": ["PROJECT", "DATE-OBS"],
+    "KiDS": ["ORIGFILE"],
+    "SkyMapper": ["OBJECT", "DATAREL"],
+    "SPLUS": ["FILENAME"],
+    "Euclid": ["TILEID"],
+    "HST": ["HPSOURCE", "FILENAME"],
+    "JWST": ["HPSOURCE", "FILENAME"],
+    "Herschel": ["OBSID", "PRODLVL"],
+}
+# labels of the keywords in the identifiers (e.g. "run 752 camcol 2 frame 483")
+_IMAGE_ID_LABELS = {"RUN": "run", "CAMCOL": "camcol", "FRAME": "frame", "SCANNO": "scan", "TILEID": "tile", "OBSID": "obs"}
+
+
+def image_provenance(header: fits.Header, survey: str) -> tuple[str, str]:
+    """Identifier of the source image (from survey-specific header keywords, plus the survey version if given
+    when downloading it, ``HPDATAV``) and the date the image was saved by HostPhot (``HPDATE``).
+
+    Parameters
+    ----------
+    header: Header of the image.
+    survey: Survey name.
+
+    Returns
+    -------
+    image_id: Identifier of the image (empty if not available).
+    download_date: Date the image was saved (UTC; empty for images saved by previous versions).
+    """
+    parts = []
+    if survey == "Spitzer" and header.get("ARCHIVE") == "SHA":
+        parts.append(f"SHA AOR {header.get('AORKEY')}")
+    keywords = IMAGE_ID_KEYWORDS.get(survey, [])
+    if survey in ["HST", "JWST"]:
+        keywords = [key for key in keywords if key in header][:1]  # the first available file name
+    for key in keywords:
+        value = header.get(key)
+        if value is None or str(value).strip() in ["", "NA", "nan"]:
+            continue
+        label = _IMAGE_ID_LABELS.get(key)
+        parts.append(f"{label} {value}" if label else str(value).strip())
+    if len(parts) == 0 and header.get("HPSOURCE") is not None:
+        # e.g. the images used for WISE, unWISE and Spitzer (SEIP)
+        parts.append(str(header["HPSOURCE"]))
+    if header.get("HPDATAV") is not None:
+        parts.append(str(header["HPDATAV"]))
+    return " ".join(parts), str(header.get("HPDATE", ""))
+
+
 def store_input(input_params: dict, inputs_file: Path) -> None:
     """Stores the input parameters of a function.
 
@@ -276,9 +365,11 @@ def store_input(input_params: dict, inputs_file: Path) -> None:
     inputs_params: the parameters of a function.
     inputs_file: where to store the parameters.
     """
+    from hostphot._version import __version__
+
     # save input parameters
     now = datetime.now(timezone.utc).isoformat()
-    input_params.update({"timestamp": now})
+    input_params.update({"timestamp": now, "hostphot_version": __version__})
     inputs_df = pd.DataFrame([input_params])
     if not inputs_file.exists():
         inputs_df.to_csv(inputs_file, index=False)

@@ -33,7 +33,8 @@ from astropy.cosmology import FlatLambdaCDM, Cosmology
 from hostphot._constants import workdir, font_family
 from hostphot.processing.cleaning import remove_nan, saturated_mask
 from hostphot.photometry.dust import calc_extinction
-from hostphot.utils import check_work_dir, suppress_stdout, store_input
+from hostphot.utils import check_work_dir, suppress_stdout, store_input, image_provenance
+from hostphot._version import __version__
 from hostphot.processing.background import masked_background, sep_background
 from hostphot.photometry.photometry_utils import (
     HERSCHEL_CALIBRATION_FRACTION,
@@ -497,6 +498,7 @@ def multi_band_phot(
         "redshift": z,
         "survey": survey,
         "ap_units": ap_units,
+        "hostphot_version": __version__,
     }
     # calculate photometry
     for filt in filters:
@@ -529,6 +531,10 @@ def multi_band_phot(
             # PSF FWHM of the image (in arcsec), e.g. to compare the aperture sizes with the resolution
             image_header = fits.getheader(Path(workdir, name, survey, f"{survey}_{filt}.fits"))
             results_dict[f"{filt}_psf_fwhm"] = image_psf_fwhm(image_header, survey, filt)
+            # provenance of the image
+            image_id, download_date = image_provenance(image_header, survey)
+            results_dict[f"{filt}_image_id"] = image_id
+            results_dict[f"{filt}_download_date"] = download_date
         except Exception as exc:
             if raise_exception is True:
                 # only raise if it's not a FileNotFoundError (missing filter)
@@ -546,6 +552,8 @@ def multi_band_phot(
                     results_dict[f"{filt}_{radius}_{key}"] = np.nan
             results_dict[f"{filt}_zeropoint"] = np.nan
             results_dict[f"{filt}_psf_fwhm"] = np.nan
+            results_dict[f"{filt}_image_id"] = ""
+            results_dict[f"{filt}_download_date"] = ""
     # store photometry
     phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
     if save_results is True:

@@ -98,7 +98,7 @@ class TestDownloadsUtils(unittest.TestCase):
             )
             store_input({"name": "obj", "ra": 11.0, "survey": "DES", "size": 3}, inputs_file)
             df = pd.read_csv(inputs_file)  # must be readable
-            self.assertEqual(list(df.columns), ["name", "ra", "survey", "size", "timestamp"])
+            self.assertEqual(list(df.columns), ["name", "ra", "survey", "size", "timestamp", "hostphot_version"])
             self.assertEqual(len(df), 3)
             self.assertTrue(pd.isna(df.timestamp[0]))
             self.assertEqual(df.timestamp[1], "2025-01-01T00:00:00+00:00")

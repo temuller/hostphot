@@ -507,7 +507,12 @@ def get_Herschel_images(
             if index is None:
                 result.append(None)
                 continue
-            result.append(_cutout(hduls[filt][index], ra, dec, size_arcsec))
+            cutout = _cutout(hduls[filt][index], ra, dec, size_arcsec)
+            # observation and product level of the selected map
+            cutout[0].header["OBSID"] = (str(provenance[filt][index]["observation_id"]), "HSA observation ID")
+            level = provenance[filt][index]["product_level"] or "STANDALONE"
+            cutout[0].header["PRODLVL"] = (str(level), "HSA product level")
+            result.append(cutout)
             selected.append(provenance[filt][index])
         if selected:
             pd.DataFrame(selected).to_csv(target_dir / "hsa_selected_maps.csv", index=False)

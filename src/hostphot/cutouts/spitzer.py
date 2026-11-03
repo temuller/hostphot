@@ -188,9 +188,14 @@ def get_Spitzer_images(ra: float, dec: float, size: float | u.Quantity = 3,
     # select the mosaic covering the whole cutout, the deepest one if there are several
     hdu_list_all = []
     for filt in filters:
-        candidates = [url_to_hdu[url] for url in files_dict[filt] if url_to_hdu[url] is not None]
+        candidate_urls = [url for url in files_dict[filt] if url_to_hdu[url] is not None]
+        candidates = [url_to_hdu[url] for url in candidate_urls]
         images = [(hdu[0].data, WCS(hdu[0].header), hdu[0].header.get("EXPTIME")) for hdu in candidates]
         index = select_image(images, ra, dec, mission_dict["sizeX"], label=f"{survey} {filt}")
+        if index is not None:
+            # SEIP mosaic used
+            source = candidate_urls[index].split("?")[0].split("/")[-1]
+            candidates[index][0].header["HPSOURCE"] = (source[-68:], "Source of the image (HostPhot)")
         hdu_list_all.append(None if index is None else candidates[index])
 
     hdu_list = []

@@ -33,7 +33,8 @@ from hostphot._constants import workdir
 from hostphot.processing.objects_detection import extract_objects, plot_detected_objects
 from hostphot.processing.cleaning import remove_nan, saturated_mask
 from hostphot.photometry.dust import calc_extinction
-from hostphot.utils import check_work_dir, store_input
+from hostphot.utils import check_work_dir, store_input, image_provenance
+from hostphot._version import __version__
 from hostphot.photometry.photometry_utils import (
     magnitude_calculation,
     extract_invvar_kron_flux,
@@ -920,6 +921,7 @@ def multi_band_phot(
         "host_ra": host_ra,
         "host_dec": host_dec,
         "survey": survey,
+        "hostphot_version": __version__,
     }
 
     if ref_survey is None:
@@ -963,6 +965,11 @@ def multi_band_phot(
                 results_dict[f"{filt}_{key}"] = value
             for extra_key, extra_value in extra_results.items():
                 results_dict[f"{filt}_{extra_key}"] = extra_value
+            # provenance of the image
+            image_header = fits.getheader(Path(workdir, name, survey, f"{survey}_{filt}.fits"))
+            image_id, download_date = image_provenance(image_header, survey)
+            results_dict[f"{filt}_image_id"] = image_id
+            results_dict[f"{filt}_download_date"] = download_date
         except Exception as exc:
             if raise_exception is True:
                 raise Exception(f"{filt}-band: {exc}")
@@ -974,6 +981,8 @@ def multi_band_phot(
                 results_dict[f"{filt}_zeropoint"] = np.nan
                 for key in ["AB", "flux_uJy", "flux_uJy_err", "AB_ulim"]:
                     results_dict[f"{filt}_{key}"] = np.nan
+                results_dict[f"{filt}_image_id"] = ""
+                results_dict[f"{filt}_download_date"] = ""
 
     phot_df = pd.DataFrame({key: [val] for key, val in results_dict.items()})
     if save_results is True:

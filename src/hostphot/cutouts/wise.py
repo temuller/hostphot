@@ -83,6 +83,8 @@ def get_WISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
     for i, hdu in enumerate(hdu_list):
         if hdu is not None:
             hdu[0].header["EXPTIME"] = exptimes[i]
+            # Atlas image used (the file name includes the coadd ID)
+            hdu[0].header["HPSOURCE"] = (url_list[i].split("?")[0].split("/")[-1][-68:], "Source of the image (HostPhot)")
             # create cutout
             wcs = WCS(hdu[0].header)
             cutout = Cutout2D(hdu[0].data, coords, image_size, wcs=wcs)
@@ -161,7 +163,7 @@ def get_unWISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
         files_list = tar_file.getnames()
         for filt in filters:
             img_files = [file for file in files_list if file.endswith(f"{filt.lower()}-img-m.fits")]
-            candidates, images = [], []
+            candidates, images, names = [], [], []
             for img_file in img_files:
                 with tar_file.extractfile(img_file) as f:
                     img_hdu = fits.open(io.BytesIO(f.read()))
@@ -188,8 +190,12 @@ def get_unWISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
                     img_wcs = WCS(img_hdu[0].header)
                 candidates.append(img_hdu)
                 images.append((img_hdu[0].data, img_wcs, depth))
+                names.append(img_file.split("/")[-1])
             index = select_image(images, ra, dec, size_arcsec.value, label=f"{survey} {filt}")
             hdu_dict[filt] = None if index is None else candidates[index]
+            if index is not None:
+                # coadd tile used
+                hdu_dict[filt][0].header["HPSOURCE"] = (names[index][-68:], "Source of the image (HostPhot)")
     return [hdu_dict.get(filt) for filt in requested_filters]
 
 def get_used_image(header: fits.header.Header) -> str:

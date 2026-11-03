@@ -5,6 +5,13 @@ Cutouts
 
 The images are downloaded from different sources depending on what was the easiest at the moment of adding the survey.
 
+**Provenance:** the images saved by HostPhot include the keywords ``HPVERS`` (HostPhot version), ``HPDATE`` (date
+saved, UTC), ``HPSURVEY`` (survey) and, if given, ``HPDATAV`` (the ``version`` parameter, e.g. a data release),
+``HPSIZE`` (requested size in arcmin) and ``HPSOURCE`` (the source file, e.g. the WISE, unWISE or Spitzer SEIP image
+used, or the file given to :func:`set_HST_image` or :func:`set_JWST_image`). Herschel images also include the
+observation ID (``OBSID``) and product level (``PRODLVL``) of the selected map. These keywords give the image
+identifiers of the photometry outputs (see the photometry page).
+
 
 PS1
 ~~~

@@ -13,7 +13,7 @@ from astropy.coordinates import SkyCoord
 from astroquery.esa.hubble import ESAHubble  # HST
 
 from hostphot._constants import workdir
-from hostphot.utils import check_work_dir, suppress_stdout, image_coverage, FULL_COVERAGE
+from hostphot.utils import check_work_dir, suppress_stdout, image_coverage, FULL_COVERAGE, add_provenance
 from hostphot.surveys_utils import check_HST_filters, survey_pixel_scale
 
 import warnings
@@ -75,6 +75,7 @@ def set_HST_image(file: str, filt: str, name: str) -> None:
     # update file and save file
     hdu = fits.open(file)
     update_HST_header(hdu)
+    add_provenance(hdu[0].header, "HST", source=Path(file).name)
     outfile = obj_dir / f"HST_{filt}.fits"
     hdu.writeto(outfile, overwrite=True)
 

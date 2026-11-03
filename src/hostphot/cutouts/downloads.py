@@ -6,7 +6,7 @@ import astropy.units as u
 from typing import Optional
 
 from hostphot._constants import workdir
-from hostphot.utils import check_work_dir, store_input, image_has_data
+from hostphot.utils import check_work_dir, store_input, image_has_data, add_provenance
 from hostphot.surveys_utils import (
     get_survey_filters,
     get_default_filters,
@@ -133,6 +133,8 @@ def download_images(
         else:
             outfile = Path(survey_dir, f"{survey}_{filt}.fits")
         if overwrite is True or outfile.is_file() is False:
+            size_arcmin = size.to(u.arcmin).value if isinstance(size, u.Quantity) else size
+            add_provenance(hdu[0].header, survey, version=version, size=size_arcmin)
             hdu.writeto(outfile, overwrite=overwrite)
             hdu.close()
         else:

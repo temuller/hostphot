@@ -42,6 +42,17 @@ The AB magnitudes and flux densities are the most convenient to combine the phot
 
 The local photometry also includes ``{filt}_psf_fwhm``: the PSF FWHM of the image in arcsec (see below).
 
+Provenance columns (local and global photometry):
+
+* ``hostphot_version``: HostPhot version used for the photometry;
+* ``{filt}_image_id``: identifier of the image used, from its header, e.g. the PanSTARRS skycell, the DES, GALEX or
+  KiDS tile, the SDSS run, camcol and frame, the 2MASS scan, the UKIDSS/UHS project and frame, the SkyMapper image,
+  the Euclid tile, the WISE, unWISE or Spitzer (SEIP) file, the Spitzer Heritage Archive observation (AOR), the
+  Herschel observation and product level, or the HST/JWST file. The survey version given when downloading the image
+  (e.g. ``dr10`` or ``pdr3_wide``) is added. For the Legacy Survey and HSC, the cutout services do not give the tile,
+  so only the version is given (the request is reproduced with the position);
+* ``{filt}_download_date``: date the image was downloaded (UTC; empty for images downloaded with previous versions).
+
 Resolution
 ~~~~~~~~~~
 

@@ -11,7 +11,7 @@ from astropy.coordinates import SkyCoord
 from astroquery.esa.jwst import Jwst
 
 from hostphot._constants import workdir
-from hostphot.utils import check_work_dir, suppress_stdout
+from hostphot.utils import check_work_dir, suppress_stdout, add_provenance
 from hostphot.surveys_utils import check_JWST_filters, survey_pixel_scale
 
 import warnings
@@ -74,6 +74,7 @@ def set_JWST_image(file: str, filt: str, name: str) -> None:
     # update header and save file
     hdu = fits.open(file)
     update_JWST_header(hdu)
+    add_provenance(hdu[0].header, "JWST", source=Path(file).name)
     outfile = obj_dir / f"JWST_{filt}.fits"
     hdu.writeto(outfile, overwrite=True)
     

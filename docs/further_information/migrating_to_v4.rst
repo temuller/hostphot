@@ -124,6 +124,9 @@ New in v4
   existing columns are unchanged.
 * Resolution: the PSF FWHM of the images is given with the local photometry (``{filt}_psf_fwhm``), with a
   warning when the aperture radius is smaller than it.
+* Provenance: the saved images include the HostPhot version, download date and source image (``HP*`` keywords), and
+  the photometry outputs include the HostPhot version and, for each filter, the image identifier and download date.
+  The saved input parameters also include the HostPhot version.
 * Clearer warnings: failed downloads, images without data, apertures without data, galaxies not detected and
   non-detections.
 
