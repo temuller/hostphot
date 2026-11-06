@@ -29,11 +29,11 @@ from astroquery.esa.hsa import HSA
 
 from astropy.wcs import WCS
 
-from hostphot.surveys_utils import check_filters_validity, get_survey_filters
+from hostphot.surveys_utils import check_filters_validity, get_default_filters
 from hostphot.utils import image_coverage, select_image, FULL_COVERAGE
 
 
-DEFAULT_FILTERS = ("PACS100", "PACS160", "SPIRE250", "SPIRE350", "SPIRE500")
+DEFAULT_FILTERS = ("PACS100", "PACS160", "SPIRE250", "SPIRE350", "SPIRE500")  # (PACS70 only if requested)
 DEFAULT_INSTRUMENTS = ("PACS", "SPIRE")
 DEFAULT_PRODUCT_LEVELS = ("LEVEL2_5", "LEVEL3", "LEVEL2")
 DEFAULT_RADIUS_ARCMIN = 5.0
@@ -48,6 +48,11 @@ PHOTOMETRY_MODES = {1: ("PACS",), 4: ("SPIRE",), 5: ("SPIRE",), 6: ("SPIRE",), 7
 
 # Host-galaxy photometry should prefer extended-emission products.
 FILTER_RULES = {
+    "PACS70": {
+        "instrument": "PACS",
+        "wavelength": 70.0,
+        "tokens": ("HPPJSMAPB", "HPPUNIMAPB", "HPPHPFMAPB"),
+    },
     "PACS100": {
         "instrument": "PACS",
         "wavelength": 100.0,
@@ -90,7 +95,7 @@ BAD_PRODUCT_TOKENS = (
 def _normalise_filters(filters: Optional[str | Iterable[str]]) -> list[str]:
     """Return filters as a list; Herschel filter names are multi-character."""
     if filters is None:
-        filters = get_survey_filters("Herschel")
+        filters = get_default_filters("Herschel")
     elif isinstance(filters, str):
         filters = [filters]
     filters = list(filters)
@@ -248,8 +253,11 @@ def _candidate_filter(path: Path, header: fits.Header) -> Optional[str]:
                 return filt
             continue
         if any(token.lower() in path_text for token in rule["tokens"]):
+            # the 70-micron maps are "blue" and the 100-micron maps "green"
             if filt == "PACS100" and "blue" in path_text:
-                continue  # 70-micron map ("blue"; the 100-micron maps are "green")
+                continue
+            if filt == "PACS70" and "blue" not in path_text:
+                continue
             return filt
     return None
 
@@ -384,8 +392,9 @@ def get_Herschel_images(
         Image size. If a float is given, the units are assumed to be arcmin. The maps are
         downloaded whole (HSA does not provide cutouts) and cut to this size.
     filters:
-        Herschel filters to return. Valid options are ``PACS100``, ``PACS160``,
-        ``SPIRE250``, ``SPIRE350`` and ``SPIRE500``.
+        Herschel filters to return. Valid options are ``PACS70``, ``PACS100``, ``PACS160``,
+        ``SPIRE250``, ``SPIRE350`` and ``SPIRE500``. By default (``None``), all of them except
+        ``PACS70`` (see :data:`hostphot.surveys_utils.default_filters`).
     output_dir:
         Optional HostPhot survey folder used to store CSV provenance files.
     radius_arcmin:

@@ -144,7 +144,7 @@ This is the list of surveys in HostPhot:
 * UKIDSS
 * UHS (UKIRT Hemisphere Survey)
 * JWST (NIRCam only)
-* Herschel (PACS, SPIRE)
+* Herschel (PACS 70 (only if requested), 100 and 160 microns; SPIRE)
 * HSC (Hyper Suprime-Cam SSP PDR3; requires login credentials — see [hsc-release.mtk.nao.ac.jp](https://hsc-release.mtk.nao.ac.jp/datasearch/))
 * Euclid (VIS and NISP; Q1)
 * KiDS (DR5)

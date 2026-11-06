@@ -1370,6 +1370,7 @@ def extract_invvar_kron_flux(
 # Herschel-specific functions (similar to the inverse-variance ones above)
 # absolute calibration uncertainties (fraction of the flux)
 HERSCHEL_CALIBRATION_FRACTION = {
+    "PACS70": 0.05,
     "PACS100": 0.05,
     "PACS160": 0.05,
     "SPIRE250": 0.06,

@@ -418,3 +418,22 @@ Euclid
   Thus, :math:`\sigma = sqrt(\sigma_{\text{var}}^2 + \sigma_{\text{ZP}}^2)`.
 
   HostPhot Kron photometry has been checked against the Euclid Q1 MER catalogue (``flux_detection_total``, Kron apertures) for bright galaxies in the Euclid Deep Field Fornax: the :math:`VIS` magnitudes agree within :math:`\sim0.01` mag (median) with ``optimize_kronrad=True``.
+
+Herschel
+~~~~~~~~
+
+* **Filters**
+
+  PACS :math:`70`, :math:`100` and :math:`160 \mu \text{m}` (``PACS70``, ``PACS100`` and ``PACS160``) and SPIRE :math:`250`, :math:`350` and :math:`500 \mu \text{m}` (``SPIRE250``, ``SPIRE350`` and ``SPIRE500``). The PACS blue camera observes at either :math:`70` or :math:`100 \mu \text{m}`, and most observations are at :math:`100 \mu \text{m}`, so ``PACS70`` is only used if requested (``filters=["PACS70", ...]``).
+
+* **ZP**
+
+  The maps are converted into Jy per pixel (PACS maps are already in Jy/pixel and SPIRE extended-emission maps in MJy/sr), and the magnitudes are in the AB system (:math:`\text{ZP} = 8.90`).
+
+* **Error Propagation**
+
+  The maps have no error maps and their noise is correlated, so the random uncertainty comes from the scatter of blank apertures, with an additional component from the absolute flux calibration: :math:`5\%` for PACS and :math:`6\%` for SPIRE.
+
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{blank}}^2 + \sigma_{\text{cal}}^2)`.
+
+  HostPhot photometry has been checked against the KINGFISH fluxes (`Dale et al. 2012 <https://ui.adsabs.harvard.edu/abs/2012ApJ...745...95D/abstract>`_) of 8 galaxies, using circular apertures with the same area as the KINGFISH elliptical apertures: the ratios of the HostPhot to KINGFISH fluxes have a median of :math:`0.99` (:math:`0.89`-:math:`1.12`) for ``PACS70`` and :math:`1.02` (:math:`0.93`-:math:`1.10`) for ``PACS100``, excluding NGC 628. For NGC 628, a large face-on spiral (:math:`\sim7` arcmin radius aperture) that fills most of the map, the background estimated at :math:`70 \mu \text{m}` follows the outskirts of the galaxy, and the flux is :math:`\sim50\%` of the KINGFISH flux (:math:`1.05` without background subtraction, ``bkg_sub=False``; :math:`0.99` at :math:`100 \mu \text{m}`).

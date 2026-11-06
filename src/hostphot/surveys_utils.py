@@ -104,6 +104,10 @@ def get_survey_filters(survey: str) -> str | list:
 # (e.g. narrow bands); the other surveys use all their filters by default
 default_filters = {
     "HSC": ["g", "r", "i", "z", "Y"],  # broad bands (not r2, i2 or the narrow bands)
+    # the PACS blue camera observes at either 70 or 100 microns, and most observations (e.g. large surveys)
+    # are at 100 microns, so PACS70 is only used if requested (otherwise, all the observations would be
+    # downloaded looking for 70-micron maps)
+    "Herschel": ["PACS100", "PACS160", "SPIRE250", "SPIRE350", "SPIRE500"],
 }
 
 

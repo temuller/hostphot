@@ -1662,6 +1662,12 @@ JWST:
     pixel_units: counts/second
     zeropoint: header
 Herschel:
+  PACS70:
+    zeropoint: 0
+    pixel_scale: 1.6
+    pixel_units: Jy/pixel
+    magnitude_system: AB
+    AB_offset: 0.0
   PACS100:
     zeropoint: 0
     pixel_scale: 1.6
