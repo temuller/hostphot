@@ -55,7 +55,7 @@ from hostphot.photometry.photometry_utils import (
     ab_photometry,
 )
 from hostphot.photometry.image_utils import adapt_aperture, wrap_theta
-from hostphot.processing.background import masked_background, sep_background
+from hostphot.processing.background import background_flag, masked_background, sep_background
 from hostphot.surveys_utils import (
     get_survey_filters,
     get_default_filters,
@@ -562,6 +562,7 @@ def photometry(
     ref_survey: Optional[str] = None,
     save_plots: bool = True,
     save_aperture_params: bool = False,
+    return_bkg_flag: bool = False,
 ) -> tuple[float, float, float, float, float]:
     """Calculates the global aperture photometry of a galaxy using
     the Kron flux.
@@ -606,6 +607,9 @@ def photometry(
         need to have been previously saved with ``save_aperture_params=True``.
     save_plots: If `True`, the mask and galaxy aperture figures are saved.
     save_aperture_params: Whether to save the aperture parameters.
+    return_bkg_flag: If ``True``, the background flag of the Kron aperture (``bkg_flag``: ``True`` if
+        the subtracted background is unreliable, see :func:`hostphot.processing.background.background_flag`;
+        always ``False`` if the background is not subtracted) is returned in a dictionary, as a sixth value.
 
     Returns
     -------
@@ -614,8 +618,9 @@ def photometry(
     flux: Aperture flux.
     flux_err: Total flux error on the aperture flux.
     zp: Zeropoint.
-    details: Only for Herschel, dictionary with details of the measurement (e.g. units, conversion
-        factor to Jy/pixel and blank-aperture noise), as a sixth value.
+    details: For Herschel (or with ``return_bkg_flag=True``), dictionary with details of the measurement
+        (e.g. units, conversion factor to Jy/pixel and blank-aperture noise for Herschel, and the background
+        flag), as a sixth value.
     """
     # initial checks
     check_survey_validity(survey)
@@ -642,9 +647,13 @@ def photometry(
     data = data.astype(np.float64)
     bkg = _background(data)
     # background subtraction, if needed
+    back_info = None
     if (bkg_sub is None and survey in bkg_surveys) or bkg_sub is True:
         # background estimated with the sources (including the galaxy) masked
-        data_sub = data - masked_background(data, wcs, host_ra, host_dec, label=f"{survey} {filt}")
+        back, back_info = masked_background(
+            data, wcs, host_ra, host_dec, label=f"{survey} {filt}", return_info=True
+        )
+        data_sub = data - back
     else:
         data_sub = np.copy(data)
 
@@ -692,6 +701,15 @@ def photometry(
             gal_obj, master_wcs, wcs, flip_
         )
 
+    # reliability of the subtracted background in the Kron aperture
+    bkg_flag = False
+    if back_info is not None:
+        x, y, a, b, theta = _kron_ellipse(gal_obj, kronrad, scale)
+        aperture_pixels = (
+            EllipticalAperture((x, y), a, b, theta=theta).to_mask(method="center").to_image(data.shape) > 0
+        )
+        bkg_flag = background_flag(data, back, back_info, aperture_pixels, f"{survey} {filt} (Kron aperture)")
+
     if survey == "Herschel":
         flux, flux_err, herschel_details = herschel_kron_flux(
             data_sub, header, wcs, gal_obj, kronrad, scale, filt
@@ -738,6 +756,8 @@ def photometry(
                 outfile=outfile,
             )
         hdu.close()
+        if return_bkg_flag:
+            herschel_details["bkg_flag"] = bkg_flag
         return mag, mag_err, flux, flux_err, zp, herschel_details
 
     # get Kron flux
@@ -806,6 +826,8 @@ def photometry(
         )
     hdu.close()
 
+    if return_bkg_flag:
+        return mag, mag_err, flux, flux_err, zp, {"bkg_flag": bkg_flag}
     return mag, mag_err, flux, flux_err, zp
 
 
@@ -952,6 +974,7 @@ def multi_band_phot(
                 ref_survey=ref_survey,
                 save_plots=save_plots,
                 save_aperture_params=save_aperture_params,
+                return_bkg_flag=True,
             )
             mag, mag_err, flux, flux_err, zp = phot_res[:5]
             extra_results = phot_res[5] if len(phot_res) > 5 else {}
@@ -981,6 +1004,7 @@ def multi_band_phot(
                 results_dict[f"{filt}_zeropoint"] = np.nan
                 for key in ["AB", "flux_uJy", "flux_uJy_err", "AB_ulim"]:
                     results_dict[f"{filt}_{key}"] = np.nan
+                results_dict[f"{filt}_bkg_flag"] = np.nan
                 results_dict[f"{filt}_image_id"] = ""
                 results_dict[f"{filt}_download_date"] = ""
 

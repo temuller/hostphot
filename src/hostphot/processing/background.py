@@ -8,9 +8,13 @@ from astropy.stats import sigma_clipped_stats
 from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_scales
 
-# fraction of masked pixels above which the background is considered unreliable
+# fraction of masked pixels (of those with data) above which the background is considered unreliable
 # (e.g. the galaxy fills most of the image)
 MASKED_FRACTION_WARNING = 0.8
+# the background is flagged as unreliable for an aperture if the background inside it differs from the sky
+# level of the unmasked pixels by more than this fraction of the aperture flux (the background follows the
+# undetected outskirts of the galaxy, e.g. galaxies filling most of the image)
+BKG_EXCESS_FRACTION = 0.2
 # minimum fraction of unmasked pixels for a spatially varying background
 MIN_UNMASKED_FRACTION = 0.02
 # larger images are binned for the background estimation (much faster; the background is smooth)
@@ -193,7 +197,7 @@ def _masked_background(
     mesh_arcsec: float = 30.0,
     niter: int = 2,
     label: str = "",
-) -> np.ndarray:
+) -> tuple[np.ndarray, dict]:
     """Estimates the background of an image with the sources (including the host galaxy) masked.
 
     A spatially varying background is estimated with :func:`sep.Background` using a mesh of
@@ -213,6 +217,8 @@ def _masked_background(
     Returns
     -------
     back: Background of the image.
+    info: Source mask (``mask``), masked fraction of the pixels with data (``masked_frac``) and whether
+        a constant background was used (``constant``).
     """
     pixel_scale = float(np.mean(proj_plane_pixel_scales(wcs)) * 3600)  # arcsec per pixel
     host_xy = None
@@ -246,10 +252,14 @@ def _masked_background(
         residuals = (filled - back)[good] if good.sum() > 100 else (filled - back)[~nan_mask]
         rms = sigma_clipped_stats(residuals, sigma=3.0, maxiters=10)[2]
 
-    if info["masked_frac"] > MASKED_FRACTION_WARNING or constant:
+    # masked fraction of the pixels with data (the pixels without data, e.g. outside the coverage of the
+    # survey, are not sky pixels either)
+    n_valid = int((~nan_mask).sum())
+    masked_frac = float((mask & ~nan_mask).sum() / n_valid) if n_valid > 0 else 1.0
+    if masked_frac > MASKED_FRACTION_WARNING or constant:
         size_arcmin = max(nx, ny) * pixel_scale / 60
         msg = (
-            f"{label}: {100 * info['masked_frac']:.0f}% of the image is masked for the background "
+            f"{label}: {100 * masked_frac:.0f}% of the image (with data) is masked for the background "
             "estimation (e.g. the galaxy fills most of the image), so the background (and the photometry "
             "of large apertures) might be unreliable."
         )
@@ -266,7 +276,7 @@ def _masked_background(
             msg += " A constant background was used, as very few sky pixels were left unmasked."
         warnings.warn(msg)
 
-    return back
+    return back, {"mask": mask, "masked_frac": masked_frac, "constant": constant}
 
 
 def _bin_image(data: np.ndarray, wcs: WCS, factor: int) -> tuple[np.ndarray, WCS]:
@@ -294,7 +304,8 @@ def masked_background(
     mesh_arcsec: float = 30.0,
     niter: int = 2,
     label: str = "",
-) -> np.ndarray:
+    return_info: bool = False,
+) -> np.ndarray | tuple[np.ndarray, dict]:
     """Estimates the background of an image with the sources (including the host galaxy) masked.
 
     A spatially varying background is estimated with :func:`sep.Background` using a mesh of
@@ -312,14 +323,78 @@ def masked_background(
     mesh_arcsec: Size of the background mesh in arcsec.
     niter: Number of iterations.
     label: Description of the image used in the warnings (e.g. survey and filter).
+    return_info: If ``True``, information about the background estimation is also returned (see
+        :func:`background_flag`).
 
     Returns
     -------
     back: Background of the image.
+    info: Only if ``return_info=True``: source mask (``mask``), masked fraction of the pixels with data
+        (``masked_frac``) and whether a constant background was used (``constant``).
     """
     factor = int(np.ceil(np.sqrt(data.size / MAX_PIXELS)))
     if factor <= 1:
-        return _masked_background(data, wcs, host_ra, host_dec, mesh_arcsec, niter, label)
-    binned, binned_wcs = _bin_image(data, wcs, factor)
-    back = _masked_background(binned, binned_wcs, host_ra, host_dec, mesh_arcsec, niter, label)
-    return zoom(back, factor, order=1)[: data.shape[0], : data.shape[1]]
+        back, info = _masked_background(data, wcs, host_ra, host_dec, mesh_arcsec, niter, label)
+    else:
+        binned, binned_wcs = _bin_image(data, wcs, factor)
+        back, info = _masked_background(binned, binned_wcs, host_ra, host_dec, mesh_arcsec, niter, label)
+        back = zoom(back, factor, order=1)[: data.shape[0], : data.shape[1]]
+        mask = np.repeat(np.repeat(info["mask"], factor, axis=0), factor, axis=1)[: data.shape[0], : data.shape[1]]
+        info["mask"] = mask
+    if return_info:
+        return back, info
+    return back
+
+
+def background_flag(
+    data: np.ndarray,
+    back: np.ndarray,
+    info: dict,
+    aperture: np.ndarray,
+    label: str = "",
+) -> bool:
+    """Checks whether the background subtracted in an aperture is reliable.
+
+    The background is flagged as unreliable if the background inside the aperture differs from the
+    sky level (the median background of the unmasked pixels outside the aperture) by more than
+    ``BKG_EXCESS_FRACTION`` (20%) of the aperture flux. This happens when the background follows the
+    undetected outskirts of the galaxy (e.g. a galaxy filling most of the image), so that part of its
+    flux is subtracted. A warning is given if the background is flagged. Note that images where most
+    of the pixels are masked (warned by :func:`masked_background`) are not necessarily flagged, as their
+    background can still be reliable (e.g. crowded fields, or constant backgrounds).
+
+    Parameters
+    ----------
+    data: Image data (not background subtracted).
+    back: Background of the image (see :func:`masked_background`).
+    info: Information about the background estimation (``return_info=True`` in :func:`masked_background`).
+    aperture: Boolean mask of the aperture pixels.
+    label: Description of the image and aperture used in the warning.
+
+    Returns
+    -------
+    flag: ``True`` if the background is unreliable for the aperture.
+    """
+    valid = np.isfinite(data)
+    aperture = aperture & valid
+    if aperture.sum() == 0:
+        return False
+    sky = valid & ~info["mask"] & ~aperture
+    if sky.sum() < 100:
+        sky = valid & ~aperture  # (almost) all the image is masked: background outside the aperture
+    if sky.sum() < 100:
+        warnings.warn(f"{label}: too few pixels outside the aperture to check the background.")
+        return True
+    sky_level = np.median(back[sky])
+    excess = float(np.sum(back[aperture] - sky_level))
+    flux = float(np.sum((data - back)[aperture]))
+    if abs(excess) > BKG_EXCESS_FRACTION * abs(flux):
+        fraction = f"{100 * abs(excess / flux):.0f}%" if flux != 0 else "more than 100%"
+        warnings.warn(
+            f"{label}: the background subtracted inside the aperture differs from the sky level around it by "
+            f"{fraction} of the flux, so the background probably follows the outskirts of the galaxy (e.g. a "
+            "galaxy filling most of the image) and the flux is unreliable. Consider downloading a larger image, "
+            "or using bkg_sub=False if the image is already background subtracted."
+        )
+        return True
+    return False

@@ -35,7 +35,15 @@ results of :func:`multi_band_phot` include:
   (:math:`m_{\text{AB}} = -2.5\log_{10}(f_{\mu\text{Jy}}) + 23.9`). They are converted from the fluxes, so they are
   also given for non-detections (negative or zero fluxes, for which the magnitudes are NaN);
 * ``{filt}_AB_ulim``: :math:`3\sigma` upper limit in AB magnitudes (from the flux uncertainty), e.g. for
-  non-detections.
+  non-detections;
+* ``{filt}_bkg_flag``: ``True`` if the background subtracted by HostPhot (``bkg_sub``) is unreliable for the
+  aperture: the background inside the aperture differs from the sky level around it by more than :math:`20\%` of the
+  flux, i.e. it probably follows the undetected outskirts of the galaxy (e.g. a large galaxy filling most of the
+  image), and part of the flux of the galaxy is subtracted. A larger image, or ``bkg_sub=False`` for images that are
+  already background subtracted, can help. It is always ``False`` if the background is not subtracted. For example,
+  for NGC 628 (Herschel PACS :math:`70 \mu \text{m}`, :math:`7` arcmin radius aperture), only :math:`\sim50\%` of the
+  flux is recovered with the background subtraction; none of 144 Legacy Survey and PanSTARRS images of galaxies of
+  different types was flagged.
 
 The AB magnitudes and flux densities are the most convenient to combine the photometry of different surveys
 (e.g. for SED fitting). If the Milky-Way extinction correction is applied, all the columns are corrected.
