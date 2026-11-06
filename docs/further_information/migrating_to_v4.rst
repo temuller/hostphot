@@ -124,6 +124,8 @@ New in v4
 * New output columns for all the surveys: AB magnitudes (``{filt}_AB``), flux densities in microjanskys
   (``{filt}_flux_uJy``) and :math:`3\sigma` upper limits (``{filt}_AB_ulim``), see the photometry page. The
   existing columns are unchanged.
+* Masking: new method that models the host galaxy (``create_mask(method="host_model")``), so that the structure of
+  large galaxies (e.g. star-forming clumps and spiral arms) is not masked. The default method is unchanged.
 * Resolution: the PSF FWHM of the images is given with the local photometry (``{filt}_psf_fwhm``), with a
   warning when the aperture radius is smaller than it.
 * Provenance: the saved images include the HostPhot version, download date and source image (``HP*`` keywords), and

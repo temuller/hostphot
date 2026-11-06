@@ -22,7 +22,9 @@ from .objects_detection import (
     find_gaia_objects,
     cross_match,
 )
+from .host_model import FILL_SEED, estimate_fwhm_pix, fit_host_model, host_model_mask
 from hostphot.utils import suppress_stdout, store_input
+from astropy.wcs.utils import proj_plane_pixel_scales
 from hostphot.photometry.image_utils import adapt_aperture
 from hostphot.processing.background import masked_background, sep_background
 from hostphot.surveys_utils import (
@@ -100,6 +102,11 @@ def create_mask(
     save_plots: bool = False,
     save_mask_params: bool = False,
     save_input: bool = True,
+    method: str = "ellipses",
+    host_threshold: float = 3.0,
+    contrast: float = 3.0,
+    structure_sigma: float = 3.0,
+    extended_factor: float = 1.5,
 ) -> None:
     """Calculates the aperture parameters to mask detected sources.
 
@@ -137,9 +144,32 @@ def create_mask(
     save_plots: If ``True``, the mask and galaxy aperture figures are saved.
     save_mask_params: If `True`, the extracted mask parameters are saved for later use.
     save_input: Whether to save the input parameters.
+    method: Masking method. ``"ellipses"`` (default): the detected sources (except the host galaxy) are masked
+        with their ellipses scaled by ``r``, and the masked pixels are replaced by a Gaussian-kernel interpolation
+        (``sigma``). ``"host_model"``: the host galaxy is modelled with a Sersic profile, so that its own
+        structure (e.g. star-forming clumps, spiral arms and bars, which can be detected as separate sources) is
+        not masked. Outside the host (where the model is below ``host_threshold`` times the background RMS), the
+        sources are masked with their ellipses, as with ``"ellipses"``. On the host, the sources are detected on
+        the residual image (image minus model) and only masked if they are stars of Gaia DR3 (with significant
+        proper motion or parallax) or extended sources brighter than the host where they lie (e.g. an overlapping
+        galaxy; see ``contrast``, ``structure_sigma`` and ``extended_factor``). The masked pixels are replaced by
+        the host model plus noise. Recommended for large, resolved galaxies (e.g. nearby spirals). If the model
+        cannot be fitted, ``"ellipses"`` is used instead, with a warning.
+    host_threshold: Only for ``method="host_model"``. The host region is where the model is above
+        ``host_threshold`` times the background RMS.
+    contrast: Only for ``method="host_model"``. Minimum ratio between the flux of a (non-stellar) source on the
+        host, after subtracting the model, and the flux of the model over the same area, for the source to be
+        masked.
+    structure_sigma: Only for ``method="host_model"``. Minimum mean residual of a (non-stellar) source on the
+        host, in units of the scatter of the residuals at the same elliptical radius (i.e. of the structure of the
+        host), for the source to be masked.
+    extended_factor: Only for ``method="host_model"``. Minimum size of a (non-stellar) source on the host, in
+        units of the PSF size, for the source to be masked (star-forming clumps are point-like).
     """
     input_params = locals()  # dictionary
     check_survey_validity(survey)
+    if method not in ("ellipses", "host_model"):
+        raise ValueError(f"Invalid masking method: {method} (valid options: 'ellipses', 'host_model')")
     if isinstance(filt, list):
         filt = "".join(f for f in filt)
 
@@ -215,10 +245,39 @@ def create_mask(
         )
         sigma /= conv_factor
 
-    if len(nongal_objs) > 0:
-        masked_data = mask_image(data_sub, nongal_objs, r=r, sigma=sigma)
-    else:
-        masked_data = data_sub.copy()
+    host_mask, footprint = None, None
+    if method == "host_model":
+        host_x, host_y = img_wcs.world_to_pixel_values(host_ra, host_dec)
+        fwhm_pix = _fwhm_pixels(data_sub, bkg_rms, header, img_wcs, survey, filt)
+        try:
+            if (ref_filt is None) & (ref_survey is None):
+                gaia_xy = _gaia_pixels(host_ra, host_dec, img_wcs, data_sub.shape)
+                host_mask, masked_data, info = host_model_mask(
+                    data_sub, bkg_rms, float(host_x), float(host_y), fwhm_pix, nongal_objs, gaia_xy, threshold,
+                    r=r, host_threshold=host_threshold, contrast=contrast, structure_sigma=structure_sigma,
+                    extended_factor=extended_factor,
+                )
+                footprint = info["footprint"]
+                nongal_objs = nongal_objs[info["outside"]]  # sources masked with their ellipses
+            else:
+                # mask of the reference image (reprojected), with the host model of this image for the filling
+                host_mask = load_host_mask(name, ref_filt or filt, ref_survey or survey, img_wcs, data_sub.shape)
+                host = fit_host_model(data_sub, bkg_rms, float(host_x), float(host_y), fwhm_pix)
+                host_mask &= np.isfinite(data_sub)
+                rng = np.random.default_rng(FILL_SEED)
+                masked_data = data_sub.copy()
+                masked_data[host_mask] = (host["model"][host_mask] + host["sky"]
+                                          + rng.normal(0.0, bkg_rms, host_mask.sum()))
+                footprint = host["model"] > host_threshold * bkg_rms
+        except (RuntimeError, ValueError, IndexError) as exc:
+            warnings.warn(f"{survey} {filt}: the host model could not be fitted ({exc}), "
+                          "so the sources are masked with their ellipses (method='ellipses').")
+            host_mask, footprint = None, None
+    if host_mask is None:
+        if len(nongal_objs) > 0:
+            masked_data = mask_image(data_sub, nongal_objs, r=r, sigma=sigma)
+        else:
+            masked_data = data_sub.copy()
     masked_hdu = deepcopy(hdu)
     masked_hdu[0].data = masked_data
     if "MASK" in masked_hdu and masked_hdu["MASK"].data is not None:
@@ -256,6 +315,13 @@ def create_mask(
         objects_df["survey"] = survey
         outfile = obj_dir / survey / f"mask_parameters_{filt}.csv"
         objects_df.to_csv(outfile, index=False)
+        if host_mask is not None:
+            # pixel mask (method="host_model"), for other filters or surveys (``ref_filt``, ``ref_survey``)
+            mask_header = img_wcs.to_header()
+            mask_header["MASKMETH"] = ("host_model", "HostPhot masking method")
+            fits.PrimaryHDU(host_mask.astype(np.uint8), header=mask_header).writeto(
+                obj_dir / survey / f"host_mask_{filt}.fits", overwrite=True
+            )
 
     if save_plots is True:
         outfile = obj_dir / survey / f"{survey}_{filt}_masked.jpg"
@@ -272,8 +338,52 @@ def create_mask(
             dec,
             title,
             outfile,
+            mask=host_mask,
+            footprint=footprint,
         )
     hdu.close()
+
+
+def _fwhm_pixels(data: np.ndarray, bkg_rms: float, header: fits.Header, img_wcs: wcs.WCS, survey: str,
+                 filt: str) -> float:
+    """PSF FWHM in pixels: from the image header or the typical value of the filter, or estimated from the
+    image (e.g. HST and JWST)."""
+    from hostphot.photometry.photometry_utils import image_psf_fwhm
+
+    fwhm = image_psf_fwhm(header, survey, filt)
+    pixel_scale = np.mean(proj_plane_pixel_scales(img_wcs)) * 3600  # arcsec / pixel
+    if np.isfinite(fwhm) and fwhm > 0:
+        return float(fwhm / pixel_scale)
+    return estimate_fwhm_pix(data, bkg_rms, ~np.isfinite(data))
+
+
+def _gaia_pixels(host_ra: float, host_dec: float, img_wcs: wcs.WCS, shape: tuple) -> tuple[np.ndarray, np.ndarray]:
+    """Pixel coordinates of the Gaia DR3 stars (with significant proper motion or parallax) in the image."""
+    radius = 0.5 * np.hypot(*shape) * np.max(proj_plane_pixel_scales(img_wcs))  # half diagonal, in degrees
+    stars = find_gaia_objects(host_ra, host_dec, rad=float(radius))
+    if len(stars) == 0:
+        return np.array([]), np.array([])
+    x, y = img_wcs.world_to_pixel(stars)
+    return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+
+
+def load_host_mask(name: str, filt: str | list, survey: str, img_wcs: wcs.WCS, shape: tuple) -> np.ndarray:
+    """Loads a previously saved mask of ``method="host_model"`` (``save_mask_params=True``) and reprojects it
+    onto the given image."""
+    from reproject import reproject_interp
+
+    if isinstance(filt, list):
+        filt = "".join(filt)
+    mask_file = Path(workdir, name, survey, f"host_mask_{filt}.fits")
+    if not mask_file.exists():
+        raise FileNotFoundError(
+            f"{mask_file} not found: create the reference mask with method='host_model' and save_mask_params=True"
+        )
+    with fits.open(mask_file) as mask_hdu:
+        reprojected, _ = reproject_interp(
+            (mask_hdu[0].data.astype(float), wcs.WCS(mask_hdu[0].header)), img_wcs, shape_out=shape, order=0
+        )
+    return np.nan_to_num(reprojected) > 0.5
 
 
 def load_mask_params(
@@ -334,6 +444,8 @@ def plot_masked_image(
     dec: Optional[float] = None,
     title: Optional[str] = None,
     outfile: Optional[float] = None,
+    mask: Optional[np.ndarray] = None,
+    footprint: Optional[np.ndarray] = None,
 ) -> None:
     """Plots the masked image together with the original image and
     the detected objects.
@@ -352,6 +464,8 @@ def plot_masked_image(
     dec: Declination of an object, in degrees. Used for plotting the position of the object.
     title: Title of the image.
     outfile: If given, path where to save the output figure.
+    mask: Masked pixels (``method="host_model"``), shown as contours.
+    footprint: Host region (``method="host_model"``), shown as a contour.
     """
     figure = plt.figure(figsize=(30, 12))
     with warnings.catch_warnings():
@@ -428,6 +542,10 @@ def plot_masked_image(
         edgecolor="orangered",
         linestyle="dotted",
     )
+    # masked regions and host region (method="host_model")
+    for array, color, style in [(mask, "orangered", "solid"), (footprint, "lime", "dashed")]:
+        if array is not None and np.any(array):
+            fig2.ax.contour(array.astype(float), levels=[0.5], colors=color, linestyles=style, linewidths=2)
     # SN marker
     if (ra is not None) and (dec is not None):
         for fig in figures[1:]:

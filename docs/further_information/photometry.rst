@@ -71,6 +71,29 @@ NUV, 6.1-12 arcsec for WISE, 1.7-2.0 and 5.9 arcsec for IRAC and MIPS 24 microns
 Herschel. They are not given for HST and JWST, whose PSFs (:math:`\lesssim0.2` arcsec) are much smaller than the
 usual apertures.
 
+Masking
+~~~~~~~
+
+Before the photometry, the sources around the host galaxy (stars and other galaxies) can be masked with
+:func:`hostphot.processing.masking.create_mask` (``use_mask=True`` in the photometry). Two methods are available:
+
+* ``method="ellipses"`` (default): the sources detected with ``sep`` (``threshold``, ``deblend_cont``), except the
+  host galaxy, are masked with their ellipses scaled by ``r``, and the masked pixels are replaced by a
+  Gaussian-kernel interpolation (``sigma``).
+* ``method="host_model"``: the host galaxy is modelled with an elliptical Sersic profile, so that its own structure is
+  not masked. Large, resolved galaxies (e.g. nearby spirals) can be detected as several sources (star-forming
+  clumps, spiral arms, bars), whose masks can then cover a large part of the galaxy. Outside the host (where the
+  model is above ``host_threshold`` times the background noise), the sources are masked with their ellipses, as
+  above. On the host, the sources are detected on the residual image (image minus model) and only masked if they
+  are stars of Gaia DR3 (with a significant proper motion or parallax), or extended sources clearly brighter than
+  the host where they lie (e.g. an overlapping galaxy; see ``contrast``, ``structure_sigma`` and
+  ``extended_factor``). The masked pixels are replaced by the host model plus noise. If the model cannot be
+  fitted, the ellipses are used instead (with a warning). This method needs the Gaia archive.
+
+The masks of one image can be used for other filters or surveys (``save_mask_params=True`` and ``ref_filt``,
+``ref_survey``). With ``method="host_model"``, the mask of the reference image is reprojected onto the other images,
+and the host model of each image is used to fill the masked pixels.
+
 
 PS1
 ~~~
