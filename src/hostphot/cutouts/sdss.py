@@ -10,13 +10,22 @@ from astropy.nddata import Cutout2D
 from astroquery.sdss import SDSS
 
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
+from hostphot.utils import image_coverage, FULL_COVERAGE
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
+# maximum number of frames downloaded while looking for one covering the cutout
+MAX_FRAMES = 4
+
+
 def _best_frame(ra: float, dec: float, size_arcmin: float, dr: int) -> Table | None:
-    """Chooses the SDSS frame (run, rerun, camcol and field) containing the given position where
-    a cutout of the given size fits best, using the Field table.
+    """Sorts the SDSS frames (run, rerun, camcol and field) that might contain the given position by how well
+    a cutout of the given size fits in them, using the Field table.
+
+    The RA/Dec limits of the Field table are those of a box aligned with RA and Dec, so the frames (which are
+    tilted with respect to it, e.g. away from the equator) might not contain the position, which is checked
+    after downloading them (see :func:`get_SDSS_images`).
 
     Among the frames where the whole cutout fits (margin to the frame edges of at least half the
     cutout size), the one with the best quality and largest margin is chosen; if the cutout does not
@@ -31,7 +40,7 @@ def _best_frame(ra: float, dec: float, size_arcmin: float, dr: int) -> Table | N
 
     Returns
     -------
-    frame: Table with the run, rerun, camcol and field of the frame, or ``None`` if not found.
+    frames: Table with the run, rerun, camcol and field of the frames (best first), or ``None`` if not found.
     """
     query = (
         "SELECT run, rerun, camcol, field, raMin, raMax, decMin, decMax, quality FROM Field "
@@ -60,8 +69,8 @@ def _best_frame(ra: float, dec: float, size_arcmin: float, dr: int) -> Table | N
         order = np.lexsort((-margins, -np.asarray(frames["quality"]), ~fits_frame))
     else:
         order = np.argsort(-margins)
-    best = frames[order[0]]
-    return Table({key: [best[key]] for key in ["run", "rerun", "camcol", "field"]})
+    frames = frames[order]
+    return Table({key: list(frames[key]) for key in ["run", "rerun", "camcol", "field"]})
 
 
 def _closest_object_frame(coords: SkyCoord, dr: int) -> Table | None:
@@ -79,6 +88,13 @@ def _closest_object_frame(coords: SkyCoord, dr: int) -> Table | None:
     coords_imgs = SkyCoord(ra=ids["ra"].value, dec=ids["dec"].value, unit=(u.degree, u.degree), frame="icrs")
     pointing_id = int(np.argmin(coords.separation(coords_imgs).value))
     return ids[pointing_id : pointing_id + 1]
+
+
+def _contains(data: np.ndarray, img_wcs: WCS, ra: float, dec: float) -> bool:
+    """Whether the position is within the image."""
+    x, y = img_wcs.world_to_pixel_values(ra, dec)
+    ny, nx = data.shape
+    return bool(np.isfinite(x) and np.isfinite(y) and -0.5 <= x < nx - 0.5 and -0.5 <= y < ny - 0.5)
 
 
 def get_SDSS_images(ra: float, dec: float, size: float | u.Quantity = 3, 
@@ -119,15 +135,36 @@ def get_SDSS_images(ra: float, dec: float, size: float | u.Quantity = 3,
     pixel_scale = survey_pixel_scale(survey, "g")  # same pixel scale for all filters
     size_pixels = int(size_arcsec.value / pixel_scale)
     coords = SkyCoord(ra=ra * u.degree, dec=dec * u.degree)
-    # choose the frame (among the overlapping ones) where the cutout fits best
-    ids = _best_frame(ra, dec, size_arcsec.value / 60, dr)
-    if ids is None:
+    # candidate frames, sorted by how well the cutout fits in them
+    frames = _best_frame(ra, dec, size_arcsec.value / 60, dr)
+    if frames is None:
         # fall back to the frame of the object closest to the given coordinates
-        ids = _closest_object_frame(coords, dr)
-    if ids is None:
+        frames = _closest_object_frame(coords, dr)
+    if frames is None:
         return None
-    # download images
-    hdu_list = SDSS.get_images(matches=ids, band=filters, data_release=dr)
+    # download the frames until one covers the whole cutout (otherwise, the one with the largest coverage
+    # is used), as the frames of the Field table might not contain the position (see _best_frame())
+    hdu_list, best_coverage = None, 0.0
+    for i in range(min(len(frames), MAX_FRAMES)):
+        frame_hdus = SDSS.get_images(matches=frames[i : i + 1], band=filters, data_release=dr)
+        if not frame_hdus:
+            continue
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", AstropyWarning)
+            frame_wcs = WCS(frame_hdus[0][0].header)
+        coverage = image_coverage(frame_hdus[0][0].data, frame_wcs, ra, dec, size_arcsec.value)
+        if not _contains(frame_hdus[0][0].data, frame_wcs, ra, dec):
+            coverage = 0.0
+        if coverage > best_coverage:
+            hdu_list, best_coverage = frame_hdus, coverage
+        if coverage >= FULL_COVERAGE:
+            break
+    if hdu_list is None:
+        warnings.warn(
+            f"None of the SDSS frames found contains the position (ra={ra}, dec={dec}); it is probably outside "
+            "the SDSS footprint."
+        )
+        return None
     # SDSS images are large so need to be trimmed
     for hdu in hdu_list:
         with warnings.catch_warnings():
