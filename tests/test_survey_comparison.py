@@ -34,6 +34,7 @@ class TestSurveyPhotometryAgreement(unittest.TestCase):
             "UKIDSS": ["Y", "J", "H"],
         }
 
+        n_compared = 0  # bands with at least two surveys
         for filt in ["Y", "J", "H"]:
             print(f"\n=== {filt} band ===")
             mags, errs = {}, {}
@@ -75,7 +76,10 @@ class TestSurveyPhotometryAgreement(unittest.TestCase):
                     print(f"{survey}: Error - {e}")
 
             if len(mags) < 2:
-                pytest.skip(f"Fewer than two surveys could be measured in {filt} (archives not available?)")
+                # e.g. no VISTA Y images at this position (VHS: J, H and Ks only), or archives not available
+                print(f"Fewer than two surveys could be measured in {filt}: skipped")
+                continue
+            n_compared += 1
             if len(mags) >= 2:
                 surveys_list = list(mags.keys())
                 for i, s1 in enumerate(surveys_list):
@@ -86,6 +90,8 @@ class TestSurveyPhotometryAgreement(unittest.TestCase):
                         tolerance = 3 * np.sqrt(errs[s1] ** 2 + errs[s2] ** 2 + 0.05**2)
                         print(f"{s1} - {s2}: {diff:.4f} (tolerance {tolerance:.3f})")
                         assert abs(diff) < tolerance, f"{s1} - {s2} = {diff:.3f} mag in {filt}"
+        if n_compared == 0:
+            pytest.skip("Fewer than two surveys could be measured in all the bands (archives not available?)")
 
     @pytest.mark.network
     def test_catalog_stars(self):
@@ -99,7 +105,8 @@ class TestSurveyPhotometryAgreement(unittest.TestCase):
             stars = Vizier(columns=["**"], row_limit=-1).query_region(
                 SkyCoord(ra, dec, unit="deg"), radius=4 * u.arcmin, catalog="II/246/out"
             )[0].to_pandas()
-        except (requests.exceptions.ConnectionError, IndexError) as e:
+        except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError, IndexError) as e:
+            # (e.g. VizieR down: connection errors or HTTP errors such as 404)
             pytest.skip(f"2MASS catalogue not available: {e}")
         # bright, good-quality, unsaturated stars
         stars = stars[(stars.Qflg == "AAA") & stars.Jmag.between(12.0, 15.0)]
