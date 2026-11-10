@@ -35,6 +35,7 @@ from hostphot.processing.cleaning import remove_nan, saturated_mask
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, store_input, image_provenance
 from hostphot._version import __version__
+from hostphot.flags import GLOBAL_FLAGS, KronWarning, collect_flags, header_flags
 from hostphot.photometry.photometry_utils import (
     magnitude_calculation,
     extract_invvar_kron_flux,
@@ -66,6 +67,8 @@ from hostphot.surveys_utils import (
     normalize_filters,
 )
 
+import functools
+import inspect
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
@@ -281,7 +284,7 @@ def optimize_aperture(
         if not np.isfinite(flux):
             if prev is None:
                 return flux, flux_err, kronrad, scale
-            warnings.warn("Warning: the aperture might not fit in the image!")
+            warnings.warn("The optimised Kron aperture might not fit in the image!", KronWarning)
             return prev[0], prev[1], kronrad, prev[2]
         if prev is not None:
             gain = flux - prev[0]
@@ -293,7 +296,8 @@ def optimize_aperture(
 
     warnings.warn(
         f"The optimised Kron aperture reached the maximum scale ({MAX_KRON_SCALE} times the Kron radius) "
-        "without converging (e.g. residual sky or a very extended galaxy), so the flux might be overestimated."
+        "without converging (e.g. residual sky or a very extended galaxy), so the flux might be overestimated.",
+        KronWarning,
     )
     return prev[0], prev[1], kronrad, prev[2]
 
@@ -414,11 +418,14 @@ def extract_aperture(
         )
     if optimize_kronrad:
         _exptime = get_effective_gain(header, survey, filt)  # for the Poisson noise of the sources
-        opt_res = optimize_aperture(data_sub, bkg.rms(), _exptime, gal_obj, eps)
+        with collect_flags() as kron_flags:
+            opt_res = optimize_aperture(data_sub, bkg.rms(), _exptime, gal_obj, eps)
         _, _, kronrad, scale = opt_res
+        kron_flag = "kron" in kron_flags
     else:
         scale = 2.5
         kronrad = _kron_radius(data_sub, gal_obj)
+        kron_flag = False
 
     if save_plots is True:
         outfile = obj_dir / survey / f"global_{survey}_{filt}.jpg"
@@ -445,6 +452,7 @@ def extract_aperture(
         gal_df = pd.DataFrame(gal_obj)
         gal_df["kronrad"] = kronrad
         gal_df["scale"] = scale
+        gal_df["kron_flag"] = kron_flag  # (see optimize_aperture())
         gal_df["flip"] = flip
         gal_df["filt"] = filt
         gal_df["survey"] = survey
@@ -523,6 +531,12 @@ def load_aperture_params(
     kronrad = gal_df.pop("kronrad").values[0]
     scale = gal_df.pop("scale").values[0]  # remove host-galaxy row
     flip = gal_df.pop("flip").values[0]
+    if "kron_flag" in gal_df and bool(gal_df.pop("kron_flag").values[0]):
+        warnings.warn(
+            f"The optimised Kron aperture of the reference ({survey} {filt}) reached the maximum scale or might not "
+            "fit in the image (see optimize_aperture()).",
+            KronWarning,
+        )
     # remove unused columns
     _ = gal_df.pop("filt")
     _ = gal_df.pop("survey")
@@ -541,7 +555,7 @@ def load_aperture_params(
     return gal_obj, wcs, kronrad, scale, flip
 
 
-def photometry(
+def _photometry(
     name: str,
     host_ra: float,
     host_dec: float,
@@ -562,7 +576,7 @@ def photometry(
     ref_survey: Optional[str] = None,
     save_plots: bool = True,
     save_aperture_params: bool = False,
-    return_bkg_flag: bool = False,
+    return_flags: bool = False,
 ) -> tuple[float, float, float, float, float]:
     """Calculates the global aperture photometry of a galaxy using
     the Kron flux.
@@ -607,9 +621,8 @@ def photometry(
         need to have been previously saved with ``save_aperture_params=True``.
     save_plots: If `True`, the mask and galaxy aperture figures are saved.
     save_aperture_params: Whether to save the aperture parameters.
-    return_bkg_flag: If ``True``, the background flag of the Kron aperture (``bkg_flag``: ``True`` if
-        the subtracted background is unreliable, see :func:`hostphot.processing.background.background_flag`;
-        always ``False`` if the background is not subtracted) is returned in a dictionary, as a sixth value.
+    return_flags: If ``True``, the quality flags (see :mod:`hostphot.flags`; ``True`` if the issue was found,
+        with a warning) are returned in a dictionary (``flags``), as a sixth value.
 
     Returns
     -------
@@ -618,9 +631,9 @@ def photometry(
     flux: Aperture flux.
     flux_err: Total flux error on the aperture flux.
     zp: Zeropoint.
-    details: For Herschel (or with ``return_bkg_flag=True``), dictionary with details of the measurement
-        (e.g. units, conversion factor to Jy/pixel and blank-aperture noise for Herschel, and the background
-        flag), as a sixth value.
+    details: For Herschel (or with ``return_flags=True``), dictionary with details of the measurement
+        (e.g. units, conversion factor to Jy/pixel and blank-aperture noise for Herschel, and the quality
+        flags), as a sixth value.
     """
     # initial checks
     check_survey_validity(survey)
@@ -701,14 +714,13 @@ def photometry(
             gal_obj, master_wcs, wcs, flip_
         )
 
-    # reliability of the subtracted background in the Kron aperture
-    bkg_flag = False
+    # reliability of the subtracted background in the Kron aperture (with a warning if unreliable)
     if back_info is not None:
         x, y, a, b, theta = _kron_ellipse(gal_obj, kronrad, scale)
         aperture_pixels = (
             EllipticalAperture((x, y), a, b, theta=theta).to_mask(method="center").to_image(data.shape) > 0
         )
-        bkg_flag = background_flag(data, back, back_info, aperture_pixels, f"{survey} {filt} (Kron aperture)")
+        background_flag(data, back, back_info, aperture_pixels, f"{survey} {filt} (Kron aperture)")
 
     if survey == "Herschel":
         flux, flux_err, herschel_details = herschel_kron_flux(
@@ -756,8 +768,6 @@ def photometry(
                 outfile=outfile,
             )
         hdu.close()
-        if return_bkg_flag:
-            herschel_details["bkg_flag"] = bkg_flag
         return mag, mag_err, flux, flux_err, zp, herschel_details
 
     # get Kron flux
@@ -826,8 +836,26 @@ def photometry(
         )
     hdu.close()
 
-    if return_bkg_flag:
-        return mag, mag_err, flux, flux_err, zp, {"bkg_flag": bkg_flag}
+    return mag, mag_err, flux, flux_err, zp, {}
+
+
+@functools.wraps(_photometry)
+def photometry(*args, **kwargs) -> tuple:
+    # the quality flags are found from the warnings raised during the photometry (see hostphot.flags) and from
+    # the header of the image (flags set when downloading or masking it)
+    params = inspect.signature(_photometry).bind(*args, **kwargs)
+    params.apply_defaults()
+    with collect_flags() as flags:
+        mag, mag_err, flux, flux_err, zp, details = _photometry(*params.args, **params.kwargs)
+    p = params.arguments
+    suffix = "_masked" if p["use_mask"] else ""
+    fits_file = Path(workdir, p["name"], p["survey"], f"{p['survey']}_{p['filt']}{suffix}.fits")
+    flags |= header_flags(fits.getheader(fits_file))
+    if p["return_flags"]:
+        details["flags"] = {flag: flag in flags for flag in GLOBAL_FLAGS}
+        return mag, mag_err, flux, flux_err, zp, details
+    if details:
+        return mag, mag_err, flux, flux_err, zp, details  # (Herschel)
     return mag, mag_err, flux, flux_err, zp
 
 
@@ -974,7 +1002,7 @@ def multi_band_phot(
                 ref_survey=ref_survey,
                 save_plots=save_plots,
                 save_aperture_params=save_aperture_params,
-                return_bkg_flag=True,
+                return_flags=True,
             )
             mag, mag_err, flux, flux_err, zp = phot_res[:5]
             extra_results = phot_res[5] if len(phot_res) > 5 else {}
@@ -986,6 +1014,9 @@ def multi_band_phot(
             # AB magnitude, flux density (microjanskys) and upper limit, the same for all the surveys
             for key, value in ab_photometry(survey, filt, flux, flux_err, zp).items():
                 results_dict[f"{filt}_{key}"] = value
+            # quality flags (e.g. unreliable subtracted background, partial coverage, calibration)
+            for flag, value in extra_results.pop("flags", {}).items():
+                results_dict[f"{filt}_{flag}_flag"] = value
             for extra_key, extra_value in extra_results.items():
                 results_dict[f"{filt}_{extra_key}"] = extra_value
             # provenance of the image
@@ -1004,7 +1035,8 @@ def multi_band_phot(
                 results_dict[f"{filt}_zeropoint"] = np.nan
                 for key in ["AB", "flux_uJy", "flux_uJy_err", "AB_ulim"]:
                     results_dict[f"{filt}_{key}"] = np.nan
-                results_dict[f"{filt}_bkg_flag"] = np.nan
+                for flag in GLOBAL_FLAGS:
+                    results_dict[f"{filt}_{flag}_flag"] = np.nan
                 results_dict[f"{filt}_image_id"] = ""
                 results_dict[f"{filt}_download_date"] = ""
 

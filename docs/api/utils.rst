@@ -13,3 +13,6 @@ Other support functions are documented bellow:
 
 .. automodule:: hostphot.photometry.image_utils
    :members:
+
+.. automodule:: hostphot.flags
+   :members:

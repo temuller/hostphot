@@ -14,6 +14,8 @@ from hostphot._constants import font_family
 from hostphot.utils import suppress_stdout, add_fields
 
 import warnings
+
+from hostphot.flags import GaiaWarning
 from astropy.utils.exceptions import AstropyWarning
 from requests.exceptions import HTTPError
 
@@ -161,7 +163,7 @@ def find_gaia_objects(ra: float, dec: float, rad: float = 0.15, min_significance
         with suppress_stdout():
             gaia_cat = Gaia.launch_job_async(query).get_results()  # (no row limit)
     except Exception as exc:
-        warnings.warn(f"The Gaia DR3 query failed ({exc}), so no stars are used for the cross-match.")
+        warnings.warn(f"The Gaia DR3 query failed ({exc}), so no stars are used for the cross-match.", GaiaWarning)
         return SkyCoord([], [], unit="deg")
 
     def values(column):

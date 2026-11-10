@@ -14,6 +14,7 @@ from photutils.utils import calc_total_error
 from photutils.aperture import CircularAperture, EllipticalAperture, ApertureMask
 
 import hostphot
+from hostphot.flags import CalibrationWarning, CoverageWarning, ErrorFloorWarning
 from hostphot.surveys_utils import (
     check_survey_validity,
     check_filters_validity,
@@ -99,7 +100,8 @@ def get_HST_err(filt: str, header: fits.Header) -> float:
     if len(filt_err_df) == 0:
         # e.g. the WFC3/UVIS quad filters (FQ*) are not in the tables
         warnings.warn(
-            f"HST {instrument} {filt}: no zeropoint uncertainty available, so 2% is assumed."
+            f"HST {instrument} {filt}: no zeropoint uncertainty available, so 2% is assumed.",
+            CalibrationWarning,
         )
         return 2.5 / np.log(10) * 0.02
     # error propagation
@@ -1216,7 +1218,8 @@ def check_aperture_coverage(
     if missing <= tolerance:
         warnings.warn(
             f"{label}: {msg}; the flux is measured from the remaining pixels and may be underestimated "
-            f"by up to ~{100 * missing:.1f}%."
+            f"by up to ~{100 * missing:.1f}%.",
+            CoverageWarning,
         )
         return True
     warnings.warn(f"{label}: {msg}, more than the {100 * tolerance:.0f}% tolerance; returning NaN.")
@@ -1281,7 +1284,8 @@ def blank_aperture_floor(
     if blank_rms is None:
         warnings.warn(
             f"The blank-aperture noise floor could not be estimated for a {radius:.1f}-pixel aperture (not enough "
-            "blank sky in the image), so the uncertainty might be underestimated. Consider downloading a larger image."
+            "blank sky in the image), so the uncertainty might be underestimated. Consider downloading a larger image.",
+            ErrorFloorWarning,
         )
     return _apply_floor(flux_err, blank_rms)
 
@@ -1326,12 +1330,14 @@ def blank_kron_floor(
         if rms is None:
             warnings.warn(
                 f"{label}: the blank-aperture noise floor could not be estimated (not enough blank sky "
-                "in the image), so the uncertainty might be underestimated. Consider downloading a larger image."
+                "in the image), so the uncertainty might be underestimated. Consider downloading a larger image.",
+                ErrorFloorWarning,
             )
         else:
             warnings.warn(
                 f"{label}: blank apertures of the size of the Kron aperture do not fit in the image, so the "
-                "noise floor was extrapolated from smaller apertures (less accurate). Consider downloading a larger image."
+                "noise floor was extrapolated from smaller apertures (less accurate). Consider downloading a larger image.",
+                ErrorFloorWarning,
             )
     return _apply_floor(flux_err, rms)
 

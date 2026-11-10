@@ -14,6 +14,7 @@ from astropy.wcs import WCS
 
 from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image, image_coverage, FULL_COVERAGE
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
+from hostphot.flags import FallbackImageWarning, set_header_flag
 
 # Spitzer Heritage Archive (SHA): post-BCD mosaics of each observation (AOR), including the warm mission
 # (IRAC 3.6 and 4.5 microns, 2009-2020), which is not included in the SEIP super mosaics (cryogenic mission only)
@@ -218,8 +219,10 @@ def get_Spitzer_images(ra: float, dec: float, size: float | u.Quantity = 3,
             if sha_hdu is not None and sha_coverage > coverage + 1e-6:
                 warnings.warn(
                     f"{survey} {filt}: no SEIP mosaic covers the whole cutout; using a post-BCD mosaic of the Spitzer "
-                    f"Heritage Archive (AOR {sha_hdu[0].header.get('AORKEY')}; {100 * sha_coverage:.0f}% coverage)."
+                    f"Heritage Archive (AOR {sha_hdu[0].header.get('AORKEY')}; {100 * sha_coverage:.0f}% coverage).",
+                    FallbackImageWarning,
                 )
+                set_header_flag(sha_hdu[0].header, "fallback_image")
                 hdu = sha_hdu
         hdu_list.append(hdu)
     return hdu_list

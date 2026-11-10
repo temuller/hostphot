@@ -12,6 +12,7 @@ import numpy as np
 from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image, url_band, image_coverage, FULL_COVERAGE
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 from hostphot.moc.maps import contains_coords
+from hostphot.flags import CalibrationWarning, set_header_flag
 
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -208,8 +209,10 @@ def _select_tile(urls: list[str], ra: float, dec: float, size_arcsec: float, lab
     if magzrr > MAX_MAGZRR:
         warnings.warn(
             f"{label}: no well-calibrated image was found; using one with a zeropoint uncertainty of "
-            f"{magzrr:.3f} mag (MAGZRR)."
+            f"{magzrr:.3f} mag (MAGZRR).",
+            CalibrationWarning,
         )
+        set_header_flag(best[0].header, "calib")  # (kept by _prepare_image())
     return best
 
 

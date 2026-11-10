@@ -36,14 +36,7 @@ results of :func:`multi_band_phot` include:
   also given for non-detections (negative or zero fluxes, for which the magnitudes are NaN);
 * ``{filt}_AB_ulim``: :math:`3\sigma` upper limit in AB magnitudes (from the flux uncertainty), e.g. for
   non-detections;
-* ``{filt}_bkg_flag``: ``True`` if the background subtracted by HostPhot (``bkg_sub``) is unreliable for the
-  aperture: the background inside the aperture differs from the sky level around it by more than :math:`20\%` of the
-  flux, i.e. it probably follows the undetected outskirts of the galaxy (e.g. a large galaxy filling most of the
-  image), and part of the flux of the galaxy is subtracted. A larger image, or ``bkg_sub=False`` for images that are
-  already background subtracted, can help. It is always ``False`` if the background is not subtracted. For example,
-  for NGC 628 (Herschel PACS :math:`70 \mu \text{m}`, :math:`7` arcmin radius aperture), only :math:`\sim50\%` of the
-  flux is recovered with the background subtraction; none of 144 Legacy Survey and PanSTARRS images of galaxies of
-  different types was flagged.
+* quality flags (see below).
 
 The AB magnitudes and flux densities are the most convenient to combine the photometry of different surveys
 (e.g. for SED fitting). If the Milky-Way extinction correction is applied, all the columns are corrected.
@@ -61,6 +54,46 @@ Provenance columns (local and global photometry):
   so only the version is given (the request is reproduced with the position);
 * ``{filt}_download_date``: date the image was downloaded (UTC; empty for images downloaded with previous versions).
 
+Quality flags
+~~~~~~~~~~~~~
+
+Some issues do not prevent the photometry from being measured, but make it less reliable. They are reported with a
+warning and with boolean columns (``True`` if the issue was found), so that the users can decide whether to use each
+survey, image or filter (see :mod:`hostphot.flags`). Columns of the global photometry: ``{filt}_{flag}_flag``.
+Local photometry: ``{filt}_{radius}_{flag}_flag`` for the flags of each aperture (``bkg``, ``coverage``, ``psf`` and
+``err``), and ``{filt}_{flag}_flag`` for the flags of the image (``calib``, ``fallback_image``, ``mask_fallback`` and
+``mask_nogaia``). The flags are NaN if the photometry fails.
+
+* ``bkg``: the background subtracted by HostPhot (``bkg_sub``) is unreliable for the aperture: the background inside
+  the aperture differs from the sky level around it by more than :math:`20\%` of the flux, i.e. it probably follows
+  the undetected outskirts of the galaxy (e.g. a large galaxy filling most of the image), and part of the flux of the
+  galaxy is subtracted. A larger image, or ``bkg_sub=False`` for images that are already background subtracted, can
+  help. It is always ``False`` if the background is not subtracted. For example, for NGC 628 (Herschel PACS
+  :math:`70 \mu \text{m}`, :math:`7` arcmin radius aperture), only :math:`\sim50\%` of the flux is recovered with the
+  background subtraction; none of 144 Legacy Survey and PanSTARRS images of galaxies of different types was flagged.
+* ``coverage``: part of the aperture has no data (e.g. image edge or chip gap), so the flux is measured from the
+  remaining pixels and might be underestimated (up to :math:`5\%` of the area, or of the estimated flux for the Kron
+  apertures; above this, the flux is NaN).
+* ``psf``: the aperture radius is smaller than the PSF FWHM of the image (local photometry only), so the flux depends
+  strongly on the resolution.
+* ``err``: the blank-aperture noise floor could not be estimated, or was extrapolated from smaller apertures (not
+  enough blank sky in the image), so the uncertainty might be underestimated. A larger image can help.
+* ``kron``: the optimised Kron aperture (``optimize_kronrad=True``) reached the maximum scale without converging, or
+  might not fit in the image (global photometry only; also for the common aperture of a reference filter).
+* ``calib``: less reliable calibration: VISTA image with a zeropoint uncertainty (``MAGZRR``) above 0.05 mag, KiDS
+  image without the DR5 zeropoint correction (``DMAG``), or HST filter without a tabulated zeropoint uncertainty
+  (:math:`2\%` assumed).
+* ``fallback_image``: Spitzer mosaic of the Spitzer Heritage Archive used instead of the SEIP mosaic (which does not
+  cover the cutout).
+* ``mask_fallback``: the host model could not be fitted when masking (``method="host_model"``), so the sources were
+  masked with their ellipses.
+* ``mask_nogaia``: the Gaia DR3 query failed when masking, so the stars could not be identified.
+
+The ``calib`` (VISTA and KiDS), ``fallback_image``, ``mask_fallback`` and ``mask_nogaia`` flags are set when
+downloading or masking the images, and stored in their headers (``HPF*`` keywords), so they are only available for
+images downloaded or masked with HostPhot v4.0.0 or later. The masking flags are only given for the masked images
+(``use_mask=True``).
+
 Resolution
 ~~~~~~~~~~
 
@@ -69,7 +102,7 @@ out of the aperture and into it from the surroundings), so the photometry of sur
 is not directly comparable (e.g. IRAC 3.6 microns, with a FWHM of 1.7 arcsec, gives a ~30% larger flux than
 WISE W1, with a FWHM of 6.1 arcsec, in a 5 arcsec radius aperture, but they agree within a few percent in a
 20 arcsec radius aperture). The local photometry gives a warning when the aperture radius is smaller than the
-PSF FWHM of the image.
+PSF FWHM of the image (with the ``psf`` flag).
 
 The PSF FWHM is taken from the image header when available (KiDS; the ``SEEING`` keyword of UKIDSS, UHS and the
 VISTA tiles, converted into arcsec when downloading the images; SkyMapper; S-PLUS). Otherwise, typical (median)

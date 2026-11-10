@@ -12,6 +12,7 @@ from astropy.wcs import WCS
 from astropy.utils.exceptions import AstropyWarning
 
 from hostphot.utils import open_fits_from_urls, select_image
+from hostphot.flags import CalibrationWarning, set_header_flag
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 # ESO archive: ObsCore table (TAP) and cutout service (SODA)
@@ -121,7 +122,11 @@ def get_KiDS_images(
         if "DMAG" in header:
             header["MAGZP"] = (header["PHOTZP"] + header["DMAG"], "AB zeropoint (PHOTZP + DMAG)")
         else:
-            warnings.warn(f"{survey} {filt}: no DR5 zeropoint correction (DMAG) in the header; using PHOTZP only.")
+            warnings.warn(
+                f"{survey} {filt}: no DR5 zeropoint correction (DMAG) in the header; using PHOTZP only.",
+                CalibrationWarning,
+            )
+            set_header_flag(header, "calib")
             header["MAGZP"] = (header["PHOTZP"], "AB zeropoint (PHOTZP)")
         hdu_list.append(fits.HDUList([fits.PrimaryHDU(data=hdu[0].data, header=header)]))
 

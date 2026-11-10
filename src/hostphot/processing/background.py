@@ -1,4 +1,6 @@
 import warnings
+
+from hostphot.flags import BackgroundWarning
 from typing import Optional
 
 import numpy as np
@@ -383,7 +385,7 @@ def background_flag(
     if sky.sum() < 100:
         sky = valid & ~aperture  # (almost) all the image is masked: background outside the aperture
     if sky.sum() < 100:
-        warnings.warn(f"{label}: too few pixels outside the aperture to check the background.")
+        warnings.warn(f"{label}: too few pixels outside the aperture to check the background.", BackgroundWarning)
         return True
     sky_level = np.median(back[sky])
     excess = float(np.sum(back[aperture] - sky_level))
@@ -394,7 +396,8 @@ def background_flag(
             f"{label}: the background subtracted inside the aperture differs from the sky level around it by "
             f"{fraction} of the flux, so the background probably follows the outskirts of the galaxy (e.g. a "
             "galaxy filling most of the image) and the flux is unreliable. Consider downloading a larger image, "
-            "or using bkg_sub=False if the image is already background subtracted."
+            "or using bkg_sub=False if the image is already background subtracted.",
+            BackgroundWarning,
         )
         return True
     return False

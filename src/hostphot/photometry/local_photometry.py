@@ -35,6 +35,7 @@ from hostphot.processing.cleaning import remove_nan, saturated_mask
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, suppress_stdout, store_input, image_provenance
 from hostphot._version import __version__
+from hostphot.flags import APERTURE_FLAGS, IMAGE_FLAGS, LOCAL_FLAGS, PSFWarning, collect_flags, header_flags
 from hostphot.processing.background import background_flag, masked_background, sep_background
 from hostphot.photometry.photometry_utils import (
     HERSCHEL_CALIBRATION_FRACTION,
@@ -220,7 +221,7 @@ def photometry(
     use_mask: bool = True,
     correct_extinction: bool = False,
     save_plots: bool = True,
-    return_bkg_flag: bool = False,
+    return_flags: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
     """Calculates the local aperture photometry in a given radius.
 
@@ -243,7 +244,7 @@ def photometry(
     correct_extinction: If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
         by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999). Not applied by default.
     save_plots: If ``True``, the figure with the aperture is saved.
-    return_bkg_flag: If ``True``, the background flags of the apertures are also returned.
+    return_flags: If ``True``, the quality flags of the apertures are also returned.
 
     Returns
     -------
@@ -252,9 +253,8 @@ def photometry(
     fluxes: Aperture flux for the given aperture radii.
     fluxes_err: Aperture flux errors for the given aperture radii.
     zp: Zeropoint.
-    bkg_flags: Only if ``return_bkg_flag=True``: ``True`` for the apertures where the subtracted background
-        is unreliable (see :func:`hostphot.processing.background.background_flag`; always ``False`` if the
-        background is not subtracted).
+    flags: Only if ``return_flags=True``: for each aperture, dictionary with the quality flags (see
+        :mod:`hostphot.flags`; ``True`` if the issue was found, with a warning).
     """     
     # initial checks
     check_survey_validity(survey)
@@ -310,115 +310,120 @@ def photometry(
 
     mags, mags_err = [], []
     fluxes, fluxes_err = [], []
-    bkg_flags = []
+    aperture_flags = []
+    # quality flags set when downloading or masking the image (see hostphot.flags)
+    image_flags = header_flags(header)
     px, py = wcs.wcs_world2pix(ra, dec, 0)  # object's coordinates
 
     source_mask = None  # for the blank-aperture noise floor (calculated once, if needed)
     psf_fwhm = image_psf_fwhm(header, survey, filt)
     for ap_radius in ap_radii:
-        # aperture photometry
-        if ap_units == "kpc":
-            radius_arcsec = calc_aperture_size(z, ap_radius)
-        else:
-            radius_arcsec = ap_radius
-        radius_pix = radius_arcsec / pixel_scale
-        if radius_arcsec < psf_fwhm:
-            warnings.warn(
-                f"{survey} {filt}: the aperture radius ({radius_arcsec:.3g} arcsec) is smaller than the PSF FWHM "
-                f"({psf_fwhm:.3g} arcsec), so the flux depends strongly on the resolution; compare it with other "
-                "surveys with care or use a larger aperture."
-            )
+        with collect_flags() as flags:  # (from the warnings, e.g. partial coverage)
+            # aperture photometry
+            if ap_units == "kpc":
+                radius_arcsec = calc_aperture_size(z, ap_radius)
+            else:
+                radius_arcsec = ap_radius
+            radius_pix = radius_arcsec / pixel_scale
+            if radius_arcsec < psf_fwhm:
+                warnings.warn(
+                    f"{survey} {filt}: the aperture radius ({radius_arcsec:.3g} arcsec) is smaller than the PSF FWHM "
+                    f"({psf_fwhm:.3g} arcsec), so the flux depends strongly on the resolution; compare it with other "
+                    "surveys with care or use a larger aperture.",
+                    PSFWarning,
+                )
 
-        invvar = get_invvar_map(hdu, survey)
-        label = f"{survey} {filt} ({radius_arcsec:.3g} arcsec aperture)"
-        aperture = CircularAperture((px, py), r=radius_pix)
-        bkg_flag = False
-        if back_info is not None:
-            aperture_pixels = aperture.to_mask(method="center").to_image(data.shape) > 0
-            bkg_flag = background_flag(data, back, back_info, aperture_pixels, label)
-        bkg_flags.append(bkg_flag)
-        if not check_saturation(saturated, aperture, label) or not check_aperture_coverage(data_sub, aperture, label):
-            flux, flux_err = np.nan, np.nan
-        elif survey == "Herschel":
-            # random uncertainty from the scatter of blank apertures (the maps have no error maps,
-            # and their noise is correlated), plus the absolute calibration uncertainty
-            flux = _aperture_weighted_sum(data_sub, px, py, radius_pix)[0]
-            if source_mask is None:
-                source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
-            # (a warning is given if the blank-aperture uncertainty cannot be estimated)
-            blank_err = blank_aperture_floor(data_sub, 0.0, px, py, radius_pix, source_mask=source_mask)
-            cal_err = abs(flux) * HERSCHEL_CALIBRATION_FRACTION.get(filt, 0.0)
-            flux_err = float(np.sqrt(blank_err**2 + cal_err**2))
-        elif invvar is not None:
-            if source_mask is None:
-                source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
-            flux, flux_err = extract_invvar_aperture_flux(
-                data_sub,
-                invvar,
-                px,
-                py,
-                radius_pix,
-                source_mask=source_mask,
-            )
-        else:
-            flux, flux_err = extract_aperture_flux(
-                data_sub, bkg.rms(), _exptime, px, py, radius_pix
-            )
-            if survey in blank_floor_surveys:
+            invvar = get_invvar_map(hdu, survey)
+            label = f"{survey} {filt} ({radius_arcsec:.3g} arcsec aperture)"
+            aperture = CircularAperture((px, py), r=radius_pix)
+            if back_info is not None:
+                # (a warning is given if the subtracted background is unreliable)
+                aperture_pixels = aperture.to_mask(method="center").to_image(data.shape) > 0
+                background_flag(data, back, back_info, aperture_pixels, label)
+            if not check_saturation(saturated, aperture, label) or not check_aperture_coverage(data_sub, aperture, label):
+                flux, flux_err = np.nan, np.nan
+            elif survey == "Herschel":
+                # random uncertainty from the scatter of blank apertures (the maps have no error maps,
+                # and their noise is correlated), plus the absolute calibration uncertainty
+                flux = _aperture_weighted_sum(data_sub, px, py, radius_pix)[0]
                 if source_mask is None:
                     source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
-                flux_err = blank_aperture_floor(
-                    data_sub, flux_err, px, py, radius_pix, source_mask=source_mask,
-                    residual_background=floor_residual_background(survey, filt),
+                # (a warning is given if the blank-aperture uncertainty cannot be estimated)
+                blank_err = blank_aperture_floor(data_sub, 0.0, px, py, radius_pix, source_mask=source_mask)
+                cal_err = abs(flux) * HERSCHEL_CALIBRATION_FRACTION.get(filt, 0.0)
+                flux_err = float(np.sqrt(blank_err**2 + cal_err**2))
+            elif invvar is not None:
+                if source_mask is None:
+                    source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
+                flux, flux_err = extract_invvar_aperture_flux(
+                    data_sub,
+                    invvar,
+                    px,
+                    py,
+                    radius_pix,
+                    source_mask=source_mask,
                 )
-        #flux, flux_err = extract_aperture_flux(data_sub, bkg.background_rms, _exptime, px, py, radius_pix)
-
-        ap_area = np.pi * (radius_pix**2)
-        if survey == "Herschel":
-            # fluxes in Jy and AB magnitudes (as for the global photometry)
-            zp = 2.5 * np.log10(3631.0)
-            if flux > 0 and flux_err > 0:
-                mag = -2.5 * np.log10(flux) + zp
-                mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
             else:
-                if flux <= 0:
-                    warn_non_detection(survey, filt, flux)
-                mag, mag_err = np.nan, np.nan
-        else:
-            mag, mag_err, flux, flux_err, zp = magnitude_calculation(
-                flux,
-                flux_err,
-                survey,
-                filt,
-                ap_area,
-                header,
-                bkg.globalrms,
-                #np.median(bkg.background_rms),
-            )
+                flux, flux_err = extract_aperture_flux(
+                    data_sub, bkg.rms(), _exptime, px, py, radius_pix
+                )
+                if survey in blank_floor_surveys:
+                    if source_mask is None:
+                        source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
+                    flux_err = blank_aperture_floor(
+                        data_sub, flux_err, px, py, radius_pix, source_mask=source_mask,
+                        residual_background=floor_residual_background(survey, filt),
+                    )
+            #flux, flux_err = extract_aperture_flux(data_sub, bkg.background_rms, _exptime, px, py, radius_pix)
 
-        if correct_extinction is True:
-            A_ext = calc_extinction(filt, survey, ra, dec)
-            mag -= A_ext
-            flux *= 10 ** (0.4 * A_ext)
-            flux_err *= 10 ** (0.4 * A_ext)  # (the magnitude error is unchanged)
-
-        mags.append(mag)
-        mags_err.append(mag_err)
-        fluxes.append(flux)
-        fluxes_err.append(flux_err)
-
-        if save_plots:
-            outfile = obj_dir / survey / f"local_{survey}_{filt}_{ap_radius}{ap_units}.jpg"
-            filt_ = filt.replace("_", "-")
-            if ap_units == "kpc":
-                title = rf"{name}: {survey}-${filt_}$|r$={ap_radius}$ {ap_units} @ $z={z}$"
+            ap_area = np.pi * (radius_pix**2)
+            if survey == "Herschel":
+                # fluxes in Jy and AB magnitudes (as for the global photometry)
+                zp = 2.5 * np.log10(3631.0)
+                if flux > 0 and flux_err > 0:
+                    mag = -2.5 * np.log10(flux) + zp
+                    mag_err = np.abs(2.5 * flux_err / (flux * np.log(10)))
+                else:
+                    if flux <= 0:
+                        warn_non_detection(survey, filt, flux)
+                    mag, mag_err = np.nan, np.nan
             else:
-                title = rf"{name}: {survey}-${filt_}$|r$={ap_radius}$ {ap_units}"
-            plot_aperture(hdu, px, py, radius_pix, title, outfile)
+                mag, mag_err, flux, flux_err, zp = magnitude_calculation(
+                    flux,
+                    flux_err,
+                    survey,
+                    filt,
+                    ap_area,
+                    header,
+                    bkg.globalrms,
+                    #np.median(bkg.background_rms),
+                )
+
+            if correct_extinction is True:
+                A_ext = calc_extinction(filt, survey, ra, dec)
+                mag -= A_ext
+                flux *= 10 ** (0.4 * A_ext)
+                flux_err *= 10 ** (0.4 * A_ext)  # (the magnitude error is unchanged)
+
+            mags.append(mag)
+            mags_err.append(mag_err)
+            fluxes.append(flux)
+            fluxes_err.append(flux_err)
+
+            if save_plots:
+                outfile = obj_dir / survey / f"local_{survey}_{filt}_{ap_radius}{ap_units}.jpg"
+                filt_ = filt.replace("_", "-")
+                if ap_units == "kpc":
+                    title = rf"{name}: {survey}-${filt_}$|r$={ap_radius}$ {ap_units} @ $z={z}$"
+                else:
+                    title = rf"{name}: {survey}-${filt_}$|r$={ap_radius}$ {ap_units}"
+                plot_aperture(hdu, px, py, radius_pix, title, outfile)
+        flags |= image_flags
+        aperture_flags.append({flag: flag in flags for flag in LOCAL_FLAGS})
     hdu.close()
 
-    if return_bkg_flag:
-        return mags, mags_err, fluxes, fluxes_err, zp, bkg_flags
+    if return_flags:
+        return mags, mags_err, fluxes, fluxes_err, zp, aperture_flags
     return mags, mags_err, fluxes, fluxes_err, zp
 
 
@@ -518,7 +523,7 @@ def multi_band_phot(
     # calculate photometry
     for filt in filters:
         try:
-            mags, mags_err, fluxes, fluxes_err, zp, bkg_flags = photometry(
+            mags, mags_err, fluxes, fluxes_err, zp, aperture_flags = photometry(
                 name,
                 ra,
                 dec,
@@ -531,10 +536,10 @@ def multi_band_phot(
                 use_mask,
                 correct_extinction,
                 save_plots,
-                return_bkg_flag=True,
+                return_flags=True,
             )
-            for radius, mag, mag_err, flux, flux_err, bkg_flag in zip(
-                ap_radii, mags, mags_err, fluxes, fluxes_err, bkg_flags
+            for radius, mag, mag_err, flux, flux_err, flags in zip(
+                ap_radii, mags, mags_err, fluxes, fluxes_err, aperture_flags
             ):
                 results_dict[f"{filt}_{radius}"] = mag
                 results_dict[f"{filt}_{radius}_err"] = mag_err
@@ -543,9 +548,13 @@ def multi_band_phot(
                 # AB magnitude, flux density (microjanskys) and upper limit, the same for all the surveys
                 for key, value in ab_photometry(survey, filt, flux, flux_err, zp).items():
                     results_dict[f"{filt}_{radius}_{key}"] = value
-                # unreliable subtracted background (e.g. galaxy filling most of the image)
-                results_dict[f"{filt}_{radius}_bkg_flag"] = bkg_flag
+                # quality flags of the aperture (e.g. unreliable subtracted background, partial coverage)
+                for flag in APERTURE_FLAGS:
+                    results_dict[f"{filt}_{radius}_{flag}_flag"] = flags[flag]
             results_dict[f"{filt}_zeropoint"] = zp
+            # quality flags of the image (e.g. calibration, masking), the same for all the apertures
+            for flag in IMAGE_FLAGS:
+                results_dict[f"{filt}_{flag}_flag"] = any(flags[flag] for flags in aperture_flags)
             # PSF FWHM of the image (in arcsec), e.g. to compare the aperture sizes with the resolution
             image_header = fits.getheader(Path(workdir, name, survey, f"{survey}_{filt}.fits"))
             results_dict[f"{filt}_psf_fwhm"] = image_psf_fwhm(image_header, survey, filt)
@@ -568,8 +577,11 @@ def multi_band_phot(
                 results_dict[f"{filt}_{radius}_flux_err"] = np.nan
                 for key in ["AB", "flux_uJy", "flux_uJy_err", "AB_ulim"]:
                     results_dict[f"{filt}_{radius}_{key}"] = np.nan
-                results_dict[f"{filt}_{radius}_bkg_flag"] = np.nan
+                for flag in APERTURE_FLAGS:
+                    results_dict[f"{filt}_{radius}_{flag}_flag"] = np.nan
             results_dict[f"{filt}_zeropoint"] = np.nan
+            for flag in IMAGE_FLAGS:
+                results_dict[f"{filt}_{flag}_flag"] = np.nan
             results_dict[f"{filt}_psf_fwhm"] = np.nan
             results_dict[f"{filt}_image_id"] = ""
             results_dict[f"{filt}_download_date"] = ""

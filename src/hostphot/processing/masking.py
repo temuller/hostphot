@@ -34,6 +34,8 @@ from hostphot.surveys_utils import (
 )
 
 import warnings
+
+from hostphot.flags import MaskFallbackWarning, collect_flags, header_flags, set_header_flag
 from astropy.utils.exceptions import AstropyWarning
 
 plt.rcParams["mathtext.fontset"] = "cm"
@@ -198,6 +200,7 @@ def create_mask(
         inputs_file = obj_dir / survey / "input_masking_parameters.csv"
         store_input(input_params, inputs_file)
 
+    mask_flags = set()  # quality flags of the masking (stored in the header of the masked image)
     if (ref_filt is None) & (ref_survey is None):
         # extract objects
         gal_obj, nongal_objs = extract_objects(
@@ -219,7 +222,9 @@ def create_mask(
         # proper motion or parallax, as Gaia and the catalogs based on it, e.g. TIC, also include
         # compact regions of the galaxies)
         if crossmatch:
-            cat_coord = find_gaia_objects(host_ra, host_dec)
+            with collect_flags() as gaia_flags:
+                cat_coord = find_gaia_objects(host_ra, host_dec)
+            mask_flags |= gaia_flags
             nongal_objs = cross_match(nongal_objs, img_wcs, cat_coord)
     else:
         # use objects previously extracted
@@ -227,6 +232,12 @@ def create_mask(
         gal_obj, nongal_objs, master_img_wcs, sigma, r, flip2 = load_mask_params(
             name, ref_filt, ref_survey
         )
+        # flags of the reference mask (e.g. Gaia query failed)
+        ref_survey_ = ref_survey or survey
+        ref_filt_ = "".join(ref_filt) if isinstance(ref_filt, list) else (ref_filt or filt)
+        ref_masked_file = obj_dir / ref_survey_ / f"{ref_survey_}_{ref_filt_}_masked.fits"
+        if ref_masked_file.is_file():
+            mask_flags |= header_flags(fits.getheader(ref_masked_file)) & {"mask_fallback", "mask_nogaia"}
 
         # cross-survey mask: need to adapt some values
         # flipping images
@@ -251,7 +262,9 @@ def create_mask(
         fwhm_pix = _fwhm_pixels(data_sub, bkg_rms, header, img_wcs, survey, filt)
         try:
             if (ref_filt is None) & (ref_survey is None):
-                gaia_xy = _gaia_pixels(host_ra, host_dec, img_wcs, data_sub.shape)
+                with collect_flags() as gaia_flags:
+                    gaia_xy = _gaia_pixels(host_ra, host_dec, img_wcs, data_sub.shape)
+                mask_flags |= gaia_flags
                 host_mask, masked_data, info = host_model_mask(
                     data_sub, bkg_rms, float(host_x), float(host_y), fwhm_pix, nongal_objs, gaia_xy, threshold,
                     r=r, host_threshold=host_threshold, contrast=contrast, structure_sigma=structure_sigma,
@@ -271,7 +284,8 @@ def create_mask(
                 footprint = host["model"] > host_threshold * bkg_rms
         except (RuntimeError, ValueError, IndexError) as exc:
             warnings.warn(f"{survey} {filt}: the host model could not be fitted ({exc}), "
-                          "so the sources are masked with their ellipses (method='ellipses').")
+                          "so the sources are masked with their ellipses (method='ellipses').", MaskFallbackWarning)
+            mask_flags.add("mask_fallback")
             host_mask, footprint = None, None
     if host_mask is None:
         if len(nongal_objs) > 0:
@@ -280,6 +294,8 @@ def create_mask(
             masked_data = data_sub.copy()
     masked_hdu = deepcopy(hdu)
     masked_hdu[0].data = masked_data
+    for flag in sorted(mask_flags & {"mask_fallback", "mask_nogaia"}):
+        set_header_flag(masked_hdu[0].header, flag)
     if "MASK" in masked_hdu and masked_hdu["MASK"].data is not None:
         # the masked objects (e.g. saturated stars) are replaced, so their pixels are no longer
         # flagged as without measured data in the mask plane (e.g. HSC)
