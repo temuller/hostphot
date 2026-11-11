@@ -6,7 +6,7 @@ import astropy.units as u
 from typing import Optional
 
 from hostphot._constants import workdir
-from hostphot.utils import check_work_dir, store_input, image_has_data, add_provenance
+from hostphot.utils import check_work_dir, store_input, image_has_data, add_provenance, target_has_data
 from hostphot.surveys_utils import (
     get_survey_filters,
     get_default_filters,
@@ -111,6 +111,8 @@ def download_images(
     else:
         hdu_list = get_images(ra, dec, size, filters)
     if hdu_list is None:
+        # no coverage or failed query (see previous warnings, if any)
+        warnings.warn(f"No {survey} images were found for {name} (ra={ra}, dec={dec}; outside the footprint?).")
         return None
     # save the images
     for hdu, filt in zip(hdu_list, filters):
@@ -122,6 +124,15 @@ def download_images(
             warnings.warn(
                 f"The {survey} image for filter {filt} of {name} contains no data (zeros, constant or "
                 "compression noise only), so it was not saved."
+            )
+            hdu.close()
+            continue
+        if not target_has_data(hdu[0].header, hdu[0].data, ra, dec):
+            # e.g. the image of the closest frame/tile, or a cutout at the edge of the footprint (filled
+            # with zeros or NaN), without data at the position of the target
+            warnings.warn(
+                f"The {survey} image for filter {filt} of {name} has no data at the position of the target "
+                f"(ra={ra}, dec={dec}; e.g. at the edge of the footprint), so it was not saved."
             )
             hdu.close()
             continue

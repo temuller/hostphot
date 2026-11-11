@@ -1,4 +1,7 @@
+import warnings
+
 import numpy as np
+import requests
 import astropy.units as u
 from astropy.io import fits
 from typing import Optional
@@ -44,7 +47,17 @@ def get_LegacySurvey_images(ra: float, dec: float, size: float | u.Quantity = 3,
     params = f"ra={ra}&dec={dec}&layer=ls-{version}&pixscale={pixel_scale}&bands={filters}&size={size_pixels}&invvar"
     url = base_url + params
 
-    master_hdu = open_fits_from_url(url)
+    try:
+        master_hdu = open_fits_from_url(url)
+    except requests.exceptions.HTTPError as exc:
+        if exc.response is not None and exc.response.status_code == 500:
+            # the cutout service returns a server error where there are no data
+            warnings.warn(
+                f"The Legacy Survey cutout service returned an error (500) for ra={ra}, dec={dec}, which happens "
+                "for positions outside the footprint; no images downloaded."
+            )
+            return None
+        raise
     master_header = master_hdu[0].header
     master_header_invvar = master_hdu[1].header
     # a single band is returned as a 2D image instead of a cube

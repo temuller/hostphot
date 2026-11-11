@@ -88,6 +88,52 @@ def image_has_data(data: np.ndarray) -> bool:
     return bool((high - low) / robust_std > 4)
 
 
+# radius (in arcsec) around the position of the target within which an image must have data to be kept
+TARGET_DATA_RADIUS = 3.0
+
+
+def target_has_data(header: fits.Header, data: np.ndarray, ra: float, dec: float,
+                    radius_arcsec: float = TARGET_DATA_RADIUS) -> bool:
+    """Checks whether an image has data (finite, non-zero pixels) at the position of the target, i.e. within
+    ``radius_arcsec`` of it (or the nearest pixels, for large pixels), e.g. not outside the image, nor in an
+    area without coverage at the edge of the footprint (filled with zeros or NaN by some services).
+
+    Parameters
+    ----------
+    header: Header of the image (with its WCS).
+    data: Image data.
+    ra, dec: Position of the target in degrees.
+    radius_arcsec: Radius in arcsec.
+
+    Returns
+    -------
+    has_data: Whether the image has data at the position of the target.
+    """
+    from astropy.wcs import WCS
+
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            img_wcs = WCS(header, naxis=2)
+            x, y = img_wcs.world_to_pixel_values(ra, dec)
+            pixel_scale = np.sqrt(np.abs(np.linalg.det(img_wcs.pixel_scale_matrix))) * 3600
+    except Exception:
+        return True  # (not checked without a valid WCS)
+    if not (np.isfinite(x) and np.isfinite(y) and np.isfinite(pixel_scale) and pixel_scale > 0):
+        return True
+    values = np.asarray(data)
+    if values.ndim != 2:
+        return True
+    ny, nx = values.shape
+    r = max(radius_arcsec / pixel_scale, 1.5)
+    yy, xx = np.ogrid[:ny, :nx]
+    within = (xx - x) ** 2 + (yy - y) ** 2 <= r**2
+    if not within.any():
+        return False  # target outside the image
+    stamp = values[within]
+    return bool(np.any(np.isfinite(stamp) & (stamp != 0)))
+
+
 def url_band(url: str) -> Optional[str]:
     """Returns the value of the ``band`` parameter of an image URL (e.g. of the WFAU archives,
     ``...&band=H&...``), or ``None`` if there is none.

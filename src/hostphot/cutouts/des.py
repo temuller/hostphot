@@ -1,3 +1,6 @@
+import re
+import warnings
+
 import numpy as np
 import pandas as pd
 from typing import Optional
@@ -8,6 +11,13 @@ from astropy import units as u
 
 from hostphot.utils import open_fits_from_url, open_fits_from_urls
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
+
+
+# minimum size (in degrees) of the SIA query: the DES DR2 service of NOIRLab only returns the tiles whose RA limits
+# contain the position, but these limits are not corrected for cos(dec) (e.g. at dec = -55 deg, positions more
+# than 0.365 deg from the tile centre in RA, of 0.64 deg, are missed), unless the query box is larger
+# (>~0.45 deg); the cutouts are still of the requested size (see get_DES_urls())
+MIN_QUERY_SIZE = 0.5
 
 
 def get_DES_urls(ra: float, dec: float, fov: float, filters: str="grizY") -> tuple[list[str], list[str]]:
@@ -33,14 +43,20 @@ def get_DES_urls(ra: float, dec: float, fov: float, filters: str="grizY") -> tup
     # get field-of-view table
     des_access_url = "https://datalab.noirlab.edu/sia/des_dr2"
     svc = sia.SIAService(des_access_url)
+    size_ra, size_dec = fov / np.cos(dec * np.pi / 180), fov
+    query_size = max(fov, MIN_QUERY_SIZE)
     imgs_table = svc.search(
-        (ra, dec), (fov / np.cos(dec * np.pi / 180), fov), verbosity=2
+        (ra, dec), (query_size / np.cos(dec * np.pi / 180), query_size), verbosity=2
     )
     if len(imgs_table) == 0:
-        print(("Warning: empty table returned for " f"ra={ra}, dec={dec}"))
+        warnings.warn(f"No DES images found at ra={ra}, dec={dec} (outside the DES footprint?).")
         return None, None
     # conditions to select images of interest
     imgs_df = pd.DataFrame(imgs_table)
+    # the access URLs are cutouts of the size of the query: the requested size is used instead
+    imgs_df["access_url"] = [
+        re.sub(r"SIZE=[^&]*", f"SIZE={size_ra},{size_dec}", str(url)) for url in imgs_df["access_url"]
+    ]
     cond_stack = imgs_df["proctype"] == "Stack"
     cond_image = imgs_df["prodtype"] == "image"
     cond_weight = imgs_df["prodtype"] == "weight"
