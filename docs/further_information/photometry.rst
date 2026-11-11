@@ -19,6 +19,62 @@ Note that the global and local photometry are calculates in a similar way as in 
 
 Any offsets added to the zeropoints are instead propagated into the fluxes, such that the zeropoints remain unchaged.
 
+Global apertures
+~~~~~~~~~~~~~~~~
+
+Two apertures are available for the global photometry (``aperture_method`` of :func:`multi_band_phot`):
+
+* ``"kron"`` (default): the Kron aperture, with the standard Kron scale of 2.5 (as SExtractor's ``MAG_AUTO``) or
+  an optimised scale (``optimize_kronrad=True``, see :func:`hostphot.photometry.global_photometry.optimize_aperture`).
+  The standard Kron aperture misses part of the flux of extended profiles (e.g. :math:`\sim0.1-0.3` mag for
+  :math:`n \gtrsim 2.5` Sérsic profiles).
+* ``"cog"``: the curve-of-growth (CoG) aperture with a Sérsic tail (see
+  :func:`hostphot.photometry.global_photometry.cog_aperture`). The surface-brightness profile of the galaxy is
+  measured in elliptical annuli (with the shape of the detected galaxy), and the aperture extends out to where the
+  profile is no longer significant (or flattens, rises or is contaminated by a neighbour in the outskirts, e.g.
+  residual sky). The flux beyond the aperture is estimated by fitting a Sérsic profile to the outer part of the
+  profile and integrating it out to 8 effective radii; its uncertainty is added to that of the flux. The flux within
+  the aperture and its uncertainty are measured as for the Kron aperture (same ellipse shape, with a different size).
+
+With a common aperture (``common_aperture=True``), the aperture of the reference filter(s) (e.g. a coadd) is used for
+all the filters, and, for the CoG aperture, the Sérsic tail of the reference (as a fraction of the flux within the
+aperture) is applied to all the filters, so that the colours are those within the common aperture.
+
+The CoG aperture has been tested with PSF-convolved Sérsic galaxies (:math:`n = 0.5-4`, effective radii of
+:math:`1.5-12` arcsec, :math:`r = 14-20` mag) injected in a PanSTARRS field (with real noise and neighbours), and
+with 72 galaxies of different types (large and small ellipticals, edge-on and small discs, dwarfs and galaxies in
+crowded fields) compared with the Legacy Survey DR10 (Tractor) magnitudes. Median (and NMAD) of the magnitude
+differences:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Aperture
+     - Injections
+     - Legacy Survey
+     - SDSS
+   * - Kron (2.5)
+     - :math:`+0.136 \, (0.150)`
+     - :math:`+0.142 \, (0.156)`
+     - :math:`+0.305 \, (0.179)`
+   * - Kron (optimised)
+     - :math:`+0.002 \, (0.041)`
+     - :math:`-0.004 \, (0.115)`
+     - :math:`+0.059 \, (0.100)`
+   * - CoG
+     - :math:`-0.019 \, (0.035)`
+     - :math:`-0.038 \, (0.099)`
+     - :math:`+0.023 \, (0.168)`
+
+Large apertures can include residual sky and faint neighbours not masked, which make the fluxes slightly too large
+(e.g. :math:`>0.15` mag for :math:`10\%` of the injections with the CoG aperture), and the fluxes of all the
+apertures are affected by the sky subtraction of the survey pipelines (e.g. PanSTARRS fluxes of large galaxies are
+:math:`\sim0.1-0.3` mag fainter than those of the Legacy Survey).
+
+For Herschel PACS, the CoG fluxes of 8 KINGFISH galaxies agree with those of Dale et al. (2012) within a median
+ratio of 0.98 (:math:`100 \mu \text{m}`) and 0.95 (:math:`70 \mu \text{m}`), as those of the optimised Kron aperture
+(0.97 and 0.95; 0.77 and 0.83 for the Kron aperture).
+
 Output columns
 ~~~~~~~~~~~~~~
 
@@ -78,8 +134,11 @@ Local photometry: ``{filt}_{radius}_{flag}_flag`` for the flags of each aperture
   strongly on the resolution.
 * ``err``: the blank-aperture noise floor could not be estimated, or was extrapolated from smaller apertures (not
   enough blank sky in the image), so the uncertainty might be underestimated. A larger image can help.
-* ``kron``: the optimised Kron aperture (``optimize_kronrad=True``) reached the maximum scale without converging, or
-  might not fit in the image (global photometry only; also for the common aperture of a reference filter).
+* ``aperture``: the global aperture might not include all the flux of the galaxy (global photometry only; also for
+  the common aperture of a reference filter): the optimised Kron aperture (``optimize_kronrad=True``) reached the
+  maximum scale without converging, or might not fit in the image; or the profile of the CoG aperture
+  (``aperture_method="cog"``) is still significant at the edge of the image, or its Sérsic tail could not be
+  estimated and the aperture is smaller than 4 half-light radii.
 * ``calib``: less reliable calibration: VISTA image with a zeropoint uncertainty (``MAGZRR``) above 0.05 mag, KiDS
   image without the DR5 zeropoint correction (``DMAG``), or HST filter without a tabulated zeropoint uncertainty
   (:math:`2\%` assumed).

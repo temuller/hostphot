@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import Optional
 
 import sep
+from scipy.optimize import curve_fit
+from scipy.special import gamma, gammainc
 from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_area, proj_plane_pixel_scales
 from astropy.io import fits
@@ -35,7 +37,7 @@ from hostphot.processing.cleaning import remove_nan, saturated_mask
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, store_input, image_provenance
 from hostphot._version import __version__
-from hostphot.flags import GLOBAL_FLAGS, KronWarning, collect_flags, header_flags
+from hostphot.flags import GLOBAL_FLAGS, ApertureWarning, collect_flags, header_flags
 from hostphot.photometry.photometry_utils import (
     magnitude_calculation,
     extract_invvar_kron_flux,
@@ -52,11 +54,13 @@ from hostphot.photometry.photometry_utils import (
     _herschel_pixel_area_sr,
     _herschel_data_to_jy_per_pixel,
     get_effective_gain,
+    image_psf_fwhm,
     warn_non_detection,
     ab_photometry,
 )
 from hostphot.photometry.image_utils import adapt_aperture, wrap_theta
 from hostphot.processing.background import background_flag, masked_background, sep_background
+from hostphot.processing.host_model import _bn, elliptical_radius, estimate_fwhm_pix
 from hostphot.surveys_utils import (
     get_survey_filters,
     get_default_filters,
@@ -98,7 +102,7 @@ def herschel_kron_flux(
     # apertures if needed, or NaN with a warning if it cannot be estimated)
     pixel_scale = float(np.sqrt(np.abs(np.linalg.det(wcs.pixel_scale_matrix))) * 3600)
     blank_rms = blank_kron_floor(
-        jy_data, 0.0, objects, kronrad, scale, pixel_scale=pixel_scale, label=f"Herschel {filt} (Kron aperture)"
+        jy_data, 0.0, objects, kronrad, scale, pixel_scale=pixel_scale, label=f"Herschel {filt} (global aperture)"
     )
     if not np.isfinite(blank_rms) or blank_rms <= 0:
         blank_rms = np.nan
@@ -284,7 +288,7 @@ def optimize_aperture(
         if not np.isfinite(flux):
             if prev is None:
                 return flux, flux_err, kronrad, scale
-            warnings.warn("The optimised Kron aperture might not fit in the image!", KronWarning)
+            warnings.warn("The optimised Kron aperture might not fit in the image!", ApertureWarning)
             return prev[0], prev[1], kronrad, prev[2]
         if prev is not None:
             gain = flux - prev[0]
@@ -297,9 +301,231 @@ def optimize_aperture(
     warnings.warn(
         f"The optimised Kron aperture reached the maximum scale ({MAX_KRON_SCALE} times the Kron radius) "
         "without converging (e.g. residual sky or a very extended galaxy), so the flux might be overestimated.",
-        KronWarning,
+        ApertureWarning,
     )
     return prev[0], prev[1], kronrad, prev[2]
+
+
+# curve-of-growth aperture (``aperture_method="cog"``): see cog_aperture()
+APERTURE_METHODS = ("kron", "cog")
+COG_SNR_STOP = 2.0  # the profile is measured out to where its signal-to-noise ratio falls below this value
+COG_N_ANNULI = 60  # number of elliptical annuli of the profile (logarithmically spaced)
+COG_TAIL_RADIUS = 8.0  # the Sérsic tail is integrated out to this number of effective radii
+COG_MIN_RADIUS_FWHM = 2.0  # minimum radius of the aperture (and of the Sérsic fit), in units of the PSF FWHM
+# contamination by neighbours is only looked for in annuli with lower signal-to-noise ratios (the structures of
+# bright galaxies, e.g. spiral arms, make the mean of their annuli significantly larger than the median)
+COG_CONTAMINATION_SNR = 10.0
+# without a Sérsic tail, the aperture is flagged only if smaller than this number of half-light radii (of the
+# curve of growth): larger apertures include most of the flux (e.g. ~95% within 4 effective radii for n = 2.5)
+COG_NO_TAIL_RADIUS = 4.0
+
+
+def _profile(
+    data: np.ndarray, r_ell: np.ndarray, edges: np.ndarray, sky_noise: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Surface-brightness profile in elliptical annuli (pixels without data are NaN or zero).
+
+    Returns the sigma-clipped (3 sigma, from the MAD) mean of each annulus, its uncertainty (from the scatter of
+    the pixels, including the noise of the source, and at least the sky noise), the number of valid pixels, the
+    area (all pixels) and the median. The clipping rejects the pixels of neighbours not masked (e.g. halos of
+    bright stars) covering part of an annulus.
+    """
+    idx = np.digitize(r_ell.ravel(), edges) - 1
+    vals = data.ravel()
+    nbins = len(edges) - 1
+    inside = (idx >= 0) & (idx < nbins)
+    valid = inside & np.isfinite(vals) & (vals != 0)
+    area = np.bincount(idx[inside], minlength=nbins)[:nbins]
+    order = np.argsort(idx[valid], kind="stable")
+    sorted_idx, sorted_vals = idx[valid][order], vals[valid][order]
+    bounds = np.searchsorted(sorted_idx, np.arange(nbins + 1))
+    mean, err, median = np.full(nbins, np.nan), np.full(nbins, np.inf), np.full(nbins, np.nan)
+    nvalid = np.zeros(nbins, dtype=int)
+    for i in range(nbins):
+        v = sorted_vals[bounds[i] : bounds[i + 1]]
+        if len(v) == 0:
+            continue
+        med = np.median(v)
+        median[i] = med
+        mad = 1.4826 * np.median(np.abs(v - med))
+        if len(v) >= 10 and mad > 0:
+            v = v[np.abs(v - med) < 3 * mad]
+        mean[i] = np.mean(v)
+        nvalid[i] = len(v)
+        scatter = np.std(v) if len(v) >= 10 else sky_noise
+        err[i] = max(scatter, sky_noise) / np.sqrt(len(v))
+    return mean, err, nvalid, area, median
+
+
+def _sersic_sb(r: np.ndarray, log_ie: float, re: float, n: float) -> np.ndarray:
+    """Sérsic surface-brightness profile."""
+    return 10**log_ie * np.exp(-_bn(n) * ((r / re) ** (1 / n) - 1))
+
+
+def _sersic_flux_between(params: np.ndarray, q: float, r_in: float, r_out: float) -> float:
+    """Flux of an elliptical Sérsic profile between two (semi-major-axis) radii."""
+    log_ie, re, n = params
+    bn = _bn(n)
+    total = 2 * np.pi * q * n * 10**log_ie * re**2 * np.exp(bn) * bn ** (-2 * n) * gamma(2 * n)
+    return total * (gammainc(2 * n, bn * (r_out / re) ** (1 / n)) - gammainc(2 * n, bn * (r_in / re) ** (1 / n)))
+
+
+def cog_aperture(
+    data: np.ndarray, objects: np.ndarray, kronrad: float, sky_noise: float, fwhm_pix: float, label: str = ""
+) -> dict:
+    """Curve-of-growth (CoG) aperture of a galaxy, with a Sérsic tail.
+
+    The surface-brightness profile of the galaxy is measured in elliptical annuli (with the centre, axis ratio and
+    orientation of the detected galaxy), using sigma-clipped means. The aperture extends out to the radius where
+    the profile is no longer significant (signal-to-noise ratio below ``COG_SNR_STOP``), or where, in the
+    outskirts (beyond the Kron radius and below 20% of the peak surface brightness), the profile rises, flattens
+    (logarithmic slope flatter than -0.5 in two consecutive annuli, e.g. residual sky) or is contaminated by a
+    neighbour (clipped mean significantly above the median, in annuli with signal-to-noise ratios below
+    ``COG_CONTAMINATION_SNR``); the aperture radius is at least
+    ``COG_MIN_RADIUS_FWHM`` times the PSF FWHM. The rules use the median of the annuli, robust to neighbours.
+    If the profile is still significant at the edge of the image (or of the region with data), the aperture
+    might not include all the flux (with a warning).
+
+    The flux beyond the aperture is estimated by fitting a Sérsic profile to the annuli between
+    ``COG_MIN_RADIUS_FWHM`` times the PSF FWHM and the aperture radius, and integrating it from the aperture
+    radius out to ``COG_TAIL_RADIUS`` effective radii. The tail is given as a fraction of the flux within the
+    aperture, with its uncertainty (from the covariance of the fit). No tail is added if the fit fails, the Sérsic
+    index reaches its limits (0.3 or 8), the tail is not constrained (uncertainty larger than the tail) or is
+    larger than the flux within the aperture; then, the aperture is flagged (with a warning) only if its radius is
+    smaller than ``COG_NO_TAIL_RADIUS`` half-light radii (from the curve of growth within the aperture).
+
+    Parameters
+    ----------
+    data: Image data (background subtracted, if needed), with NaN for the pixels without data.
+    objects: Galaxy detected with :func:`sep.extract()` (one object).
+    kronrad: Kron radius (in units of the semi-major axis of the object).
+    sky_noise: Noise of the sky (background RMS).
+    fwhm_pix: PSF FWHM in pixels.
+    label: Description used in the warnings (e.g. survey and filter).
+
+    Returns
+    -------
+    cog: Dictionary with the aperture radius (semi-major axis, in pixels; ``r_meas``), the fraction of the flux
+        added by the tail and its uncertainty (``tail_frac`` and ``tail_frac_err``; 0 if no tail is added), the
+        parameters of the Sérsic fit (``sersic_n`` and ``sersic_re``, in pixels; NaN if not used), and whether the
+        aperture might not include all the flux of the galaxy (``flag``, with a warning).
+    """
+    x0, y0 = float(objects["x"][0]), float(objects["y"][0])
+    q = float(objects["b"][0] / objects["a"][0])
+    theta = float(objects["theta"][0])
+    ny, nx = data.shape
+    # largest radius fully inside the image
+    rmax = 0.98 * min(x0, y0, nx - 1 - x0, ny - 1 - y0)
+    if rmax <= 1:
+        raise ValueError(f"{label}: the galaxy is at the edge of the image, so the CoG aperture cannot be measured.")
+    r_ell = elliptical_radius(data.shape, x0, y0, q, theta)
+    edges = np.concatenate([[0.0], np.geomspace(min(0.5, rmax / 2), rmax, COG_N_ANNULI)])
+    mean, err, nvalid, area, median = _profile(data, r_ell, edges, sky_noise)
+    mean = np.where(nvalid > 0, mean, 0.0)
+    cum = np.cumsum(mean * area)  # flux within the outer edge of each annulus
+    r_out = edges[1:]
+    r_mid = np.sqrt(edges[:-1] * edges[1:])
+    err_med = 1.2533 * err  # uncertainty of the median
+
+    # stopping rules (with the median profile)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        snr = median / err_med
+        rise = np.zeros(len(mean), dtype=bool)
+        rise[1:] = median[1:] - median[:-1] > 2 * np.sqrt(err_med[1:] ** 2 + err_med[:-1] ** 2)
+        log_i = np.log(np.where(median > 0, median, np.nan))
+        slope = np.full(len(mean), np.nan)
+        slope[3:] = (log_i[3:] - log_i[:-3]) / (np.log(r_mid[3:]) - np.log(np.maximum(r_mid[:-3], 1e-3)))
+        flat = (slope > -0.5) | ~np.isfinite(slope)
+        # (in two consecutive annuli, e.g. residual sky, not a local plateau of the profile such as a ring)
+        flat[:-1] &= flat[1:]
+        contaminated = ((mean - median) > 2 * err_med) & (snr < COG_CONTAMINATION_SNR)
+        r_kron = kronrad * float(objects["a"][0])
+        outskirts = (median < 0.2 * np.nanmax(median)) & (r_mid > r_kron)
+    # annuli mostly without data (e.g. the edge of the region with data)
+    no_data = nvalid < 0.5 * np.maximum(area, 1)
+    stop = (
+        no_data | (snr < COG_SNR_STOP) | ~np.isfinite(snr) | ((rise | flat | contaminated) & outskirts)
+    ) & (r_out > COG_MIN_RADIUS_FWHM * fwhm_pix)
+    stops = np.where(stop)[0]
+    cog = {"tail_frac": 0.0, "tail_frac_err": 0.0, "sersic_n": np.nan, "sersic_re": np.nan, "flag": False}
+    if len(stops) == 0 or no_data[stops[0]]:
+        i_meas = len(r_out) - 1 if len(stops) == 0 else max(stops[0] - 1, 0)
+        cog["flag"] = True
+        warnings.warn(
+            f"{label}: the profile of the galaxy is still significant at the edge of the image, so the CoG "
+            "aperture might not include all the flux of the galaxy (larger image needed).",
+            ApertureWarning,
+        )
+    else:
+        i_meas = max(stops[0] - 1, 0)
+    r_meas, f_meas = float(r_out[i_meas]), float(cum[i_meas])
+    cog["r_meas"] = r_meas
+
+    # Sérsic tail
+    sel = (r_mid > COG_MIN_RADIUS_FWHM * fwhm_pix) & (np.arange(len(r_mid)) <= i_meas) & (nvalid > 0)
+    reason = "too few annuli to fit a Sérsic profile"
+    if sel.sum() >= 4 and f_meas > 0:
+        lower, upper = [-10.0, 0.3, 0.3], [10.0, 20 * rmax, 8.0]
+        p0 = [np.log10(max(mean[sel][0], 1e-10)), max(r_meas / 3, 0.31), 1.5]
+        p0[0] = float(np.clip(p0[0], -9.9, 9.9))
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                params, cov = curve_fit(
+                    _sersic_sb, r_mid[sel], mean[sel], sigma=err[sel], absolute_sigma=True, p0=p0,
+                    bounds=(lower, upper), maxfev=20000,
+                )
+        except (RuntimeError, ValueError) as exc:
+            params, reason = None, f"the Sérsic fit failed ({exc})"
+        if params is not None:
+            def tail(p):
+                return _sersic_flux_between(p, q, r_meas, max(COG_TAIL_RADIUS * p[1], r_meas))
+
+            tail_flux = tail(params)
+            # uncertainty of the tail from the covariance of the fit
+            tail_err = np.inf
+            if np.all(np.isfinite(cov)):
+                rng = np.random.default_rng(0)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    draws = rng.multivariate_normal(params, cov, 300)
+                draws = draws[np.all((draws > lower) & (draws < upper), axis=1)]
+                if len(draws) > 20:
+                    tail_err = float(np.std([tail(d) for d in draws]))
+            if params[2] > 7.9 or params[2] < 0.31:
+                reason = f"the Sérsic index reached its limits (n = {params[2]:.2f})"
+            elif not (np.isfinite(tail_err) and tail_err < tail_flux):
+                reason = "the Sérsic tail is not constrained"
+            elif tail_flux > f_meas:
+                reason = "the Sérsic tail is larger than the flux within the aperture"
+            else:
+                reason = None
+                cog.update(
+                    tail_frac=float(tail_flux / f_meas), tail_frac_err=float(tail_err / f_meas),
+                    sersic_n=float(params[2]), sersic_re=float(params[1]),
+                )
+    elif f_meas <= 0:
+        reason = "the flux within the aperture is not positive"
+    if reason is not None:
+        # half-light radius of the curve of growth within the aperture
+        # (first radius enclosing half the flux; the curve of growth is not always monotonic)
+        r_half = float(r_out[np.argmax(cum[: i_meas + 1] >= 0.5 * f_meas)]) if f_meas > 0 else np.inf
+        if not r_meas >= COG_NO_TAIL_RADIUS * r_half:
+            cog["flag"] = True
+            warnings.warn(
+                f"{label}: no Sérsic tail added to the CoG aperture ({reason}) and the aperture radius is smaller "
+                f"than {COG_NO_TAIL_RADIUS:g} half-light radii, so the flux might be underestimated.",
+                ApertureWarning,
+            )
+    return cog
+
+
+def apply_cog_tail(flux: float, flux_err: float, tail_frac: float, tail_frac_err: float) -> tuple[float, float]:
+    """Adds the Sérsic tail (as a fraction of the flux within the aperture; see :func:`cog_aperture`) to the flux
+    of the CoG aperture, with its uncertainty."""
+    total = flux * (1 + tail_frac)
+    total_err = np.sqrt((flux_err * (1 + tail_frac)) ** 2 + (flux * tail_frac_err) ** 2)
+    return total, total_err
 
 
 def extract_aperture(
@@ -320,6 +546,7 @@ def extract_aperture(
     save_plots: bool = True,
     save_aperture_params: bool = True,
     save_input: bool = True,
+    aperture_method: str = "kron",
 ) -> tuple[np.ndarray, WCS, float, float, bool]:
     """Calculates the aperture for a given galaxy.
 
@@ -353,8 +580,11 @@ def extract_aperture(
     deblend_cont : Minimum contrast ratio used for object deblending. Default is 0.005.
         To entirely disable deblending, set to 1.0.
     save_plots: If `True`, the mask and galaxy aperture figures are saved.
-    save_aperture_params: If `True`, the extracted mask parameters are saved into a pickle file.
+    save_aperture_params: If `True`, the aperture parameters are saved into a csv file.
     save_input: Whether to save the input parameters.
+    aperture_method: Aperture used for the global photometry: ``"kron"`` (default), the Kron aperture, or
+        ``"cog"``, the curve-of-growth aperture with a Sérsic tail (see :func:`cog_aperture`). The CoG aperture
+        is also given as a scaled Kron ellipse (``scale * kronrad``), with the same shape.
 
     Returns
     -------
@@ -365,6 +595,41 @@ def extract_aperture(
     flip: Whether to flip the orientation of the aperture.
     """
     input_params = locals()  # dictionary
+    gal_obj, wcs, kronrad, scale, flip, _ = _extract_aperture(**input_params)
+    return gal_obj, wcs, kronrad, scale, flip
+
+
+def _check_aperture_method(aperture_method: str, optimize_kronrad: bool) -> None:
+    if aperture_method not in APERTURE_METHODS:
+        raise ValueError(f"Invalid aperture method '{aperture_method}' (valid options: {APERTURE_METHODS}).")
+    if aperture_method == "cog" and optimize_kronrad:
+        raise ValueError("`optimize_kronrad=True` can only be used with `aperture_method='kron'`.")
+
+
+def _extract_aperture(
+    name: str,
+    host_ra: float,
+    host_dec: float,
+    filt: str,
+    survey: str,
+    ra: float = None,
+    dec: float = None,
+    bkg_sub: bool = False,
+    threshold: float = 10,
+    use_mask: bool = True,
+    optimize_kronrad: bool = False,
+    eps: float = 0.0001,
+    gal_dist_thresh: float = -1,
+    deblend_cont: float = 0.005,
+    save_plots: bool = True,
+    save_aperture_params: bool = True,
+    save_input: bool = True,
+    aperture_method: str = "kron",
+) -> tuple[np.ndarray, WCS, float, float, bool, dict]:
+    """As :func:`extract_aperture`, also returning the details of the aperture (method and Sérsic tail of the
+    CoG aperture)."""
+    input_params = locals()  # dictionary
+    _check_aperture_method(aperture_method, optimize_kronrad)
     # save input parameters
     if save_input is True:
         inputs_file = Path(workdir, name, survey, "input_aperture_parameters.csv")
@@ -416,16 +681,37 @@ def extract_aperture(
             f"The galaxy was not detected in {survey} {filt} (threshold={threshold} sigma). "
             "Try a lower `threshold` or check the coordinates."
         )
-    if optimize_kronrad:
+    aperture_info = {"method": aperture_method, "tail_frac": 0.0, "tail_frac_err": 0.0}
+    if aperture_method == "cog":
+        kronrad = _kron_radius(data_sub, gal_obj)
+        fwhm = image_psf_fwhm(header, survey, filt)
+        pixel_scale = float(np.sqrt(abs(np.linalg.det(wcs.pixel_scale_matrix))) * 3600)  # arcsec
+        if np.isfinite(fwhm) and fwhm > 0:
+            fwhm_pix = fwhm / pixel_scale
+        else:
+            fwhm_pix = estimate_fwhm_pix(data_sub, bkg.globalrms, ~np.isfinite(data_sub))
+        # theta must be in the range [-pi/2, pi/2] (as for the Kron aperture)
+        gal_obj["theta"] = wrap_theta(gal_obj["theta"])
+        with collect_flags() as aperture_flags:
+            cog = cog_aperture(data_sub, gal_obj, kronrad, bkg.globalrms, fwhm_pix, label=f"{survey} {filt}")
+        # the CoG aperture is given as a scaled Kron ellipse (same shape)
+        scale = cog["r_meas"] / (float(gal_obj["a"][0]) * kronrad)
+        aperture_flag = "aperture" in aperture_flags
+        aperture_info.update(
+            r_meas=cog["r_meas"], sersic_n=cog["sersic_n"], sersic_re=cog["sersic_re"],
+            tail_frac=cog["tail_frac"], tail_frac_err=cog["tail_frac_err"],
+        )
+    elif optimize_kronrad:
         _exptime = get_effective_gain(header, survey, filt)  # for the Poisson noise of the sources
-        with collect_flags() as kron_flags:
+        with collect_flags() as aperture_flags:
             opt_res = optimize_aperture(data_sub, bkg.rms(), _exptime, gal_obj, eps)
         _, _, kronrad, scale = opt_res
-        kron_flag = "kron" in kron_flags
+        aperture_flag = "aperture" in aperture_flags
     else:
         scale = 2.5
         kronrad = _kron_radius(data_sub, gal_obj)
-        kron_flag = False
+        aperture_flag = False
+    aperture_info["flag"] = aperture_flag
 
     if save_plots is True:
         outfile = obj_dir / survey / f"global_{survey}_{filt}.jpg"
@@ -452,7 +738,11 @@ def extract_aperture(
         gal_df = pd.DataFrame(gal_obj)
         gal_df["kronrad"] = kronrad
         gal_df["scale"] = scale
-        gal_df["kron_flag"] = kron_flag  # (see optimize_aperture())
+        gal_df["aperture_flag"] = aperture_flag  # (see optimize_aperture() and cog_aperture())
+        gal_df["method"] = aperture_method
+        if aperture_method == "cog":
+            for key in ["r_meas", "sersic_n", "sersic_re", "tail_frac", "tail_frac_err"]:
+                gal_df[key] = aperture_info[key]
         gal_df["flip"] = flip
         gal_df["filt"] = filt
         gal_df["survey"] = survey
@@ -497,7 +787,7 @@ def extract_aperture(
         gal_df.to_csv(outfile, index=False)
     hdu.close()
 
-    return gal_obj, wcs, kronrad, scale, flip
+    return gal_obj, wcs, kronrad, scale, flip, aperture_info
 
 
 def load_aperture_params(
@@ -514,8 +804,21 @@ def load_aperture_params(
 
     Returns
     -------
-    gal_obj, nongal_objs, wcs, sigma, r, flip: Mask parameters.
+    gal_obj: Galaxy object.
+    wcs: WCS of the reference image.
+    kronrad: Kron radius.
+    scale: Scale for the Kron radius.
+    flip: Whether to flip the orientation of the aperture.
     """
+    gal_obj, wcs, kronrad, scale, flip, _ = _load_aperture_params(name, filt, survey)
+    return gal_obj, wcs, kronrad, scale, flip
+
+
+def _load_aperture_params(
+    name: str, filt: str | list, survey: str
+) -> tuple[np.ndarray, WCS, float, float, bool, dict]:
+    """As :func:`load_aperture_params`, also returning the details of the aperture (method and Sérsic tail of the
+    CoG aperture)."""
     if isinstance(filt, list):
         filt = "".join(f for f in filt)
     obj_dir = Path(workdir, name)
@@ -531,11 +834,17 @@ def load_aperture_params(
     kronrad = gal_df.pop("kronrad").values[0]
     scale = gal_df.pop("scale").values[0]  # remove host-galaxy row
     flip = gal_df.pop("flip").values[0]
-    if "kron_flag" in gal_df and bool(gal_df.pop("kron_flag").values[0]):
+    # (files saved before the CoG aperture was added only have Kron apertures)
+    method = gal_df.pop("method").values[0] if "method" in gal_df else "kron"
+    aperture_info = {"method": method, "tail_frac": 0.0, "tail_frac_err": 0.0}
+    for key in ["r_meas", "sersic_n", "sersic_re", "tail_frac", "tail_frac_err"]:
+        if key in gal_df:
+            aperture_info[key] = float(gal_df.pop(key).values[0])
+    if "aperture_flag" in gal_df and bool(gal_df.pop("aperture_flag").values[0]):
         warnings.warn(
-            f"The optimised Kron aperture of the reference ({survey} {filt}) reached the maximum scale or might not "
-            "fit in the image (see optimize_aperture()).",
-            KronWarning,
+            f"The aperture of the reference ({survey} {filt}) might not include all the flux of the galaxy "
+            "(see optimize_aperture() and cog_aperture()).",
+            ApertureWarning,
         )
     # remove unused columns
     _ = gal_df.pop("filt")
@@ -552,7 +861,7 @@ def load_aperture_params(
             warnings.simplefilter("ignore", AstropyWarning)
             wcs = WCS(hdu[0].header, naxis=2)
 
-    return gal_obj, wcs, kronrad, scale, flip
+    return gal_obj, wcs, kronrad, scale, flip, aperture_info
 
 
 def _photometry(
@@ -577,9 +886,10 @@ def _photometry(
     save_plots: bool = True,
     save_aperture_params: bool = False,
     return_flags: bool = False,
+    aperture_method: str = "kron",
 ) -> tuple[float, float, float, float, float]:
     """Calculates the global aperture photometry of a galaxy using
-    the Kron flux.
+    the Kron flux (or the curve-of-growth flux; see ``aperture_method``).
 
     **Note:** the galaxy must be ideally centred in the image.
 
@@ -623,6 +933,10 @@ def _photometry(
     save_aperture_params: Whether to save the aperture parameters.
     return_flags: If ``True``, the quality flags (see :mod:`hostphot.flags`; ``True`` if the issue was found,
         with a warning) are returned in a dictionary (``flags``), as a sixth value.
+    aperture_method: Aperture used: ``"kron"`` (default), the Kron aperture (see ``optimize_kronrad``), or
+        ``"cog"``, the curve-of-growth aperture with a Sérsic tail (see :func:`cog_aperture`). With a common
+        aperture, it must be the method of the reference aperture, and the Sérsic tail of the reference (as a
+        fraction of the flux within the aperture) is applied to all the filters.
 
     Returns
     -------
@@ -638,6 +952,7 @@ def _photometry(
     # initial checks
     check_survey_validity(survey)
     check_work_dir(workdir)
+    _check_aperture_method(aperture_method, optimize_kronrad)
     obj_dir = Path(workdir, name)
     if use_mask:
         suffix = "_masked"
@@ -676,30 +991,36 @@ def _photometry(
         )
     if (ref_filt is None) | (ref_survey is None) | (common_aperture is False):
         # independent photometry for each filter
-        gal_obj, wcs, kronrad, scale, _ = extract_aperture(
+        gal_obj, wcs, kronrad, scale, _, aperture_info = _extract_aperture(
             name,
             host_ra,
             host_dec,
             filt,
             survey,
-            ra,
-            dec,
-            bkg_sub,
-            threshold,
-            use_mask,
-            optimize_kronrad,
-            eps,
-            gal_dist_thresh,
-            deblend_cont,
-            save_plots,
-            save_aperture_params,
+            ra=ra,
+            dec=dec,
+            bkg_sub=bkg_sub,
+            threshold=threshold,
+            use_mask=use_mask,
+            optimize_kronrad=optimize_kronrad,
+            eps=eps,
+            gal_dist_thresh=gal_dist_thresh,
+            deblend_cont=deblend_cont,
+            save_plots=save_plots,
+            save_aperture_params=save_aperture_params,
             save_input=False,  # (the inputs of the photometry are saved by multi_band_phot())
+            aperture_method=aperture_method,
         )
     else:
         # common aperture photometry
-        gal_obj, master_wcs, kronrad, scale, flip2 = load_aperture_params(
+        gal_obj, master_wcs, kronrad, scale, flip2, aperture_info = _load_aperture_params(
             name, ref_filt, ref_survey
         )
+        if aperture_info["method"] != aperture_method:
+            raise ValueError(
+                f"The reference aperture ({ref_survey} {ref_filt}) was measured with "
+                f"aperture_method='{aperture_info['method']}', not '{aperture_method}'."
+            )
         # adapt ellipses between surveys
         if survey in flipped_surveys:
             flip = True
@@ -714,13 +1035,14 @@ def _photometry(
             gal_obj, master_wcs, wcs, flip_
         )
 
-    # reliability of the subtracted background in the Kron aperture (with a warning if unreliable)
+    aperture_name = "CoG" if aperture_method == "cog" else "Kron"
+    # reliability of the subtracted background in the aperture (with a warning if unreliable)
     if back_info is not None:
         x, y, a, b, theta = _kron_ellipse(gal_obj, kronrad, scale)
         aperture_pixels = (
             EllipticalAperture((x, y), a, b, theta=theta).to_mask(method="center").to_image(data.shape) > 0
         )
-        background_flag(data, back, back_info, aperture_pixels, f"{survey} {filt} (Kron aperture)")
+        background_flag(data, back, back_info, aperture_pixels, f"{survey} {filt} ({aperture_name} aperture)")
 
     if survey == "Herschel":
         flux, flux_err, herschel_details = herschel_kron_flux(
@@ -730,9 +1052,12 @@ def _photometry(
         x, y, a, b, theta = _kron_ellipse(gal_obj, kronrad, scale)
         kron_aperture = EllipticalAperture((x, y), a, b, theta=theta)
         if not check_aperture_coverage(
-            data_sub, kron_aperture, f"{survey} {filt} (Kron aperture)", flux_weighted=True
+            data_sub, kron_aperture, f"{survey} {filt} ({aperture_name} aperture)", flux_weighted=True
         ):
             flux, flux_err = np.nan, np.nan
+        if aperture_method == "cog":
+            flux, flux_err = apply_cog_tail(flux, flux_err, aperture_info["tail_frac"], aperture_info["tail_frac_err"])
+            herschel_details["snr"] = flux / flux_err if flux_err > 0 else np.nan
         zp = 3631.0
         if flux > 0 and flux_err > 0:
             mag = -2.5 * np.log10(flux / zp)
@@ -773,7 +1098,7 @@ def _photometry(
     # get Kron flux
     invvar = get_invvar_map(hdu, survey)
     x, y, a, b, theta = _kron_ellipse(gal_obj, kronrad, scale)
-    label = f"{survey} {filt} (Kron aperture)"
+    label = f"{survey} {filt} ({aperture_name} aperture)"
     pixel_scale = float(np.sqrt(abs(np.linalg.det(wcs.pixel_scale_matrix))) * 3600)  # arcsec
     # the outer parts of the Kron aperture contain little flux, so the missing flux is checked
     kron_aperture = EllipticalAperture((x, y), a, b, theta=theta)
@@ -800,7 +1125,10 @@ def _photometry(
                 data_sub, flux_err, gal_obj, kronrad, scale, pixel_scale=pixel_scale, label=label,
                 residual_background=floor_residual_background(survey, filt),
             )
-    
+    if aperture_method == "cog":
+        # flux beyond the aperture (Sérsic tail)
+        flux, flux_err = apply_cog_tail(flux, flux_err, aperture_info["tail_frac"], aperture_info["tail_frac_err"])
+
     # aperture area of the (scaled) Kron ellipse
     ap_area = kron_aperture_area(gal_obj, kronrad, scale)
     mag, mag_err, flux, flux_err, zp = magnitude_calculation(
@@ -883,6 +1211,7 @@ def multi_band_phot(
     save_results: bool = True,
     raise_exception: bool = True,
     save_input: bool = True,
+    aperture_method: str = "kron",
 ):
     """Calculates multi-band aperture photometry of the host galaxy
     for an object.
@@ -928,6 +1257,10 @@ def multi_band_phot(
     save_results: If ``True``, the magnitudes are saved into a csv file.
     raise_exception: If ``True``, an exception is raised if the photometry fails for any filter.
     save_input: Whether to save the input parameters.
+    aperture_method: Aperture used: ``"kron"`` (default), the Kron aperture (see ``optimize_kronrad``), or
+        ``"cog"``, the curve-of-growth aperture with a Sérsic tail (see :func:`cog_aperture`). With a common
+        aperture, it must be the method of the reference aperture, and the Sérsic tail of the reference (as a
+        fraction of the flux within the aperture) is applied to all the filters.
 
     Returns
     -------
@@ -1003,6 +1336,7 @@ def multi_band_phot(
                 save_plots=save_plots,
                 save_aperture_params=save_aperture_params,
                 return_flags=True,
+                aperture_method=aperture_method,
             )
             mag, mag_err, flux, flux_err, zp = phot_res[:5]
             extra_results = phot_res[5] if len(phot_res) > 5 else {}

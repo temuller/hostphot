@@ -127,6 +127,8 @@ New in v4
 * Quality flags (e.g. ``{filt}_bkg_flag``, ``{filt}_coverage_flag``, ``{filt}_calib_flag``): boolean columns,
   ``True`` (with a warning) if an issue makes the measurement less reliable (e.g. unreliable subtracted background,
   part of the aperture without data, less reliable calibration), see the photometry page.
+* Global photometry: new curve-of-growth aperture with a Sérsic tail (``aperture_method="cog"``), which recovers
+  the total flux of extended galaxies better than the Kron aperture. The default aperture (Kron) is unchanged.
 * Masking: new method that models the host galaxy (``create_mask(method="host_model")``), so that the structure of
   large galaxies (e.g. star-forming clumps and spiral arms) is not masked. The default method is unchanged.
 * Resolution: the PSF FWHM of the images is given with the local photometry (``{filt}_psf_fwhm``), with a

@@ -18,8 +18,10 @@ Flags:
 - ``psf``: the aperture radius is smaller than the PSF FWHM (local photometry only).
 - ``err``: the blank-aperture noise floor could not be estimated, or was extrapolated from smaller apertures,
   so the uncertainty might be underestimated.
-- ``kron``: the optimised Kron aperture reached the maximum scale without converging, or might not fit in the
-  image (global photometry only).
+- ``aperture``: the global aperture might not include all the flux of the galaxy (global photometry only): the
+  optimised Kron aperture reached the maximum scale without converging, or might not fit in the image; or the
+  profile of the curve-of-growth aperture was still significant at the edge of the image, or its Sérsic tail
+  could not be estimated (see :func:`hostphot.photometry.global_photometry.cog_aperture`).
 - ``calib``: less reliable calibration: VISTA image with a zeropoint uncertainty above the threshold
   (``MAGZRR``), KiDS image without the DR5 zeropoint correction (``DMAG``), or HST filter without a tabulated
   zeropoint uncertainty (2% assumed).
@@ -59,8 +61,8 @@ class ErrorFloorWarning(FlagWarning):
     flag = "err"
 
 
-class KronWarning(FlagWarning):
-    flag = "kron"
+class ApertureWarning(FlagWarning):
+    flag = "aperture"
 
 
 class CalibrationWarning(FlagWarning):
@@ -84,7 +86,7 @@ APERTURE_FLAGS = ("bkg", "coverage", "psf", "err")
 # flags of the image (the same for all the apertures)
 IMAGE_FLAGS = ("calib", "fallback_image", "mask_fallback", "mask_nogaia")
 LOCAL_FLAGS = APERTURE_FLAGS + IMAGE_FLAGS
-GLOBAL_FLAGS = ("bkg", "coverage", "err", "kron") + IMAGE_FLAGS
+GLOBAL_FLAGS = ("bkg", "coverage", "err", "aperture") + IMAGE_FLAGS
 
 # header keywords of the flags set when downloading or masking the images
 HEADER_FLAGS = {

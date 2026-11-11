@@ -1335,7 +1335,7 @@ def blank_kron_floor(
             )
         else:
             warnings.warn(
-                f"{label}: blank apertures of the size of the Kron aperture do not fit in the image, so the "
+                f"{label}: blank apertures of the size of the aperture do not fit in the image, so the "
                 "noise floor was extrapolated from smaller apertures (less accurate). Consider downloading a larger image.",
                 ErrorFloorWarning,
             )
