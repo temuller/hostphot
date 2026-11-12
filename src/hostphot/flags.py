@@ -13,8 +13,9 @@ Flags:
 
 - ``bkg``: the subtracted background is unreliable in the aperture (e.g. the galaxy fills most of the image);
   see :func:`hostphot.processing.background.background_flag`.
-- ``coverage``: part of the aperture has no data (e.g. image edge or chip gap), so the flux is measured from
-  the remaining pixels and might be underestimated (by up to the tolerance, 5% by default).
+- ``coverage``: part of the aperture has no data (e.g. image edge or chip gap). Local apertures: the flux is
+  measured from the remaining pixels and might be underestimated (by up to 5%). Global apertures: the estimated
+  missing flux (up to 10%, assuming a symmetric galaxy) is added to the flux, and half of it to the uncertainty.
 - ``psf``: the aperture radius is smaller than the PSF FWHM (local photometry only).
 - ``err``: the blank-aperture noise floor could not be estimated, or was extrapolated from smaller apertures,
   so the uncertainty might be underestimated; or it was estimated from blank apertures far from the source,

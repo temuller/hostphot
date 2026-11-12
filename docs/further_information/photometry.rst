@@ -127,9 +127,11 @@ Local photometry: ``{filt}_{radius}_{flag}_flag`` for the flags of each aperture
   help. It is always ``False`` if the background is not subtracted. For example, for NGC 628 (Herschel PACS
   :math:`70 \mu \text{m}`, :math:`7` arcmin radius aperture), only :math:`\sim50\%` of the flux is recovered with the
   background subtraction; none of 144 Legacy Survey and PanSTARRS images of galaxies of different types was flagged.
-* ``coverage``: part of the aperture has no data (e.g. image edge or chip gap), so the flux is measured from the
-  remaining pixels and might be underestimated (up to :math:`5\%` of the area, or of the estimated flux for the Kron
-  apertures; above this, the flux is NaN).
+* ``coverage``: part of the aperture has no data (e.g. image edge or chip gap). For the local apertures, the flux is
+  measured from the remaining pixels and might be underestimated (up to :math:`5\%` of the area; above this, the flux
+  is NaN). For the global apertures, the flux in the pixels without data is estimated from the mean surface
+  brightness at the same elliptical radius (assuming a symmetric galaxy) and added to the measured flux, with half of
+  it added to the uncertainty (up to :math:`10\%` of the flux; above this, the flux is NaN).
 * ``psf``: the aperture radius is smaller than the PSF FWHM of the image (local photometry only), so the flux depends
   strongly on the resolution.
 * ``err``: the blank-aperture noise floor could not be estimated, or was extrapolated from smaller apertures (not

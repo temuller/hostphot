@@ -45,7 +45,8 @@ from hostphot.photometry.photometry_utils import (
     blank_kron_floor,
     floor_residual_background,
     blank_floor_surveys,
-    check_aperture_coverage,
+    check_global_coverage,
+    correct_missing_flux,
     check_saturation,
     _kron_ellipse,
     _elliptical_weighted_sum,
@@ -211,7 +212,7 @@ def _kron_arrays(data: np.ndarray, bkg: float, exptime: float) -> tuple[np.ndarr
     These only depend on the image, so they can be calculated once for several apertures.
     """
     error = calc_total_error(data, bkg, exptime)
-    # pixels without data are excluded (see check_aperture_coverage())
+    # pixels without data are excluded (see check_global_coverage())
     nan_mask = ~np.isfinite(data) | ~np.isfinite(error)
     data_valid = np.ascontiguousarray(np.where(nan_mask, 0.0, data), dtype=np.float64)
     error_valid = np.ascontiguousarray(np.where(nan_mask, 0.0, error), dtype=np.float64)
@@ -1051,10 +1052,13 @@ def _photometry(
         # as for the other surveys, the flux is not measured if the aperture lacks too much data
         x, y, a, b, theta = _kron_ellipse(gal_obj, kronrad, scale)
         kron_aperture = EllipticalAperture((x, y), a, b, theta=theta)
-        if not check_aperture_coverage(
-            data_sub, kron_aperture, f"{survey} {filt} ({aperture_name} aperture)", flux_weighted=True
-        ):
+        usable, missing_fraction = check_global_coverage(
+            data_sub, kron_aperture, f"{survey} {filt} ({aperture_name} aperture)"
+        )
+        if not usable:
             flux, flux_err = np.nan, np.nan
+        else:
+            flux, flux_err = correct_missing_flux(flux, flux_err, missing_fraction)
         if aperture_method == "cog":
             flux, flux_err = apply_cog_tail(flux, flux_err, aperture_info["tail_frac"], aperture_info["tail_frac_err"])
             herschel_details["snr"] = flux / flux_err if flux_err > 0 else np.nan
@@ -1100,11 +1104,12 @@ def _photometry(
     x, y, a, b, theta = _kron_ellipse(gal_obj, kronrad, scale)
     label = f"{survey} {filt} ({aperture_name} aperture)"
     pixel_scale = float(np.sqrt(abs(np.linalg.det(wcs.pixel_scale_matrix))) * 3600)  # arcsec
-    # the outer parts of the Kron aperture contain little flux, so the missing flux is checked
+    # the outer parts of the Kron aperture contain little flux, so the missing flux is checked (and added)
     kron_aperture = EllipticalAperture((x, y), a, b, theta=theta)
-    if not check_saturation(saturated, kron_aperture, label) or not check_aperture_coverage(
-        data_sub, kron_aperture, label, flux_weighted=True
-    ):
+    usable, missing_fraction = False, 0.0
+    if check_saturation(saturated, kron_aperture, label):
+        usable, missing_fraction = check_global_coverage(data_sub, kron_aperture, label)
+    if not usable:
         flux, flux_err = np.nan, np.nan
     elif invvar is not None:
         flux, flux_err = extract_invvar_kron_flux(
@@ -1125,6 +1130,8 @@ def _photometry(
                 data_sub, flux_err, gal_obj, kronrad, scale, pixel_scale=pixel_scale, label=label,
                 residual_background=floor_residual_background(survey, filt),
             )
+    # flux in the pixels without data
+    flux, flux_err = correct_missing_flux(flux, flux_err, missing_fraction)
     if aperture_method == "cog":
         # flux beyond the aperture (Sérsic tail)
         flux, flux_err = apply_cog_tail(flux, flux_err, aperture_info["tail_frac"], aperture_info["tail_frac_err"])

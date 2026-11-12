@@ -1279,6 +1279,64 @@ def check_aperture_coverage(
     return False
 
 
+# maximum estimated fraction of the flux of a global aperture in pixels without data; the missing flux is added
+GLOBAL_COVERAGE_TOLERANCE = 0.10
+# fraction of the estimated missing flux added (in quadrature) to the uncertainty (the galaxy might not be symmetric)
+MISSING_FLUX_ERR_FRACTION = 0.5
+
+
+def check_global_coverage(
+    data: np.ndarray, aperture, label: str, tolerance: float = GLOBAL_COVERAGE_TOLERANCE
+) -> tuple[bool, float]:
+    """Checks the coverage of a global (elliptical) aperture centred on the galaxy.
+
+    If part of the aperture has no data (e.g. image edge), the fraction of the flux in those pixels is estimated
+    assuming that the galaxy is symmetric (see :func:`elliptical_missing_flux_fraction`). Up to the tolerance,
+    the missing flux is added to the measured flux (see :func:`correct_missing_flux`), with a warning; beyond it,
+    the flux is not measured.
+
+    Parameters
+    ----------
+    data: Image data.
+    aperture: Photutils elliptical aperture.
+    label: Description of the measurement, used in the warnings (e.g. survey, filter and aperture).
+    tolerance: Maximum estimated fraction of the flux without data.
+
+    Returns
+    -------
+    usable: Whether the flux can be measured.
+    missing_fraction: Estimated fraction of the flux without data (0 if the aperture is fully covered).
+    """
+    missing_area = aperture_missing_fraction(data, aperture)
+    if missing_area == 0:
+        return True, 0.0
+    missing = elliptical_missing_flux_fraction(data, aperture)
+    msg = (
+        f"{100 * missing_area:.1f}% of the aperture has no data (NaN pixels or outside the image), containing an "
+        f"estimated {100 * missing:.1f}% of the flux"
+    )
+    if missing <= tolerance:
+        warnings.warn(
+            f"{label}: {msg}, which is added to the measured flux (assuming a symmetric galaxy; half of it is added "
+            "to the uncertainty).",
+            CoverageWarning,
+        )
+        return True, missing
+    warnings.warn(f"{label}: {msg}, more than the {100 * tolerance:.0f}% tolerance; returning NaN.")
+    return False, missing
+
+
+def correct_missing_flux(flux: float, flux_err: float, missing_fraction: float) -> tuple[float, float]:
+    """Adds the estimated flux in the pixels without data (see :func:`check_global_coverage`) to the measured
+    flux, and a fraction of it to the uncertainty (in quadrature)."""
+    if missing_fraction <= 0 or not np.isfinite(flux):
+        return flux, flux_err
+    factor = 1 / (1 - missing_fraction)
+    missing_flux = flux * (factor - 1)
+    flux_err = float(np.hypot(flux_err * factor, MISSING_FLUX_ERR_FRACTION * missing_flux))
+    return float(flux * factor), flux_err
+
+
 def _kron_ellipse(objects: np.ndarray, kronrad: float, scale: float) -> tuple[float, float, float, float, float]:
     """Return the (x, y, a, b, theta) parameters of the (scaled) Kron ellipse."""
     # theta must be in the range [-pi/2, pi/2] for sep.sum_ellipse()

@@ -64,7 +64,8 @@ Many magnitudes and uncertainties of v3 were wrong. The main changes are (see th
      - Uncertainties: blank-aperture noise floor (correlated noise) and calibration uncertainties. Background
        subtraction no longer removes part of the galaxy light (e.g. magnitudes ~0.1-0.3 mag brighter for large
        apertures and Kron magnitudes). Apertures partially without data are handled consistently (NaN, with a
-       warning, if more than 5% is missing). Non-detections give NaN magnitudes (the fluxes are kept).
+       warning, if more than 5% of a local aperture, or 10% of the estimated flux of a global aperture, is missing;
+       below this, the missing flux of global apertures is added). Non-detections give NaN magnitudes (the fluxes are kept).
        Transferred apertures (common apertures and masks) are now correctly oriented
    * - PanSTARRS, DES, SkyMapper, S-PLUS
      - New error model (errors underestimated by up to ~2x for PanSTARRS and overestimated by ~2-3x for DES and
