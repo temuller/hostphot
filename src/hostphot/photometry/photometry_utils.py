@@ -903,7 +903,7 @@ def _blank_rms(
     n_apertures: int = 80,
     source_mask: Optional[np.ndarray] = None,
     residual_background: bool = True,
-) -> float | None:
+) -> tuple[float | None, bool]:
     """Estimate an empirical noise floor from the scatter of blank (source-free) apertures.
 
     Apertures overlapping detected sources (including the host galaxy) are rejected, and the
@@ -911,6 +911,12 @@ def _blank_rms(
     masked), so that faint, undetected wings of the galaxy do not contribute to the scatter.
     The apertures are first drawn from an annulus around the source; if not enough fit there,
     they are drawn from the whole image.
+
+    Faint galaxy light below the detection threshold (e.g. the outer disc or ring of a host that
+    fills the image) is not masked and can make the scatter near the source much larger than the
+    noise. Therefore, blank apertures are also drawn from the whole image, and if the scatter of
+    the local apertures is more than ``COMPARISON_RATIO`` times that of the apertures in the half of
+    the image farther from the source, the latter is used instead (and flagged).
 
     Parameters
     ----------
@@ -925,6 +931,7 @@ def _blank_rms(
     Returns
     -------
     rms: Robust RMS of the blank-aperture fluxes, or ``None`` if fewer than 10 apertures fit.
+    replaced: Whether the local apertures were contaminated and the distant ones were used.
     """
     rng = np.random.default_rng(12345)
     ny, nx = data.shape
@@ -942,6 +949,20 @@ def _blank_rms(
     weights = make_aperture(0.0, 0.0).to_mask(method="exact")
     template, bbox = weights.data, weights.bbox
     footprint = template > 0
+
+    def blank_flux(x: float, y: float) -> float | None:
+        ix, iy = int(round(x)), int(round(y))
+        xmin, ymin = bbox.ixmin + ix, bbox.iymin + iy
+        xmax, ymax = bbox.ixmax + ix, bbox.iymax + iy
+        if xmin < 0 or ymin < 0 or xmax > nx or ymax > ny:
+            return None  # aperture not fully inside the image
+        if np.any(source_mask[ymin:ymax, xmin:xmax][footprint]):
+            return None  # aperture overlaps a source
+        cutout = residuals[ymin:ymax, xmin:xmax]
+        if not np.all(np.isfinite(cutout[footprint])):
+            return None
+        return float(np.sum(cutout[footprint] * template[footprint]))
+
     for region in ["annulus", "image"]:
         for _ in range(max_trials):
             if len(blank_fluxes) >= n_apertures:
@@ -952,26 +973,45 @@ def _blank_rms(
                 x, y = x0 + rho * np.cos(phi), y0 + rho * np.sin(phi)
             else:
                 x, y = rng.uniform(0, nx), rng.uniform(0, ny)
-            ix, iy = int(round(x)), int(round(y))
-            xmin, ymin = bbox.ixmin + ix, bbox.iymin + iy
-            xmax, ymax = bbox.ixmax + ix, bbox.iymax + iy
-            if xmin < 0 or ymin < 0 or xmax > nx or ymax > ny:
-                continue  # aperture not fully inside the image
-            if np.any(source_mask[ymin:ymax, xmin:xmax][footprint]):
-                continue  # aperture overlaps a source
-            cutout = residuals[ymin:ymax, xmin:xmax]
-            if not np.all(np.isfinite(cutout[footprint])):
-                continue
-            blank_fluxes.append(float(np.sum(cutout[footprint] * template[footprint])))
+            flux = blank_flux(x, y)
+            if flux is not None:
+                blank_fluxes.append(flux)
         if len(blank_fluxes) >= 10:
             break
 
     if len(blank_fluxes) < 10:
-        return None
+        return None, False
+    rms = _robust_rms(blank_fluxes)
 
-    arr = np.asarray(blank_fluxes, dtype=float)
-    med = np.nanmedian(arr)
-    return float(1.4826 * np.nanmedian(np.abs(arr - med)))
+    # comparison with the blank apertures in the half of the image farther from the source
+    distant = []  # (distance, flux)
+    for _ in range(max_trials):
+        if len(distant) >= n_apertures:
+            break
+        x, y = rng.uniform(0, nx), rng.uniform(0, ny)
+        flux = blank_flux(x, y)
+        if flux is not None:
+            distant.append((np.hypot(x - x0, y - y0), flux))
+    if len(distant) >= 20:
+        distance, flux = np.asarray(distant).T
+        far = flux[distance > np.median(distance)]
+        if len(far) >= 10:
+            far_rms = _robust_rms(far)
+            if far_rms > 0 and rms > COMPARISON_RATIO * far_rms:
+                return far_rms, True
+    return rms, False
+
+
+# maximum ratio between the scatter of the blank apertures near the source and far from it (for galaxies
+# without contamination, the ratio scatters by ~50% due to spatial variations of the noise: it is above 3
+# in ~1% of the cases, while galaxies filling the image have ratios of ~4-7)
+COMPARISON_RATIO = 3.0
+
+
+def _robust_rms(values) -> float:
+    """Return the robust (MAD-based) RMS of the values."""
+    arr = np.asarray(values, dtype=float)
+    return float(1.4826 * np.nanmedian(np.abs(arr - np.nanmedian(arr))))
 
 
 def _blank_aperture_rms(
@@ -984,7 +1024,7 @@ def _blank_aperture_rms(
     rmax_factor: float = 6.0,
     source_mask: Optional[np.ndarray] = None,
     residual_background: bool = True,
-) -> float | None:
+) -> tuple[float | None, bool]:
     """Estimate an empirical noise floor from blank circular apertures (see :func:`_blank_rms`)."""
     return _blank_rms(
         data,
@@ -1012,7 +1052,7 @@ def _blank_elliptical_rms(
     rmax_factor: float = 6.0,
     source_mask: Optional[np.ndarray] = None,
     residual_background: bool = True,
-) -> float | None:
+) -> tuple[float | None, bool]:
     """Estimate an empirical noise floor from blank elliptical apertures (see :func:`_blank_rms`)."""
     step_scale = max(a, b)
     return _blank_rms(
@@ -1037,7 +1077,7 @@ def _extrapolated_blank_rms(
     source_mask: np.ndarray,
     residual_background: bool = True,
     fractions: tuple = (1 / 64, 1 / 32, 1 / 16, 1 / 8, 1 / 4, 1 / 2),
-) -> float | None:
+) -> tuple[float | None, bool]:
     """Estimate the blank-aperture noise of apertures too large to fit in the image.
 
     The noise of smaller blank circular apertures (with ``fractions`` of the given area) is
@@ -1055,24 +1095,37 @@ def _extrapolated_blank_rms(
     Returns
     -------
     rms: Extrapolated noise, or ``None`` if fewer than three smaller apertures could be measured.
+    replaced: Whether the distant blank apertures were used for any of the smaller apertures (see :func:`_blank_rms`).
     """
     target_radius = np.sqrt(area / np.pi)
     points = []
+    replaced = False
     for fraction in fractions:
         radius = target_radius * np.sqrt(fraction)
         if radius < 1.5:
             continue
-        rms = _blank_aperture_rms(
+        rms, rep = _blank_aperture_rms(
             data, x0, y0, radius, source_mask=source_mask, residual_background=residual_background
         )
         if rms is not None and rms > 0:
             points.append((np.pi * radius**2, rms))
+            replaced |= rep
     if len(points) < 3:
-        return None
+        return None, False
     log_area, log_rms = np.log(np.array(points)).T
     beta = float(np.clip(np.polyfit(log_area, log_rms, 1)[0], 0.5, 1.0))
     intercept = np.median(log_rms - beta * log_area)
-    return float(np.exp(intercept + beta * np.log(area)))
+    return float(np.exp(intercept + beta * np.log(area))), replaced
+
+
+def _warn_distant_floor(label: str) -> None:
+    """Warn that the blank apertures near the source were contaminated and the distant ones were used."""
+    warnings.warn(
+        f"{label}: the blank apertures near the source have a much larger scatter than those far from it "
+        "(faint galaxy light or a structured background), so the noise floor was estimated from the distant "
+        "apertures. Consider downloading a larger image.",
+        ErrorFloorWarning,
+    )
 
 
 def aperture_missing_fraction(data: np.ndarray, aperture) -> float:
@@ -1259,6 +1312,7 @@ def blank_aperture_floor(
     radius: float,
     source_mask: Optional[np.ndarray] = None,
     residual_background: bool = True,
+    label: Optional[str] = None,
 ) -> float:
     """Applies a blank-aperture noise floor to the error of a circular-aperture flux.
 
@@ -1273,14 +1327,18 @@ def blank_aperture_floor(
     radius: Aperture radius in pixels.
     source_mask: Mask of the detected sources (see :func:`get_source_mask`). Giving it avoids
         recalculating it for every aperture on the same image.
+    residual_background: Whether to measure the blank apertures on the residuals from a smooth background.
+    label: Description of the measurement, used in the warnings (e.g. survey, filter and aperture).
 
     Returns
     -------
     flux_err: Flux uncertainty including the floor.
     """
-    blank_rms = _blank_aperture_rms(
+    blank_rms, replaced = _blank_aperture_rms(
         data, px, py, radius, source_mask=source_mask, residual_background=residual_background
     )
+    if replaced:
+        _warn_distant_floor(label or f"{radius:.1f}-pixel aperture")
     if blank_rms is None:
         warnings.warn(
             f"The blank-aperture noise floor could not be estimated for a {radius:.1f}-pixel aperture (not enough "
@@ -1322,11 +1380,13 @@ def blank_kron_floor(
     """
     x, y, a, b, theta = _kron_ellipse(objects, kronrad, scale)
     source_mask = _source_mask(data, pixel_scale, host_xy=(x, y))
-    rms = _blank_elliptical_rms(
+    rms, replaced = _blank_elliptical_rms(
         data, x, y, a, b, theta, source_mask=source_mask, residual_background=residual_background
     )
     if rms is None:
-        rms = _extrapolated_blank_rms(data, x, y, np.pi * a * b, source_mask, residual_background=residual_background)
+        rms, replaced = _extrapolated_blank_rms(
+            data, x, y, np.pi * a * b, source_mask, residual_background=residual_background
+        )
         if rms is None:
             warnings.warn(
                 f"{label}: the blank-aperture noise floor could not be estimated (not enough blank sky "
@@ -1339,6 +1399,8 @@ def blank_kron_floor(
                 "noise floor was extrapolated from smaller apertures (less accurate). Consider downloading a larger image.",
                 ErrorFloorWarning,
             )
+    if replaced:
+        _warn_distant_floor(label)
     return _apply_floor(flux_err, rms)
 
 
@@ -1349,12 +1411,13 @@ def extract_invvar_aperture_flux(
     py: float,
     radius: float,
     source_mask: Optional[np.ndarray] = None,
+    label: Optional[str] = None,
 ) -> tuple[float, float]:
     """Aperture flux with inverse-variance propagation and a blank-aperture floor."""
     flux, weights, mask = _aperture_weighted_sum(data, px, py, radius)
     invvar_var = _aperture_invvar_variance(invvar, weights, mask)
     invvar_err = np.sqrt(invvar_var) if invvar_var > 0 else np.nan
-    return flux, blank_aperture_floor(data, invvar_err, px, py, radius, source_mask=source_mask)
+    return flux, blank_aperture_floor(data, invvar_err, px, py, radius, source_mask=source_mask, label=label)
 
 
 def extract_invvar_kron_flux(

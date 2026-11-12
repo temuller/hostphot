@@ -133,7 +133,9 @@ Local photometry: ``{filt}_{radius}_{flag}_flag`` for the flags of each aperture
 * ``psf``: the aperture radius is smaller than the PSF FWHM of the image (local photometry only), so the flux depends
   strongly on the resolution.
 * ``err``: the blank-aperture noise floor could not be estimated, or was extrapolated from smaller apertures (not
-  enough blank sky in the image), so the uncertainty might be underestimated. A larger image can help.
+  enough blank sky in the image), so the uncertainty might be underestimated; or the blank apertures near the source
+  had a scatter more than 3 times larger than those far from it (faint galaxy light or a structured background, e.g.
+  a galaxy filling the image), so the floor was estimated from the distant ones. A larger image can help.
 * ``aperture``: the global aperture might not include all the flux of the galaxy (global photometry only; also for
   the common aperture of a reference filter): the optimised Kron aperture (``optimize_kronrad=True``) reached the
   maximum scale without converging, or might not fit in the image; or the profile of the CoG aperture

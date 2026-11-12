@@ -17,7 +17,8 @@ Flags:
   the remaining pixels and might be underestimated (by up to the tolerance, 5% by default).
 - ``psf``: the aperture radius is smaller than the PSF FWHM (local photometry only).
 - ``err``: the blank-aperture noise floor could not be estimated, or was extrapolated from smaller apertures,
-  so the uncertainty might be underestimated.
+  so the uncertainty might be underestimated; or it was estimated from blank apertures far from the source,
+  as those near it were contaminated (e.g. by faint galaxy light).
 - ``aperture``: the global aperture might not include all the flux of the galaxy (global photometry only): the
   optimised Kron aperture reached the maximum scale without converging, or might not fit in the image; or the
   profile of the curve-of-growth aperture was still significant at the edge of the image, or its Sérsic tail

@@ -349,7 +349,9 @@ def photometry(
                 if source_mask is None:
                     source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
                 # (a warning is given if the blank-aperture uncertainty cannot be estimated)
-                blank_err = blank_aperture_floor(data_sub, 0.0, px, py, radius_pix, source_mask=source_mask)
+                blank_err = blank_aperture_floor(
+                    data_sub, 0.0, px, py, radius_pix, source_mask=source_mask, label=label
+                )
                 cal_err = abs(flux) * HERSCHEL_CALIBRATION_FRACTION.get(filt, 0.0)
                 flux_err = float(np.sqrt(blank_err**2 + cal_err**2))
             elif invvar is not None:
@@ -362,6 +364,7 @@ def photometry(
                     py,
                     radius_pix,
                     source_mask=source_mask,
+                    label=label,
                 )
             else:
                 flux, flux_err = extract_aperture_flux(
@@ -372,7 +375,7 @@ def photometry(
                         source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
                     flux_err = blank_aperture_floor(
                         data_sub, flux_err, px, py, radius_pix, source_mask=source_mask,
-                        residual_background=floor_residual_background(survey, filt),
+                        residual_background=floor_residual_background(survey, filt), label=label,
                     )
             #flux, flux_err = extract_aperture_flux(data_sub, bkg.background_rms, _exptime, px, py, radius_pix)
 

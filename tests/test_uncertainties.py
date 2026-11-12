@@ -232,7 +232,7 @@ class TestUncertainties(unittest.TestCase):
         fluxes = np.array(aperture_photometry(data, CircularAperture(positions, radius))["aperture_sum"])
         true_scatter = 1.4826 * np.median(np.abs(fluxes - np.median(fluxes)))
         source_mask = np.zeros(data.shape, dtype=bool)
-        extrapolated = _extrapolated_blank_rms(data, 600, 600, np.pi * radius**2, source_mask)
+        extrapolated, _ = _extrapolated_blank_rms(data, 600, 600, np.pi * radius**2, source_mask)
         np.testing.assert_allclose(extrapolated, true_scatter, rtol=0.35)
         # Kron aperture too large for blank apertures to fit in a small image: extrapolated, with a warning
         small = data[:300, :300]
