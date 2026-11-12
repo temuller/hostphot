@@ -150,7 +150,8 @@ Local photometry: ``{filt}_{radius}_{flag}_flag`` for the flags of each aperture
   cover the cutout).
 * ``mask_fallback``: the host model could not be fitted when masking (``method="host_model"``), so the sources were
   masked with their ellipses.
-* ``mask_nogaia``: the Gaia DR3 query failed when masking, so the stars could not be identified.
+* ``mask_nogaia``: the Gaia DR3 query failed when masking (the ESA Gaia archive and its partner data centres), so the
+  stars could not be identified.
 
 The ``calib`` (VISTA and KiDS), ``fallback_image``, ``mask_fallback`` and ``mask_nogaia`` flags are set when
 downloading or masking the images, and stored in their headers (``HPF*`` keywords), so they are only available for
@@ -192,7 +193,10 @@ Before the photometry, the sources around the host galaxy (stars and other galax
   are stars of Gaia DR3 (with a significant proper motion or parallax), or extended sources clearly brighter than
   the host where they lie (e.g. an overlapping galaxy; see ``contrast``, ``structure_sigma`` and
   ``extended_factor``). The masked pixels are replaced by the host model plus noise. If the model cannot be
-  fitted, the ellipses are used instead (with a warning). This method needs the Gaia archive.
+  fitted, the ellipses are used instead (with a warning). This method needs the Gaia archive (the ESA Gaia archive, or
+  the Gaia partner data centres in Heidelberg, Potsdam and GAVO if it fails). The Gaia sources are queried once per
+  object and cached in ``gaia_dr3_stars.ecsv`` in its directory, so they are not queried again for the other filters
+  and surveys, or in later runs (delete the file to query them again).
 
 The masks of one image can be used for other filters or surveys (``save_mask_params=True`` and ``ref_filt``,
 ``ref_survey``). With ``method="host_model"``, the mask of the reference image is reprojected onto the other images,

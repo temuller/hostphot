@@ -223,7 +223,7 @@ def create_mask(
         # compact regions of the galaxies)
         if crossmatch:
             with collect_flags() as gaia_flags:
-                cat_coord = find_gaia_objects(host_ra, host_dec)
+                cat_coord = find_gaia_objects(host_ra, host_dec, cache_dir=obj_dir)
             mask_flags |= gaia_flags
             nongal_objs = cross_match(nongal_objs, img_wcs, cat_coord)
     else:
@@ -263,7 +263,7 @@ def create_mask(
         try:
             if (ref_filt is None) & (ref_survey is None):
                 with collect_flags() as gaia_flags:
-                    gaia_xy = _gaia_pixels(host_ra, host_dec, img_wcs, data_sub.shape)
+                    gaia_xy = _gaia_pixels(host_ra, host_dec, img_wcs, data_sub.shape, cache_dir=obj_dir)
                 mask_flags |= gaia_flags
                 host_mask, masked_data, info = host_model_mask(
                     data_sub, bkg_rms, float(host_x), float(host_y), fwhm_pix, nongal_objs, gaia_xy, threshold,
@@ -373,10 +373,12 @@ def _fwhm_pixels(data: np.ndarray, bkg_rms: float, header: fits.Header, img_wcs:
     return estimate_fwhm_pix(data, bkg_rms, ~np.isfinite(data))
 
 
-def _gaia_pixels(host_ra: float, host_dec: float, img_wcs: wcs.WCS, shape: tuple) -> tuple[np.ndarray, np.ndarray]:
+def _gaia_pixels(
+    host_ra: float, host_dec: float, img_wcs: wcs.WCS, shape: tuple, cache_dir=None
+) -> tuple[np.ndarray, np.ndarray]:
     """Pixel coordinates of the Gaia DR3 stars (with significant proper motion or parallax) in the image."""
     radius = 0.5 * np.hypot(*shape) * np.max(proj_plane_pixel_scales(img_wcs))  # half diagonal, in degrees
-    stars = find_gaia_objects(host_ra, host_dec, rad=float(radius))
+    stars = find_gaia_objects(host_ra, host_dec, rad=float(radius), cache_dir=cache_dir)
     if len(stars) == 0:
         return np.array([]), np.array([])
     x, y = img_wcs.world_to_pixel(stars)

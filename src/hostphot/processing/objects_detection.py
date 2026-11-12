@@ -135,7 +135,120 @@ def extract_objects(
     return gal_obj, nogal_objs
 
 
-def find_gaia_objects(ra: float, dec: float, rad: float = 0.15, min_significance: float = 5.0) -> SkyCoord:
+GAIA_COLUMNS = ["ra", "dec", "parallax_over_error", "pmra", "pmra_error", "pmdec", "pmdec_error"]
+GAIA_MIN_QUERY_RADIUS = 0.15  # minimum radius of the Gaia queries (deg), so that the cached stars can be reused
+GAIA_CACHE_FILE = "gaia_dr3_stars.ecsv"  # name of the file with the Gaia stars of a target (see find_gaia_objects())
+# Gaia partner data centres (TAP service, table), used if the ESA Gaia archive fails
+GAIA_MIRRORS = [
+    ("https://gaia.ari.uni-heidelberg.de/tap", "gaiadr3.gaia_source"),
+    ("https://gaia.aip.de/tap", "gaiadr3.gaia_source"),
+    ("https://dc.g-vo.org/tap", "gaia.dr3lite"),
+]
+_gaia_cache: dict = {}  # in-memory cache: (ra, dec) -> Gaia DR3 table (with the query radius in its metadata)
+
+
+def _query_gaia_esa(ra: float, dec: float, rad: float):
+    """Queries the Gaia DR3 sources within a radius from the ESA Gaia archive."""
+    from astroquery.gaia import Gaia
+
+    query = (
+        f"SELECT {', '.join(GAIA_COLUMNS)} FROM gaiadr3.gaia_source "
+        f"WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra}, {dec}, {rad})) = 1"
+    )
+    with suppress_stdout():
+        return call_with_timeout(
+            lambda: Gaia.launch_job_async(query).get_results(), label="Gaia DR3 query (ESA)"
+        )  # (no row limit)
+
+
+def _query_gaia_mirror(ra: float, dec: float, rad: float, tap_url: str, table: str):
+    """Queries the Gaia DR3 sources within a radius from a Gaia partner data centre (TAP service), with the
+    column names of the ESA Gaia archive."""
+    import pyvo
+
+    query = (
+        "SELECT ra, dec, parallax, parallax_error, pmra, pmra_error, pmdec, pmdec_error "
+        f"FROM {table} WHERE 1 = CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra}, {dec}, {rad}))"
+    )
+    result = call_with_timeout(
+        lambda: pyvo.dal.TAPService(tap_url).run_sync(query, maxrec=10_000_000).to_table(),
+        attempts=1,
+        label=f"Gaia DR3 query ({tap_url})",
+    )
+    # (failed requests could return an empty result instead of an error; Gaia always has sources within the
+    # minimum query radius, so an empty result is not used, nor cached)
+    if len(result) == 0:
+        raise ValueError(f"empty result from {tap_url}")
+    with np.errstate(invalid="ignore", divide="ignore"):
+        result["parallax_over_error"] = np.ma.filled(
+            np.ma.asarray(result["parallax"], dtype=float) / np.ma.asarray(result["parallax_error"], dtype=float),
+            np.nan,
+        )
+    return result[GAIA_COLUMNS]
+
+
+def _gaia_catalogue(ra: float, dec: float, rad: float, cache_dir: Optional[str] = None):
+    """Returns the Gaia DR3 sources within a radius (cached; see :func:`find_gaia_objects`), or ``None`` if
+    the queries failed (with a warning)."""
+    from pathlib import Path
+    from astropy.table import Table
+
+    key = (round(float(ra), 6), round(float(dec), 6))
+
+    def covers(table) -> bool:
+        meta = table.meta
+        return (round(float(meta.get("ra", np.nan)), 6), round(float(meta.get("dec", np.nan)), 6)) == key and float(
+            meta.get("rad", -1)
+        ) >= rad
+
+    table = _gaia_cache.get(key)
+    if table is None or not covers(table):
+        table = None
+        cache_file = Path(cache_dir, GAIA_CACHE_FILE) if cache_dir is not None else None
+        if cache_file is not None and cache_file.is_file():
+            try:
+                cached = Table.read(cache_file, format="ascii.ecsv")
+                if covers(cached):
+                    table = cached
+            except Exception:
+                pass  # (corrupted file: queried again)
+        if table is None:
+            query_rad = max(rad, GAIA_MIN_QUERY_RADIUS)
+            errors = []
+            sources = [("ESA Gaia archive", _query_gaia_esa)] + [
+                (url, lambda ra_, dec_, rad_, url=url, tab=tab: _query_gaia_mirror(ra_, dec_, rad_, url, tab))
+                for url, tab in GAIA_MIRRORS
+            ]
+            for source, query in sources:
+                try:
+                    table = Table(query(ra, dec, query_rad))
+                    break
+                except Exception as exc:
+                    errors.append(f"{source}: {exc!r}"[:300])
+            if table is None:
+                warnings.warn(
+                    f"The Gaia DR3 query failed ({'; '.join(errors)}), so no stars are used for the cross-match.",
+                    GaiaWarning,
+                )
+                return None
+            table = table[[c for c in GAIA_COLUMNS]]
+            table.meta.update({"ra": key[0], "dec": key[1], "rad": float(query_rad)})
+            if cache_file is not None and cache_file.parent.is_dir():
+                try:
+                    table.write(cache_file, format="ascii.ecsv", overwrite=True)
+                except Exception:
+                    pass  # (the cache file is optional)
+        _gaia_cache[key] = table
+
+    # sources within the requested radius
+    coord = SkyCoord(ra=ra, dec=dec, unit="deg", frame="icrs")
+    sources = SkyCoord(ra=np.asarray(table["ra"], dtype=float), dec=np.asarray(table["dec"], dtype=float), unit="deg")
+    return table[sources.separation(coord).deg <= rad] if len(table) > 0 else table
+
+
+def find_gaia_objects(
+    ra: float, dec: float, rad: float = 0.15, min_significance: float = 5.0, cache_dir: Optional[str] = None
+) -> SkyCoord:
     """Finds stars using the Gaia DR3 catalog for the given coordinates in a given radius.
 
     Only the sources with a significant proper motion or parallax (above ``min_significance``
@@ -143,37 +256,32 @@ def find_gaia_objects(ra: float, dec: float, rad: float = 0.15, min_significance
     which are not stars (e.g. ~5-25 times more sources within 1 arcmin of nearby spiral galaxies
     than in the surrounding field, without this selection).
 
+    The ESA Gaia archive is queried (or, if it fails, the Gaia partner data centres, ``GAIA_MIRRORS``), with a radius of at least
+    ``GAIA_MIN_QUERY_RADIUS``, and the sources are cached in memory and, if ``cache_dir`` is given (e.g. the
+    directory of the object), in a file (``GAIA_CACHE_FILE``), so that the masks of several filters and surveys
+    of the same object (and later runs) do not repeat the query.
+
     Parameters
     ----------
     ra: Right ascension in degrees.
     dec: Declination in degrees.
     rad: Search radius in degrees.
     min_significance: Minimum significance of the proper motion or parallax.
+    cache_dir: Directory for the cache file (no file if ``None``).
 
     Returns
     -------
     gaia_coord: Coordinates of the stars found.
     """
-    from astroquery.gaia import Gaia
-    query = (
-        "SELECT ra, dec, parallax_over_error, pmra, pmra_error, pmdec, pmdec_error "
-        "FROM gaiadr3.gaia_source "
-        f"WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra}, {dec}, {rad})) = 1"
-    )
-    try:
-        with suppress_stdout():
-            gaia_cat = call_with_timeout(
-                lambda: Gaia.launch_job_async(query).get_results(), label="Gaia DR3 query"
-            )  # (no row limit)
-    except Exception as exc:
-        warnings.warn(f"The Gaia DR3 query failed ({exc}), so no stars are used for the cross-match.", GaiaWarning)
+    gaia_cat = _gaia_catalogue(ra, dec, rad, cache_dir)
+    if gaia_cat is None or len(gaia_cat) == 0:
         return SkyCoord([], [], unit="deg")
 
     def values(column):
         return np.ma.filled(np.ma.asarray(gaia_cat[column], dtype=float), np.nan)
 
-    pm_significance = np.hypot(values("pmra") / values("pmra_error"), values("pmdec") / values("pmdec_error"))
-    with np.errstate(invalid="ignore"):
+    with np.errstate(invalid="ignore", divide="ignore"):
+        pm_significance = np.hypot(values("pmra") / values("pmra_error"), values("pmdec") / values("pmdec_error"))
         is_star = (pm_significance > min_significance) | (values("parallax_over_error") > min_significance)
     gaia_coord = SkyCoord(
         ra=values("ra")[is_star], dec=values("dec")[is_star], unit=(u.degree, u.degree), frame="icrs"
