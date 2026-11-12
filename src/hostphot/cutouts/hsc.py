@@ -8,6 +8,7 @@ from typing import Optional
 from astropy.io import fits
 from astropy import units as u
 
+from hostphot.utils import network_timeout
 from hostphot.surveys_utils import get_survey_filters, get_default_filters, check_filters_validity
 
 # HSC SSP cutout API endpoint (PDR3)
@@ -95,7 +96,7 @@ def _request_cutout(
         "variance": "true",
     }
     try:
-        resp = requests.get(_CUTOUT_URL, params=params, auth=auth, timeout=120)
+        resp = requests.get(_CUTOUT_URL, params=params, auth=auth, timeout=network_timeout())
         resp.raise_for_status()
     except requests.exceptions.HTTPError as e:
         if resp.status_code in [400, 404]:

@@ -6,7 +6,7 @@ from astroquery.ukidss import Ukidss
 
 import numpy as np
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls, url_band, image_coverage, FULL_COVERAGE
+from hostphot.utils import call_with_timeout, open_fits_from_url, open_fits_from_urls, url_band, image_coverage, FULL_COVERAGE
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -89,7 +89,9 @@ def get_WFCAM_images(
 
     u_obj = Ukidss(database=database)
     pos = SkyCoord(ra, dec, unit="deg")
-    urls = u_obj.get_image_list(pos, waveband='all', frame_type="stack", image_width=size)
+    urls = call_with_timeout(
+        u_obj.get_image_list, pos, waveband='all', frame_type="stack", image_width=size, label="UKIDSS (WSA) query"
+    )
 
     # all the images of the requested filters (e.g. from different programmes or overlapping frames);
     # the band is matched exactly (e.g. H, not the H2 narrow band)

@@ -29,6 +29,7 @@ from astroquery.esa.hsa import HSA
 
 from astropy.wcs import WCS
 
+from hostphot.utils import call_with_timeout, network_timeout
 from hostphot.surveys_utils import check_filters_validity, get_default_filters
 from hostphot.utils import image_coverage, select_image, FULL_COVERAGE
 
@@ -143,7 +144,7 @@ def query_hsa_observations(
         f"where contains(point('ICRS', {ra}, {dec}), polygon_fov)=1 "
         f"and observing_mode_oid in ({modes})"
     )
-    df = HSA.query_hsa_tap(query).to_pandas()
+    df = call_with_timeout(HSA.query_hsa_tap, query, label="Herschel (HSA) query").to_pandas()
     if df.empty:
         return df
     df = df.drop_duplicates("observation_id")  # (the query can return duplicated rows)
@@ -189,7 +190,11 @@ def _download_product(
 
     try:
         level_kwargs = {} if product_level == "STANDALONE" else {"product_level": product_level}
-        filename = HSA.download_data(
+        filename = call_with_timeout(
+            HSA.download_data,
+            timeout=network_timeout(large=True),
+            attempts=1,
+            label=f"Herschel (HSA) download of observation {observation_id}",
             retrieval_type="STANDALONE" if product_level == "STANDALONE" else "OBSERVATION",
             observation_id=str(observation_id),
             instrument_name=instrument_name,

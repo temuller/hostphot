@@ -22,6 +22,73 @@ from hostphot._constants import font_family
 import warnings
 from astropy.utils.exceptions import AstropyWarning
 
+# maximum waiting time (seconds) for an archive query or a small download (cutouts); large downloads (whole maps
+# or observations, e.g. Herschel, HST and JWST) get LARGE_DOWNLOAD_FACTOR times longer
+NETWORK_TIMEOUT = 300.0
+LARGE_DOWNLOAD_FACTOR = 4
+
+
+def set_network_timeout(seconds: float) -> None:
+    """Sets the maximum waiting time (in seconds) for the archive queries and downloads (300 s by default;
+    large downloads of whole maps or observations get 4 times longer)."""
+    global NETWORK_TIMEOUT
+    NETWORK_TIMEOUT = float(seconds)
+
+
+def network_timeout(large: bool = False) -> float:
+    """Returns the current network timeout in seconds (longer for large downloads, see :data:`NETWORK_TIMEOUT`)."""
+    return NETWORK_TIMEOUT * (LARGE_DOWNLOAD_FACTOR if large else 1)
+
+
+def call_with_timeout(func, *args, timeout: Optional[float] = None, attempts: int = 2, label: str = "", **kwargs):
+    """Calls a function that accesses an archive, with a timeout and retries.
+
+    Some services (and the libraries used to access them, e.g. astroquery or pyvo) can wait indefinitely when a
+    server stops responding. The function is run in a separate (daemon) thread, and if it does not finish within
+    the timeout, a :class:`TimeoutError` is raised (the thread is left behind). Other errors are retried
+    (``attempts`` times in total, with increasing waits), as servers can fail temporarily; a timeout is not
+    retried (the server is unlikely to respond on a second attempt).
+
+    Parameters
+    ----------
+    func: Function to call.
+    args, kwargs: Arguments of the function.
+    timeout: Timeout in seconds (``NETWORK_TIMEOUT`` if ``None``).
+    attempts: Total number of attempts.
+    label: Description of the call, used in the error message (e.g. "SDSS frame query").
+
+    Returns
+    -------
+    result: Output of the function.
+    """
+    timeout = NETWORK_TIMEOUT if timeout is None else timeout
+    error = None
+    for attempt in range(attempts):
+        result, exc = {}, {}
+
+        def target():
+            try:
+                result["value"] = func(*args, **kwargs)
+            except BaseException as e:  # (re-raised in the calling thread)
+                exc["value"] = e
+
+        thread = threading.Thread(target=target, daemon=True)
+        thread.start()
+        thread.join(timeout)
+        if thread.is_alive():
+            name = label or getattr(func, "__name__", "archive call")
+            raise TimeoutError(
+                f"{name}: no response within {timeout:.0f} s (the archive might be down; the timeout can be "
+                "changed with hostphot.utils.set_network_timeout())."
+            )
+        if "value" not in exc:
+            return result.get("value")
+        error = exc["value"]
+        if attempt < attempts - 1:
+            time.sleep(2 * (attempt + 1))
+    raise error
+
+
 def check_work_dir(wokrdir: str | Path) -> None:
     """Checks if the working directory exists. If it
     does not, one is created.
@@ -48,7 +115,7 @@ def open_fits_from_url(url: str) -> fits.hdu:
     hdu: FITS image.
     """
     import gzip
-    r = requests.get(url, timeout=120)
+    r = requests.get(url, timeout=NETWORK_TIMEOUT)
     r.raise_for_status()
 
     content = r.content

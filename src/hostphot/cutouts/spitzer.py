@@ -12,7 +12,7 @@ from astropy.io.votable import parse_single_table
 
 from astropy.wcs import WCS
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image, image_coverage, FULL_COVERAGE
+from hostphot.utils import network_timeout, open_fits_from_url, open_fits_from_urls, select_image, image_coverage, FULL_COVERAGE
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 from hostphot.flags import FallbackImageWarning, set_header_flag
 
@@ -39,7 +39,7 @@ def query_sha_mosaics(ra: float, dec: float, filters: list[str]) -> dict[str, li
     urls: Links to the mosaics of each filter.
     """
     params = {"COLLECTION": "spitzer_sha", "POS": f"CIRCLE {ra} {dec} 0.0005", "RESPONSEFORMAT": "VOTABLE"}
-    response = requests.get(_SIA_URL, params=params, timeout=300)
+    response = requests.get(_SIA_URL, params=params, timeout=network_timeout())
     response.raise_for_status()
     table = parse_single_table(io.BytesIO(response.content)).to_table(use_names_over_ids=True).to_pandas()
     urls = {filt: [] for filt in filters}
@@ -174,7 +174,7 @@ def get_Spitzer_images(ra: float, dec: float, size: float | u.Quantity = 3,
         [f"{key}={val}" for key, val in mission_dict.items()]
     )
     url = base_url + mission_url
-    response = requests.get(url)
+    response = requests.get(url, timeout=network_timeout())
     list_text = response.text.split()
 
     # find all the mosaics of each filter (there can be several overlapping ones)

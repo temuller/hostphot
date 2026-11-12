@@ -11,7 +11,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.exceptions import AstropyWarning
 
-from hostphot.utils import open_fits_from_urls, select_image
+from hostphot.utils import network_timeout, open_fits_from_urls, select_image
 from hostphot.flags import CalibrationWarning, set_header_flag
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
@@ -44,7 +44,7 @@ def query_kids_tiles(ra: float, dec: float) -> pd.DataFrame:
     for attempt in range(3):
         # retries, as the archive can fail temporarily
         try:
-            response = requests.get(_TAP_URL, params=params, timeout=120)
+            response = requests.get(_TAP_URL, params=params, timeout=network_timeout())
             response.raise_for_status()
             break
         except requests.exceptions.RequestException:

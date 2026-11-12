@@ -5,7 +5,7 @@ import astropy.units as u
 from astropy.io import fits
 
 from pyvo.dal import sia
-from hostphot.utils import open_fits_from_url, open_fits_from_urls
+from hostphot.utils import call_with_timeout, open_fits_from_url, open_fits_from_urls
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 def get_SkyMapper_urls(ra: float, dec: float, fov: float | u.Quantity = 3, 
@@ -27,8 +27,8 @@ def get_SkyMapper_urls(ra: float, dec: float, fov: float | u.Quantity = 3,
     """
     sm_url = "https://api.skymapper.nci.org.au/public/siap/dr4/query"
     svc = sia.SIAService(sm_url)
-    imgs_table = svc.search(
-        (ra, dec), (fov / np.cos(dec * np.pi / 180), fov), verbosity=2
+    imgs_table = call_with_timeout(
+        svc.search, (ra, dec), (fov / np.cos(dec * np.pi / 180), fov), verbosity=2, label="SkyMapper SIA query"
     )
     if len(imgs_table) == 0:
         print(("Warning: empty table returned for " f"ra={ra}, dec={dec}"))

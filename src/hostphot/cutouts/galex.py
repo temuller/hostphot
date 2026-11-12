@@ -8,7 +8,7 @@ from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 from astroquery.mast import Observations
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls
+from hostphot.utils import call_with_timeout, open_fits_from_url, open_fits_from_urls
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -68,8 +68,9 @@ def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3,
         coords = SkyCoord(
             ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs"
         )
-    obs_table = Observations.query_criteria(
-        coordinates=coords, radius=size_arcsec, obs_collection=["GALEX"]
+    obs_table = call_with_timeout(
+        Observations.query_criteria, coordinates=coords, radius=size_arcsec, obs_collection=["GALEX"],
+        label="GALEX (MAST) query",
     )
     obs_df_ = obs_table.to_pandas()
 

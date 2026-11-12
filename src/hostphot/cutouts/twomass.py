@@ -9,7 +9,7 @@ from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image, image_coverage, FULL_COVERAGE
+from hostphot.utils import network_timeout, open_fits_from_url, open_fits_from_urls, select_image, image_coverage, FULL_COVERAGE
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
     
@@ -52,7 +52,7 @@ def get_2MASS_images(
         "FORMAT": "image/fits"
     }
     # Make the request to the 2MASS server
-    response = requests.get(base_url, params=params)
+    response = requests.get(base_url, params=params, timeout=network_timeout())
     response.raise_for_status()
     
     lines = response.content.decode("utf-8").split("<TD><![CDATA[")

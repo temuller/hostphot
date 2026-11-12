@@ -9,6 +9,7 @@ from astropy.coordinates import SkyCoord
 from astropy.nddata import Cutout2D
 from astroquery.sdss import SDSS
 
+from hostphot.utils import call_with_timeout
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 from hostphot.utils import image_coverage, FULL_COVERAGE
 
@@ -47,7 +48,7 @@ def _best_frame(ra: float, dec: float, size_arcmin: float, dr: int) -> Table | N
         f"WHERE raMin < {ra} AND raMax > {ra} AND decMin < {dec} AND decMax > {dec}"
     )
     try:
-        frames = SDSS.query_sql(query, data_release=dr)
+        frames = call_with_timeout(SDSS.query_sql, query, data_release=dr, label="SDSS Field query")
     except Exception:
         return None
     if frames is None or len(frames) == 0:
@@ -77,7 +78,9 @@ def _closest_object_frame(coords: SkyCoord, dr: int) -> Table | None:
     """Returns the frame of the SDSS object closest to the given coordinates."""
     ids = None
     for radius in np.arange(1, 60, 1):
-        ids = SDSS.query_region(coords, radius=radius * u.arcsec, data_release=dr)
+        ids = call_with_timeout(
+            SDSS.query_region, coords, radius=radius * u.arcsec, data_release=dr, label="SDSS object query"
+        )
         if ids is not None:
             if "ra" in ids.colnames and "dec" in ids.colnames:
                 break
@@ -146,7 +149,9 @@ def get_SDSS_images(ra: float, dec: float, size: float | u.Quantity = 3,
     # is used), as the frames of the Field table might not contain the position (see _best_frame())
     hdu_list, best_coverage = None, 0.0
     for i in range(min(len(frames), MAX_FRAMES)):
-        frame_hdus = SDSS.get_images(matches=frames[i : i + 1], band=filters, data_release=dr)
+        frame_hdus = call_with_timeout(
+            SDSS.get_images, matches=frames[i : i + 1], band=filters, data_release=dr, label="SDSS frame download"
+        )
         if not frame_hdus:
             continue
         with warnings.catch_warnings():

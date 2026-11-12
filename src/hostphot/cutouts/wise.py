@@ -15,7 +15,7 @@ from astropy.coordinates import SkyCoord
 
 import numpy as np
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image
+from hostphot.utils import network_timeout, open_fits_from_url, open_fits_from_urls, select_image
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -53,7 +53,7 @@ def get_WISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
 
     base_url = "https://irsa.ipac.caltech.edu/SIA?COLLECTION=wise_allwise"
     params_url = f"&POS=circle+{ra}+{dec}+0.002777&RESPONSEFORMAT=CSV&FORMAT=image/fits"
-    response = requests.get(base_url + params_url, timeout=120)
+    response = requests.get(base_url + params_url, timeout=network_timeout())
     response.raise_for_status()
     # transform the response into a dataframe
     split_text = response.text.split("\n")
@@ -151,7 +151,7 @@ def get_unWISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
     )
     master_url = base_url + params_url
 
-    response = requests.get(master_url, timeout=300)
+    response = requests.get(master_url, timeout=network_timeout())
     response.raise_for_status()
 
     # each filter has its image and inverse-variance map (Lang 2014, AJ, 147, 108)

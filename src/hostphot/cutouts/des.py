@@ -9,7 +9,7 @@ from pyvo.dal import sia
 from astropy.io import fits
 from astropy import units as u
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls
+from hostphot.utils import call_with_timeout, open_fits_from_url, open_fits_from_urls
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 
@@ -45,8 +45,8 @@ def get_DES_urls(ra: float, dec: float, fov: float, filters: str="grizY") -> tup
     svc = sia.SIAService(des_access_url)
     size_ra, size_dec = fov / np.cos(dec * np.pi / 180), fov
     query_size = max(fov, MIN_QUERY_SIZE)
-    imgs_table = svc.search(
-        (ra, dec), (query_size / np.cos(dec * np.pi / 180), query_size), verbosity=2
+    imgs_table = call_with_timeout(
+        svc.search, (ra, dec), (query_size / np.cos(dec * np.pi / 180), query_size), verbosity=2, label="DES SIA query"
     )
     if len(imgs_table) == 0:
         warnings.warn(f"No DES images found at ra={ra}, dec={dec} (outside the DES footprint?).")

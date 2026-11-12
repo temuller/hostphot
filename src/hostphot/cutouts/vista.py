@@ -9,7 +9,7 @@ from astropy.io import fits
 
 import numpy as np
 
-from hostphot.utils import open_fits_from_url, open_fits_from_urls, select_image, url_band, image_coverage, FULL_COVERAGE
+from hostphot.utils import network_timeout, open_fits_from_url, open_fits_from_urls, select_image, url_band, image_coverage, FULL_COVERAGE
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 from hostphot.moc.maps import contains_coords
 from hostphot.flags import CalibrationWarning, set_header_flag
@@ -132,7 +132,7 @@ def _query_links(database: str, ra: float, dec: float, size: float, frame_type: 
     url = base_url + "&".join([f"{key}={val}" for key, val in survey_dict.items()])
     try:
         # the archive can be unresponsive, so a timeout is used (in seconds)
-        results = urllib.request.urlopen(url, timeout=300).read()
+        results = urllib.request.urlopen(url, timeout=network_timeout()).read()
     except (socket.timeout, TimeoutError) as exc:
         raise TimeoutError(
             "The VISTA Science Archive (VSA) did not respond within 5 minutes. Please, try again later."

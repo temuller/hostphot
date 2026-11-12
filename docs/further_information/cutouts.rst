@@ -5,6 +5,12 @@ Cutouts
 
 The images are downloaded from different sources depending on what was the easiest at the moment of adding the survey.
 
+**Timeouts:** all the archive queries and downloads have a timeout (300 s by default, and 4 times longer for the
+downloads of whole maps or observations, e.g. Herschel, HST and JWST), so that HostPhot does not wait indefinitely
+when an archive stops responding (a ``TimeoutError`` is raised instead, or a warning is given when the query is
+optional, e.g. Gaia in the masking). Failed queries are retried once. The timeout can be changed with
+:func:`hostphot.utils.set_network_timeout`, e.g. ``set_network_timeout(600)``.
+
 **Provenance:** the images saved by HostPhot include the keywords ``HPVERS`` (HostPhot version), ``HPDATE`` (date
 saved, UTC), ``HPSURVEY`` (survey) and, if given, ``HPDATAV`` (the ``version`` parameter, e.g. a data release),
 ``HPSIZE`` (requested size in arcmin) and ``HPSOURCE`` (the source file, e.g. the WISE, unWISE or Spitzer SEIP image

@@ -10,6 +10,7 @@ from astropy.coordinates import SkyCoord
 from astropy.wcs.utils import proj_plane_pixel_scales
 
 import sep
+from hostphot.utils import call_with_timeout
 from hostphot._constants import font_family
 from hostphot.utils import suppress_stdout, add_fields
 
@@ -161,7 +162,9 @@ def find_gaia_objects(ra: float, dec: float, rad: float = 0.15, min_significance
     )
     try:
         with suppress_stdout():
-            gaia_cat = Gaia.launch_job_async(query).get_results()  # (no row limit)
+            gaia_cat = call_with_timeout(
+                lambda: Gaia.launch_job_async(query).get_results(), label="Gaia DR3 query"
+            )  # (no row limit)
     except Exception as exc:
         warnings.warn(f"The Gaia DR3 query failed ({exc}), so no stars are used for the cross-match.", GaiaWarning)
         return SkyCoord([], [], unit="deg")
@@ -197,8 +200,9 @@ def find_catalog_objects(ra: float, dec: float, rad: float = 0.15) -> SkyCoord:
     """
     from astroquery.mast import Catalogs
     coord = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame="icrs")
-    cat_data = Catalogs.query_criteria(
-        catalog="Tic", radius=rad, coordinates=coord, objType="STAR"
+    cat_data = call_with_timeout(
+        Catalogs.query_criteria, catalog="Tic", radius=rad, coordinates=coord, objType="STAR",
+        label="TIC (MAST) query",
     )
 
     cat_ra = np.array(cat_data["ra"].value)

@@ -10,7 +10,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.io.votable import parse_single_table
 
-from hostphot.utils import open_fits_from_urls, select_image
+from hostphot.utils import network_timeout, open_fits_from_urls, select_image
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 # IRSA Simple Image Access (SIA) service, with the Euclid MER mosaics
@@ -50,7 +50,7 @@ def query_euclid_mosaics(ra: float, dec: float, version: Optional[str] = None) -
     for attempt in range(4):
         # retries, as IRSA can reset the connections or time out temporarily
         try:
-            response = requests.get(_SIA_URL, params=params, timeout=120)
+            response = requests.get(_SIA_URL, params=params, timeout=network_timeout())
             response.raise_for_status()
             break
         except requests.exceptions.RequestException:

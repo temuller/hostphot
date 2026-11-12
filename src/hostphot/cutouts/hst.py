@@ -12,6 +12,7 @@ from astropy.coordinates import SkyCoord
 
 from astroquery.esa.hubble import ESAHubble  # HST
 
+from hostphot.utils import call_with_timeout, network_timeout
 from hostphot._constants import workdir
 from hostphot.utils import check_work_dir, suppress_stdout, image_coverage, FULL_COVERAGE, add_provenance
 from hostphot.surveys_utils import check_HST_filters, survey_pixel_scale
@@ -100,7 +101,10 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
     if isinstance(filters, str):
         filters = [filters]
     esahubble = ESAHubble()
-    esahubble.get_status_messages()
+    try:
+        call_with_timeout(esahubble.get_status_messages, attempts=1, timeout=60)
+    except Exception:
+        pass  # (informative messages of the archive only)
     
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec)
@@ -115,7 +119,9 @@ def get_HST_images(ra: float, dec: float, size: float | u.Quantity = 3,
     
     # query observations at the given coordinates
     with suppress_stdout():
-        result = esahubble.cone_search_criteria(
+        result = call_with_timeout(
+            esahubble.cone_search_criteria,
+            label="HST (eHST) query",
             radius=3,
             coordinates=coords,
             calibration_level="PRODUCT",
@@ -264,7 +270,11 @@ def _download_observation(esahubble, obs_id: str, tmp_dir: Path) -> Optional[fit
     primary HDU, see :func:`update_HST_header`), or ``None`` if it fails."""
     try:
         with suppress_stdout():
-            downloaded = esahubble.download_product(
+            downloaded = call_with_timeout(
+                esahubble.download_product,
+                timeout=network_timeout(large=True),
+                attempts=1,
+                label=f"HST download of observation {obs_id}",
                 observation_id=obs_id,
                 product_type="SCIENCE",
                 calibration_level="PRODUCT",

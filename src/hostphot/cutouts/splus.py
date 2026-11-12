@@ -10,7 +10,7 @@ from astropy.io import fits
 
 import hostphot
 hostphot_path = Path(hostphot.__path__[0])
-from hostphot.utils import open_fits_from_url, open_fits_from_urls
+from hostphot.utils import call_with_timeout, open_fits_from_url, open_fits_from_urls
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 def _get_SPLUS_candidates(
@@ -33,8 +33,8 @@ def _get_SPLUS_candidates(
     """
     splus_url = "https://datalab.noirlab.edu/sia/splus_dr1"
     svc = sia.SIAService(splus_url)
-    imgs_table = svc.search(
-        (ra, dec), (fov / np.cos(dec * np.pi / 180), fov), verbosity=2
+    imgs_table = call_with_timeout(
+        svc.search, (ra, dec), (fov / np.cos(dec * np.pi / 180), fov), verbosity=2, label="S-PLUS SIA query"
     )
     if len(imgs_table) == 0:
         print(("Warning: empty table returned for " f"ra={ra}, dec={dec}"))

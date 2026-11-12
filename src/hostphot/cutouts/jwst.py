@@ -10,6 +10,7 @@ from astropy.coordinates import SkyCoord
 
 from astroquery.esa.jwst import Jwst
 
+from hostphot.utils import call_with_timeout, network_timeout
 from hostphot._constants import workdir
 from hostphot.utils import check_work_dir, suppress_stdout, add_provenance
 from hostphot.surveys_utils import check_JWST_filters, survey_pixel_scale
@@ -98,7 +99,10 @@ def get_JWST_images(ra: float, dec: float, size: float | u.Quantity = 3,
         raise ValueError("For JWST, the filters need to be specified!")
     if isinstance(filters, str):
         filters = [filters]
-    Jwst.get_status_messages()
+    try:
+        call_with_timeout(Jwst.get_status_messages, attempts=1, timeout=60)
+    except Exception:
+        pass  # (informative messages of the archive only)
     
     if isinstance(size, (float, int)):
         size_arcsec = (size * u.arcmin).to(u.arcsec)
@@ -113,7 +117,9 @@ def get_JWST_images(ra: float, dec: float, size: float | u.Quantity = 3,
 
     # query observations at the given coordinates
     with suppress_stdout():
-        result = Jwst.cone_search(
+        result = call_with_timeout(
+            Jwst.cone_search,
+            label="JWST (eJWST) query",
             radius=3*u.arcsec,
             coordinate=coords,
             cal_level="Top",
@@ -142,10 +148,16 @@ def get_JWST_images(ra: float, dec: float, size: float | u.Quantity = 3,
         temp_file = None
         for obs_id in obs_df.observationid:
             try:
-                product_list = Jwst.get_product_list(observation_id=obs_id, product_type='science', cal_level=3).to_pandas()
+                product_list = call_with_timeout(
+                    Jwst.get_product_list, observation_id=obs_id, product_type='science', cal_level=3,
+                    label="JWST product list",
+                ).to_pandas()
                 # choose first file as there es no exptime info and the images take too lonk to download multiple ones
                 file_name = [file for file in product_list.filename if file.endswith(".fits")][0] 
-                temp_file = Jwst.get_product(file_name=file_name)
+                temp_file = call_with_timeout(
+                    Jwst.get_product, file_name=file_name, timeout=network_timeout(large=True), attempts=1,
+                    label=f"JWST download of {file_name}",
+                )
                 break
             except:
                 pass
