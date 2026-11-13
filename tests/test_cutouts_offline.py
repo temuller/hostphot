@@ -219,8 +219,20 @@ class TestEuclid(unittest.TestCase):
         })
         with mock.patch.object(euclid.requests, "get") as get:
             get.return_value.content = votable_bytes(rows)
-            mosaics = euclid.query_euclid_mosaics(RA, DEC)
+            mosaics = euclid.query_euclid_mosaics(RA, DEC, version="q1")
+            self.assertEqual(get.call_count, 1)
+            # DR1 (default): wide and deep collections queried, tiles kept separately
+            dr1 = euclid.query_euclid_mosaics(RA, DEC)
+            self.assertEqual(get.call_count, 3)
+            self.assertEqual([c.kwargs["params"]["COLLECTION"] for c in get.call_args_list[1:]],
+                             euclid._COLLECTIONS["dr1"])
         self.assertEqual([m["tile"] for m in mosaics], ["T1", "T2"])
+        self.assertEqual(len(dr1), 4)
+        # cutouts from the IRSA cutout service, with the path of the mosaic
+        self.assertEqual(
+            euclid._cutout_url("https://irsacloud.ipac.caltech.edu/ibe/data/euclid/dr1/MER/1/VIS/a.fits", 10.0, -5.0, 0.01),
+            "https://irsacloud.ipac.caltech.edu/ibe/cutout?ra=10.0&dec=-5.0&size=0.01&path=euclid/dr1/MER/1/VIS/a.fits",
+        )
         with self.assertRaises(ValueError):
             euclid.query_euclid_mosaics(RA, DEC, version="dr9")
         # both tiles cover the cutout; T2 is deeper (lower RMS); a masked pixel (RMS 1e16) becomes NaN
@@ -229,7 +241,7 @@ class TestEuclid(unittest.TestCase):
         rms2[0].data[0, 0] = 1e16
         hdus = {"sci1": sci1, "rms1": rms1, "sci2": sci2, "rms2": rms2}
         with mock.patch.object(euclid, "query_euclid_mosaics", return_value=mosaics), mock.patch.object(
-            euclid, "open_fits_from_urls", side_effect=lambda urls, **kw: [hdus[url.split("?")[0]] for url in urls]
+            euclid, "open_fits_from_urls", side_effect=lambda urls, **kw: [hdus[url.split("path=")[1]] for url in urls]
         ):
             hdu_list = euclid.get_Euclid_images(RA, DEC, size=0.1, filters=["VIS", "H"])
         self.assertEqual(hdu_list[0][0].header["TILEID"], "T2")

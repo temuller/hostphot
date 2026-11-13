@@ -15,11 +15,14 @@ from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 # IRSA Simple Image Access (SIA) service, with the Euclid MER mosaics
 _SIA_URL = "https://irsa.ipac.caltech.edu/SIA"
+# IRSA cutout service (the mosaics are in irsacloud, which does not accept cutout parameters in the file URLs)
+_CUTOUT_URL = "https://irsacloud.ipac.caltech.edu/ibe/cutout"
 # collections of the MER background-subtracted mosaics for each data release
 _COLLECTIONS = {
-    "q1": "euclid_DpdMerBksMosaic",
+    "q1": ["euclid_DpdMerBksMosaic"],
+    "dr1": ["euclid_dr1_wide_DpdMerBksMosaic", "euclid_dr1_deep_DpdMerBksMosaic"],
 }
-_DEFAULT_VERSION = "q1"
+_DEFAULT_VERSION = "dr1"
 # Euclid instruments (the MER tiles also include ground-based images resampled to the same grid)
 _INSTRUMENTS = {"VIS": "VIS", "Y": "NISP", "J": "NISP", "H": "NISP"}
 # RMS value of the masked pixels in the MER mosaics (1e16; with zeros in the images)
@@ -33,7 +36,7 @@ def query_euclid_mosaics(ra: float, dec: float, version: Optional[str] = None) -
     ----------
     ra: Right Ascension in degrees.
     dec: Declination in degrees.
-    version: Data release (``q1``, the default).
+    version: Data release: ``dr1`` (the default; wide and deep surveys) or ``q1``.
 
     Returns
     -------
@@ -42,35 +45,54 @@ def query_euclid_mosaics(ra: float, dec: float, version: Optional[str] = None) -
     version = (version or _DEFAULT_VERSION).lower()
     if version not in _COLLECTIONS:
         raise ValueError(f"Euclid version '{version}' not available; use one of {list(_COLLECTIONS)}.")
-    params = {
-        "COLLECTION": _COLLECTIONS[version],
-        "POS": f"CIRCLE {ra} {dec} 0.0001",
-        "RESPONSEFORMAT": "VOTABLE",
-    }
-    for attempt in range(4):
-        # retries, as IRSA can reset the connections or time out temporarily
-        try:
-            response = requests.get(_SIA_URL, params=params, timeout=network_timeout())
-            response.raise_for_status()
-            break
-        except requests.exceptions.RequestException:
-            if attempt == 3:
-                raise
-            time.sleep(2 * (attempt + 1))
-    table = parse_single_table(BytesIO(response.content)).to_table(use_names_over_ids=True)
-
     mosaics = {}
-    for row in table:
-        filt = str(row["energy_bandpassname"])
-        if _INSTRUMENTS.get(filt) != str(row["instrument_name"]):
-            continue  # ground-based (external) images or other filters
-        subtype = str(row["dataproduct_subtype"])
-        if subtype not in ["science", "noise"]:
-            continue  # flag maps, PSFs and background models
-        tile = str(row["obs_id"]).split("_")[0]
-        mosaic = mosaics.setdefault((tile, filt), {"tile": tile, "filter": filt})
-        mosaic["science" if subtype == "science" else "rms"] = str(row["access_url"])
+    for collection in _COLLECTIONS[version]:
+        params = {
+            "COLLECTION": collection,
+            "POS": f"CIRCLE {ra} {dec} 0.0001",
+            "RESPONSEFORMAT": "VOTABLE",
+        }
+        for attempt in range(4):
+            # retries, as IRSA can reset the connections or time out temporarily
+            try:
+                response = requests.get(_SIA_URL, params=params, timeout=network_timeout())
+                response.raise_for_status()
+                break
+            except requests.exceptions.RequestException:
+                if attempt == 3:
+                    raise
+                time.sleep(2 * (attempt + 1))
+        table = parse_single_table(BytesIO(response.content)).to_table(use_names_over_ids=True)
+
+        for row in table:
+            filt = str(row["energy_bandpassname"])
+            if _INSTRUMENTS.get(filt) != str(row["instrument_name"]):
+                continue  # ground-based (external) images or other filters
+            subtype = str(row["dataproduct_subtype"])
+            if subtype not in ["science", "noise"]:
+                continue  # flag maps, PSFs and background models
+            tile = str(row["obs_id"]).split("_")[0]
+            mosaic = mosaics.setdefault((collection, tile, filt), {"tile": tile, "filter": filt})
+            mosaic["science" if subtype == "science" else "rms"] = str(row["access_url"])
     return [mosaic for mosaic in mosaics.values() if "science" in mosaic and "rms" in mosaic]
+
+
+def _cutout_url(url: str, ra: float, dec: float, size_deg: float) -> str:
+    """URL of a cutout of a MER mosaic, from the IRSA cutout service.
+
+    Parameters
+    ----------
+    url: URL of the mosaic (``.../ibe/data/euclid/...``).
+    ra: Right Ascension in degrees.
+    dec: Declination in degrees.
+    size_deg: Cutout size in degrees.
+
+    Returns
+    -------
+    cutout_url: URL of the cutout.
+    """
+    path = url.split("/ibe/data/", 1)[-1]
+    return f"{_CUTOUT_URL}?ra={ra}&dec={dec}&size={size_deg}&path={path}"
 
 
 def get_Euclid_images(
@@ -82,7 +104,7 @@ def get_Euclid_images(
 ) -> list[fits.HDUList | None]:
     """Gets Euclid MER mosaic cutouts (background subtracted) for the given position and filters.
 
-    The images are in ADU/s (VIS) and electrons (NISP), with the AB zeropoint in the ``MAGZP``
+    The images are in ADU/s (VIS) and electrons/s (NISP), with the AB zeropoint in the ``MAGZP``
     keyword. The RMS map (including the Poisson noise of the sources) is stored as a variance
     map in the ``VARIANCE`` extension. When several tiles cover the position, the one covering
     the whole cutout is used (the deepest one, from its RMS map, if there are several).
@@ -93,7 +115,7 @@ def get_Euclid_images(
     dec: Declination in degrees.
     size: Image size. If a float is given, the units are assumed to be arcmin.
     filters: Filters to use. If ``None``, uses ``VIS, Y, J, H``.
-    version: Data release (``q1``, the default).
+    version: Data release: ``dr1`` (the default; wide and deep surveys) or ``q1``.
 
     Returns
     -------
@@ -117,8 +139,7 @@ def get_Euclid_images(
         return [None] * len(filters)
 
     # cutouts of the science and RMS mosaics (IRSA cutout service; sizes in degrees)
-    cutout = f"?center={ra},{dec}&size={size_arcsec / 3600}"
-    urls = [mosaic[key] + cutout for mosaic in mosaics for key in ["science", "rms"]]
+    urls = [_cutout_url(mosaic[key], ra, dec, size_arcsec / 3600) for mosaic in mosaics for key in ["science", "rms"]]
     # (IRSA can reset the connections with several parallel requests)
     hdus = open_fits_from_urls(urls, max_workers=4, attempts=4)
     for i, mosaic in enumerate(mosaics):

@@ -517,7 +517,7 @@ Euclid
 
 * **ZP**
 
-  The ZPs (AB) of the MER mosaics are in the ``MAGZERO`` keyword of the images, stored in the header under the ``MAGZP`` keyword to follow HostPhot convention. They apply directly to the pixel values, in ADU/s for VIS and electrons for NISP (see the `Euclid Q1 documentation <https://euclid.esac.esa.int/dr/q1/dpdd/merdpd/dpcards/mer_bksmosaic.html>`_).
+  The ZPs (AB) of the MER mosaics are in the ``MAGZERO`` keyword of the images, stored in the header under the ``MAGZP`` keyword to follow HostPhot convention. They apply directly to the pixel values, in ADU/s for VIS and electrons/s for NISP (see the Euclid `DR1 <https://euclid.esac.esa.int/dr/dr1/dpdd/merdpd/dpcards/mer_bksmosaic.html>`_ and `Q1 <https://euclid.esac.esa.int/dr/q1/dpdd/merdpd/dpcards/mer_bksmosaic.html>`_ documentation). The calibration changed between Q1 and DR1, so the photometry of the same sources can differ by up to :math:`\sim0.1` mag between releases (see the Euclid section of the cutouts page).
 
 * **Error Propagation**
 
@@ -525,7 +525,7 @@ Euclid
 
   Thus, :math:`\sigma = sqrt(\sigma_{\text{var}}^2 + \sigma_{\text{ZP}}^2)`.
 
-  HostPhot Kron photometry has been checked against the Euclid Q1 MER catalogue (``flux_detection_total``, Kron apertures) for bright galaxies in the Euclid Deep Field Fornax: the :math:`VIS` magnitudes agree within :math:`\sim0.01` mag (median) with ``optimize_kronrad=True``.
+  HostPhot Kron photometry has been checked against the Euclid MER catalogues (``flux_detection_total``, Kron apertures) for bright galaxies with ``optimize_kronrad=True``: the :math:`VIS` magnitudes agree within :math:`\sim0.01` mag (median) with the Q1 catalogue in the Euclid Deep Field Fornax and within :math:`0.015` mag (scatter of :math:`0.02` mag) with the DR1 catalogue in a field of the wide survey.
 
 Herschel
 ~~~~~~~~

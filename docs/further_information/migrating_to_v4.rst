@@ -117,7 +117,7 @@ For some surveys, images downloaded with v3 cannot be used correctly by v4:
 New in v4
 ---------
 
-* New surveys: HSC, Euclid (Q1), UHS and KiDS (DR5).
+* New surveys: HSC, Euclid (DR1 and Q1), UHS and KiDS (DR5).
 * Spitzer: images from the Spitzer Heritage Archive (e.g. warm mission) when the SEIP mosaics do not cover the
   position.
 * HST: ACS/WFC and NICMOS support.

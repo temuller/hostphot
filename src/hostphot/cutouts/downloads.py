@@ -32,7 +32,7 @@ def download_images(
     The surveys that use the ``version`` parameter are: GALEX (``AIS``, ``MIS``,
     ``DIS``, ``NGS`` and ``GII``),  unWISE (``allwise`` and ``neo{i}`` for {i}=1-7),
     VISTA (``VHS``, ``VIDEO`` and ``VIKING``), SDSS (``dr{i}`` for {i}=12-17),
-    LegacySurvey (``dr{i}`` for {i}=?-10), HSC (``pdr3_wide`` or ``pdr3_dud``), and Euclid (``q1``).
+    LegacySurvey (``dr{i}`` for {i}=?-10), HSC (``pdr3_wide`` or ``pdr3_dud``), and Euclid (``dr1``, the default, or ``q1``).
 
     Parameters
     ----------

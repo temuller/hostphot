@@ -146,7 +146,7 @@ This is the list of surveys in HostPhot:
 * JWST (NIRCam only)
 * Herschel (PACS 70 (only if requested), 100 and 160 microns; SPIRE)
 * HSC (Hyper Suprime-Cam SSP PDR3; requires login credentials — see [hsc-release.mtk.nao.ac.jp](https://hsc-release.mtk.nao.ac.jp/datasearch/))
-* Euclid (VIS and NISP; Q1)
+* Euclid (VIS and NISP; DR1 and Q1)
 * KiDS (DR5)
 
 #### HSC credentials

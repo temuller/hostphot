@@ -261,16 +261,17 @@ class TestHostPhot(unittest.TestCase):
     def test_cutouts_Euclid(self):
         try:
             name = "Euclid_test"
-            # Euclid Deep Field Fornax (Q1)
+            # Euclid Deep Field Fornax (in Q1 and DR1)
             ra, dec = 53.0, -28.1
-            download_images(name, ra, dec, size=0.5, overwrite=True, survey="Euclid")
-            for filt in ["VIS", "H"]:
-                euclid_file = Path(workdir, name, "Euclid", f"Euclid_{filt}.fits")
-                with fits.open(euclid_file) as hdu:
-                    assert hdu[0].data is not None and hdu[0].data.ndim == 2
-                    assert np.isfinite(hdu[0].header["MAGZP"])
-                    assert "VARIANCE" in hdu and hdu["VARIANCE"].data.shape == hdu[0].data.shape
-                    assert np.nanmax(hdu["VARIANCE"].data) < 1e10  # masked pixels set to NaN
+            for version in ["dr1", "q1"]:
+                download_images(name, ra, dec, size=0.5, overwrite=True, survey="Euclid", version=version)
+                for filt in ["VIS", "H"]:
+                    euclid_file = Path(workdir, name, "Euclid", f"Euclid_{filt}.fits")
+                    with fits.open(euclid_file) as hdu:
+                        assert hdu[0].data is not None and hdu[0].data.ndim == 2
+                        assert np.isfinite(hdu[0].header["MAGZP"])
+                        assert "VARIANCE" in hdu and hdu["VARIANCE"].data.shape == hdu[0].data.shape
+                        assert np.nanmax(hdu["VARIANCE"].data) < 1e10  # masked pixels set to NaN
         except requests.exceptions.ConnectionError as e:
             warnings.warn(f"Connection error for Euclid: {e}", RuntimeWarning)
             pytest.skip(f"Connection error for Euclid: {e}")
