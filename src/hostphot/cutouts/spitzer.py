@@ -12,7 +12,10 @@ from astropy.io.votable import parse_single_table
 
 from astropy.wcs import WCS
 
-from hostphot.utils import network_timeout, open_fits_from_url, open_fits_from_urls, select_image, image_coverage, FULL_COVERAGE
+from hostphot.utils import (
+    network_timeout, open_fits_from_url, open_fits_from_urls, select_image, image_coverage, FULL_COVERAGE,
+    header_coverage, read_fits_header,
+)
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 from hostphot.flags import FallbackImageWarning, set_header_flag
 
@@ -22,6 +25,8 @@ _SIA_URL = "https://irsa.ipac.caltech.edu/SIA"
 _SHA_BANDS = {"IRAC.1": "IRAC1", "IRAC.2": "IRAC2", "IRAC.3": "IRAC3", "IRAC.4": "IRAC4", "MIPS.1": "MIPS24"}
 # maximum number of SHA mosaics downloaded per filter while looking for one covering the cutout
 MAX_SHA_DOWNLOADS = 10
+# maximum number of SHA mosaic headers read per filter to find the mosaics covering the cutout
+MAX_SHA_HEADERS = 50
 
 
 def query_sha_mosaics(ra: float, dec: float, filters: list[str]) -> dict[str, list[str]]:
@@ -80,9 +85,50 @@ def _sha_cutout(hdu: fits.HDUList, ra: float, dec: float, size_arcsec: float) ->
     return fits.HDUList([fits.PrimaryHDU(data=cutout.data, header=new_header)])
 
 
+def _sort_sha_by_footprint(ra: float, dec: float, size_arcsec: float, urls: list[str]) -> list[str]:
+    """Sorts the SHA mosaics by the fraction of the cutout within their limits, from their headers (only
+    the beginning of each file is downloaded), so that only the mosaics covering the cutout are downloaded.
+
+    The mosaics containing the whole cutout come first, then those containing part of it (largest
+    fraction first), keeping the given order (longest exposure first) otherwise; the mosaics not
+    containing the cutout are removed. The mosaics whose headers could not be read are kept, after
+    those containing the whole cutout.
+
+    Parameters
+    ----------
+    ra: Right Ascension in degrees.
+    dec: Declination in degrees.
+    size_arcsec: Image size in arcsec.
+    urls: Links to the SHA mosaics (see :func:`query_sha_mosaics`).
+
+    Returns
+    -------
+    urls: Sorted links.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    candidates = urls[:MAX_SHA_HEADERS]
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        headers = list(executor.map(read_fits_header, candidates))
+    full, unknown, partial = [], [], []
+    for url, header in zip(candidates, headers):
+        if header is None:
+            unknown.append(url)
+            continue
+        coverage = header_coverage(header, ra, dec, size_arcsec)
+        if coverage >= FULL_COVERAGE:
+            full.append(url)
+        elif coverage > 0:
+            partial.append((coverage, url))
+    partial = [url for _, url in sorted(partial, key=lambda item: -item[0])]  # (stable)
+    return full + unknown + partial + urls[MAX_SHA_HEADERS:]
+
+
 def get_SHA_image(ra: float, dec: float, size_arcsec: float, urls: list[str]) -> tuple[fits.HDUList | None, float]:
-    """Gets the SHA mosaic covering the cutout (the first one, in the given order, covering the whole cutout;
-    otherwise, the one with the largest coverage), cut to the requested size.
+    """Gets the SHA mosaic covering the cutout (the first one covering the whole cutout; if none does, the one
+    with the largest coverage), cut to the requested size. The first mosaic (in the given order) is tried
+    first; if it does not cover the whole cutout, the other mosaics are tried, those containing the cutout
+    (from their headers) first, and otherwise in the given order.
 
     Parameters
     ----------
@@ -97,9 +143,15 @@ def get_SHA_image(ra: float, dec: float, size_arcsec: float, urls: list[str]) ->
     coverage: Fraction of the cutout covered by the mosaic.
     """
     best, best_coverage = None, 0.0
-    # the mosaics are downloaded one by one (~10 MB each), until one covers the whole cutout
-    for url in urls[:MAX_SHA_DOWNLOADS]:
-        hdu = open_fits_from_urls([url], attempts=3)[0]
+    # the mosaics are downloaded one by one (~10-30 MB each), until one covers the whole cutout; if the first
+    # one does not, the others are sorted by the part of the cutout they contain, from their headers
+    queue, sorted_rest = urls[:1], False
+    for _ in range(MAX_SHA_DOWNLOADS):
+        if not queue and not sorted_rest:
+            queue, sorted_rest = _sort_sha_by_footprint(ra, dec, size_arcsec, urls[1:]), True
+        if not queue:
+            break
+        hdu = open_fits_from_urls([queue.pop(0)], attempts=3)[0]
         if hdu is None or hdu[0].data is None:
             continue
         with warnings.catch_warnings():

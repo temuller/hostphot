@@ -214,6 +214,26 @@ def url_band(url: str) -> Optional[str]:
 FULL_COVERAGE = 0.99  # the whole cutout is covered (allowing for rounding at the edges)
 
 
+def _cutout_box(img_wcs, ra: float, dec: float, size_arcsec: float) -> tuple[int, int, int, int] | None:
+    """Pixel limits (x0, y0, x1, y1) of a square cutout centred on the given position in an image
+    (``None`` if the position cannot be converted into pixels)."""
+    try:
+        x, y = img_wcs.world_to_pixel_values(ra, dec)
+        pixel_scale = np.sqrt(np.abs(np.linalg.det(img_wcs.pixel_scale_matrix))) * 3600
+    except Exception:
+        return None
+    if not (np.isfinite(x) and np.isfinite(y)):
+        return None
+    npix = max(int(round(size_arcsec / pixel_scale)), 1)  # cutout size in pixels
+    x0 = int(round(x - npix / 2))
+    y0 = int(round(y - npix / 2))
+    x1, y1 = x0 + npix, y0 + npix
+    if npix > 2:
+        # the outermost pixels are excluded, as the cutouts of the image services can be shifted by one pixel
+        x0, y0, x1, y1 = x0 + 1, y0 + 1, x1 - 1, y1 - 1
+    return x0, y0, x1, y1
+
+
 def image_coverage(data: np.ndarray, img_wcs, ra: float, dec: float, size_arcsec: float) -> float:
     """Fraction of a square cutout (centred on the given position) covered by an image with valid
     data (finite, non-zero pixels).
@@ -229,25 +249,86 @@ def image_coverage(data: np.ndarray, img_wcs, ra: float, dec: float, size_arcsec
     -------
     coverage: Fraction of the cutout with valid data (0 if the position is outside the image).
     """
-    try:
-        x, y = img_wcs.world_to_pixel_values(ra, dec)
-        pixel_scale = np.sqrt(np.abs(np.linalg.det(img_wcs.pixel_scale_matrix))) * 3600
-    except Exception:
+    box = _cutout_box(img_wcs, ra, dec, size_arcsec)
+    if box is None:
         return 0.0
-    if not (np.isfinite(x) and np.isfinite(y)):
-        return 0.0
-    npix = max(int(round(size_arcsec / pixel_scale)), 1)  # cutout size in pixels
+    x0, y0, x1, y1 = box
     ny, nx = data.shape
-    x0 = int(round(x - npix / 2))
-    y0 = int(round(y - npix / 2))
-    x1, y1 = x0 + npix, y0 + npix
-    if npix > 2:
-        # the outermost pixels are excluded, as the cutouts of the image services can be shifted by one pixel
-        x0, y0, x1, y1 = x0 + 1, y0 + 1, x1 - 1, y1 - 1
     total = (x1 - x0) * (y1 - y0)
     stamp = data[max(y0, 0) : max(min(y1, ny), 0), max(x0, 0) : max(min(x1, nx), 0)]
     valid = np.isfinite(stamp) & (stamp != 0)
     return float(valid.sum() / total)
+
+
+def header_coverage(header: fits.Header, ra: float, dec: float, size_arcsec: float) -> float:
+    """Fraction of a square cutout (centred on the given position) within the limits of an image, from
+    its header alone (WCS and image size; pixels without data are not taken into account, unlike in
+    :func:`image_coverage`).
+
+    Parameters
+    ----------
+    header: Header of the image.
+    ra, dec: Position of the cutout centre in degrees.
+    size_arcsec: Size of the cutout in arcsec.
+
+    Returns
+    -------
+    coverage: Fraction of the cutout within the image (0 if the position is outside the image).
+    """
+    from astropy.wcs import WCS
+
+    try:
+        nx, ny = int(header["NAXIS1"]), int(header["NAXIS2"])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            img_wcs = WCS(header, naxis=2)
+    except Exception:
+        return 0.0
+    box = _cutout_box(img_wcs, ra, dec, size_arcsec)
+    if box is None:
+        return 0.0
+    x0, y0, x1, y1 = box
+    overlap_x = max(min(x1, nx) - max(x0, 0), 0)
+    overlap_y = max(min(y1, ny) - max(y0, 0), 0)
+    return float(overlap_x * overlap_y / ((x1 - x0) * (y1 - y0)))
+
+
+def read_fits_header(url: str, max_blocks: int = 400) -> fits.Header | None:
+    """Reads the primary header of a remote FITS file, downloading only the beginning of the file
+    (the response is streamed until the end of the header).
+
+    Parameters
+    ----------
+    url: Link to the file (plain or gzip-compressed FITS).
+    max_blocks: Maximum number of 2880-byte FITS blocks read.
+
+    Returns
+    -------
+    header: Primary header (``None`` if it could not be read).
+    """
+    import zlib
+
+    try:
+        with requests.get(url, stream=True, timeout=NETWORK_TIMEOUT) as response:
+            response.raise_for_status()
+            content = b""
+            decompressor = None
+            for chunk in response.iter_content(chunk_size=2880 * 4):
+                if decompressor is None:
+                    # gzip-compressed files are decompressed as they are read
+                    decompressor = zlib.decompressobj(16 + zlib.MAX_WBITS) if chunk[:2] == b"\x1f\x8b" else False
+                content += decompressor.decompress(chunk) if decompressor else chunk
+                # the header ends with the END card (at the start of an 80-character card)
+                n_cards = len(content) // 80
+                cards = (content[80 * i : 80 * i + 3] for i in range(n_cards))
+                end = next((i for i, card in enumerate(cards) if card == b"END"), None)
+                if end is not None:
+                    return fits.Header.fromstring(content[: 80 * (end + 1)].decode("ascii", errors="replace"))
+                if len(content) > max_blocks * 2880:
+                    return None
+    except Exception:
+        return None
+    return None
 
 
 def select_image(

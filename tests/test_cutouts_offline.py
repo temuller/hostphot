@@ -300,7 +300,8 @@ class TestSpitzer(unittest.TestCase):
         seip = {"https://irsa/IRAC.1.mosaic.fits": seip1, "https://irsa/IRAC.2.mosaic.fits": seip2}
         with mock.patch.object(spitzer.requests, "get") as get, mock.patch.object(
             spitzer, "open_fits_from_urls", side_effect=lambda urls, **kw: [seip.get(u, sha2) for u in urls]
-        ), mock.patch.object(spitzer, "query_sha_mosaics", return_value={"IRAC.1": [], "IRAC.2": ["sha2"]}):
+        ), mock.patch.object(spitzer, "query_sha_mosaics", return_value={"IRAC.1": [], "IRAC.2": ["sha2"]}), \
+                mock.patch.object(spitzer, "read_fits_header", return_value=sha2[0].header):
             get.return_value.text = text
             with self.assertWarns(FallbackImageWarning):
                 hdu_list = spitzer.get_Spitzer_images(RA, DEC, size=1, filters=["IRAC.1", "IRAC.2"])
@@ -310,6 +311,41 @@ class TestSpitzer(unittest.TestCase):
         self.assertTrue(hdu_list[1][0].header["HPFFALLB"])
         self.assertAlmostEqual(hdu_list[1][0].header["GAIN"], 3.7 * 10.4 / 0.1469)
         self.assertEqual(hdu_list[1][0].data.shape, (100, 100))
+
+    def test_sha_sorted_by_footprint(self):
+        # mosaics: not containing the cutout, containing part of it, containing all of it, unreadable header
+        headers = {
+            "out": fake_image(RA + 1.0, DEC, 100, 0.6)[0].header,
+            "part": fake_image(RA + 0.012, DEC, 100, 0.6)[0].header,
+            "full": fake_image(RA, DEC, 300, 0.6)[0].header,
+            "unknown": None,
+        }
+        with mock.patch.object(spitzer, "read_fits_header", side_effect=lambda url: headers[url]):
+            urls = spitzer._sort_sha_by_footprint(RA, DEC, 60, ["out", "part", "unknown", "full"])
+        self.assertEqual(urls, ["full", "unknown", "part"])
+        # the first mosaic is downloaded first; as it only covers part of the cutout, the headers of the others
+        # are read and the one containing the cutout is downloaded next (the one not containing it is not)
+        images = {"part": fake_image(RA + 0.012, DEC, 100, 0.6, GAIN=3.7, EXPTIME=10.4, FLUXCONV=0.1469),
+                  "full": fake_image(RA, DEC, 300, 0.6, GAIN=3.7, EXPTIME=10.4, FLUXCONV=0.1469)}
+        downloaded = []
+
+        def download(urls, **kw):
+            downloaded.extend(urls)
+            return [images.get(url) for url in urls]
+
+        with mock.patch.object(spitzer, "read_fits_header", side_effect=lambda url: headers[url]) as read, \
+                mock.patch.object(spitzer, "open_fits_from_urls", side_effect=download):
+            hdu, coverage = spitzer.get_SHA_image(RA, DEC, 60, ["part", "out", "full"])
+        self.assertEqual(downloaded, ["part", "full"])
+        self.assertEqual(read.call_count, 2)
+        self.assertGreaterEqual(coverage, 0.99)
+        # the first mosaic covers the cutout: no headers are read
+        downloaded.clear()
+        with mock.patch.object(spitzer, "read_fits_header") as read, \
+                mock.patch.object(spitzer, "open_fits_from_urls", side_effect=download):
+            spitzer.get_SHA_image(RA, DEC, 60, ["full", "part"])
+        self.assertEqual(downloaded, ["full"])
+        read.assert_not_called()
 
     def test_sha_query(self):
         rows = Table({"dataproduct_subtype": ["science", "science", "science", "uncertainty"],

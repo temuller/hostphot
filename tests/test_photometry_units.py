@@ -13,6 +13,8 @@ from photutils.aperture import CircularAperture, EllipticalAperture
 from hostphot import utils as hp_utils
 from hostphot.flags import CoverageWarning, ErrorFloorWarning
 from hostphot.photometry import photometry_utils as pu
+from astropy.wcs import WCS
+from tests.test_cutouts_offline import DEC, RA, fake_image
 
 SURVEY_FILTERS = {
     "DES": "g", "PanSTARRS": "r", "SDSS": "u", "GALEX": "NUV", "2MASS": "J", "WISE": "W1", "unWISE": "W2",
@@ -163,6 +165,17 @@ class TestCoverageAndFloors(unittest.TestCase):
             self.assertEqual(pu.blank_aperture_floor(noise, 2.0, 300, 300, 8.0,
                                                      source_mask=np.ones(noise.shape, dtype=bool)), 2.0)
         self.assertEqual(pu._apply_floor(3.0, None), 3.0)
+        # the row-run check of large apertures gives the same blank apertures as the pixel-by-pixel one
+        noisy = noise + structure
+        noisy[50:120, 400:470] = np.nan  # region without data
+        for make_aperture, half_size in [(lambda x, y: CircularAperture((x, y), r=12.0), 12.0),
+                                         (lambda x, y: EllipticalAperture((x, y), 20.0, 9.0, theta=0.7), 20.0)]:
+            reference = pu._blank_rms(noisy, 300, 300, make_aperture, half_size, 2.5 * half_size, 6 * half_size,
+                                      source_mask=source_mask, residual_background=False)
+            with mock.patch.object(pu, "_VECTORISED_MAX_PIXELS", 0):
+                large = pu._blank_rms(noisy, 300, 300, make_aperture, half_size, 2.5 * half_size, 6 * half_size,
+                                      source_mask=source_mask, residual_background=False)
+            self.assertEqual(reference, large)
         self.assertFalse(pu.floor_residual_background("HST", "NICMOS_F160W"))
         self.assertTrue(pu.floor_residual_background("HST", "WFC3_IR_F160W"))
 
@@ -204,6 +217,36 @@ class TestNetworkHelpers(unittest.TestCase):
                 hdu = hp_utils.open_fits_from_url("https://example.org/image.fits")
             np.testing.assert_array_equal(hdu[0].data, np.ones((3, 3)))
             self.assertEqual(get.call_args.kwargs["timeout"], hp_utils.NETWORK_TIMEOUT)
+
+    def test_read_fits_header(self):
+        import gzip
+        import io
+
+        from astropy.wcs import WCS
+
+        buffer = io.BytesIO()
+        header = WCS(naxis=2).to_header()
+        header["EXPTIME"] = 12.5
+        fits.PrimaryHDU(np.zeros((300, 300)), header=header).writeto(buffer)
+        for content in [buffer.getvalue(), gzip.compress(buffer.getvalue())]:
+            chunks = [content[i:i + 1000] for i in range(0, len(content), 1000)]
+            with mock.patch.object(hp_utils.requests, "get") as get:
+                response = get.return_value.__enter__.return_value
+                response.iter_content.return_value = iter(chunks)
+                read = hp_utils.read_fits_header("https://example.org/image.fits")
+            self.assertEqual(read["EXPTIME"], 12.5)
+            self.assertEqual(read["NAXIS1"], 300)
+            self.assertTrue(get.call_args.kwargs["stream"])
+        with mock.patch.object(hp_utils.requests, "get", side_effect=ConnectionError("down")):
+            self.assertIsNone(hp_utils.read_fits_header("https://example.org/image.fits"))
+
+    def test_header_coverage(self):
+        image = fake_image(RA, DEC, 100, 1.0)
+        img_wcs = WCS(image[0].header)
+        for ra, size in [(RA, 60), (RA + 40 / 3600, 60), (RA + 0.5, 60)]:
+            self.assertAlmostEqual(hp_utils.header_coverage(image[0].header, ra, DEC, size),
+                                   hp_utils.image_coverage(np.ones((100, 100)), img_wcs, ra, DEC, size))
+        self.assertEqual(hp_utils.header_coverage(fits.Header(), RA, DEC, 60), 0.0)
 
 
 if __name__ == "__main__":

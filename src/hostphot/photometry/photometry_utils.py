@@ -943,39 +943,107 @@ def _blank_rms(
     # residuals of NICMOS mosaics, is included in the floor)
     residuals = _background_residuals(data, source_mask, mesh_size) if residual_background else data
     max_trials = max(400, n_apertures * 20)
-    blank_fluxes = []
 
-    # the aperture weights are computed once (centred on a pixel) and shifted by whole pixels
+    # the aperture weights are computed once (centred on a pixel) and shifted by whole pixels; the random
+    # positions are evaluated in blocks (vectorised)
     weights = make_aperture(0.0, 0.0).to_mask(method="exact")
     template, bbox = weights.data, weights.bbox
     footprint = template > 0
+    offset_y, offset_x = np.nonzero(footprint)
+    template_values = template[offset_y, offset_x]
+    offset_y, offset_x = offset_y + bbox.iymin, offset_x + bbox.ixmin
+    # (the row-run counting of large apertures needs a convex footprint, i.e. one run of pixels per row)
+    convex = all(
+        np.ptp(cols) + 1 == len(cols) for cols in (np.nonzero(row)[0] for row in footprint) if len(cols) > 0
+    )
+    small_aperture = len(template_values) <= _VECTORISED_MAX_PIXELS or not convex
+    # pixels that cannot be in a blank aperture (sources or without data), and their integral image, to
+    # count them within the bounding box of each aperture
+    bad = source_mask | ~np.isfinite(residuals)
+    if not small_aperture:
+        # the footprint (convex) is a run of pixels in each row: the number of bad pixels in it is
+        # counted from the cumulative sums of the bad pixels along the rows
+        run_rows, run_start, run_end = [], [], []
+        for j, row in enumerate(footprint):
+            cols = np.nonzero(row)[0]
+            if len(cols) > 0:
+                run_rows.append(j + bbox.iymin)
+                run_start.append(cols[0] + bbox.ixmin)
+                run_end.append(cols[-1] + 1 + bbox.ixmin)
+        run_rows, run_start, run_end = np.array(run_rows), np.array(run_start), np.array(run_end)
+        row_cumsum = np.zeros((ny, nx + 1), dtype=np.int32)
+        np.cumsum(bad, axis=1, dtype=np.int32, out=row_cumsum[:, 1:])
 
-    def blank_flux(x: float, y: float) -> float | None:
-        ix, iy = int(round(x)), int(round(y))
-        xmin, ymin = bbox.ixmin + ix, bbox.iymin + iy
-        xmax, ymax = bbox.ixmax + ix, bbox.iymax + iy
-        if xmin < 0 or ymin < 0 or xmax > nx or ymax > ny:
-            return None  # aperture not fully inside the image
-        if np.any(source_mask[ymin:ymax, xmin:xmax][footprint]):
-            return None  # aperture overlaps a source
-        cutout = residuals[ymin:ymax, xmin:xmax]
-        if not np.all(np.isfinite(cutout[footprint])):
-            return None
+    def aperture_flux(ix: int, iy: int) -> float:
+        cutout = residuals[bbox.iymin + iy:bbox.iymax + iy, bbox.ixmin + ix:bbox.ixmax + ix]
         return float(np.sum(cutout[footprint] * template[footprint]))
 
-    for region in ["annulus", "image"]:
-        for _ in range(max_trials):
-            if len(blank_fluxes) >= n_apertures:
-                break
+    def find_blank(x: np.ndarray, y: np.ndarray, needed: int) -> tuple[np.ndarray, np.ndarray]:
+        """Returns the indices of the first ``needed`` positions with blank apertures (fully inside the
+        image, not overlapping sources or pixels without data), and their fluxes."""
+        ix, iy = np.round(x).astype(int), np.round(y).astype(int)
+        x1, y1 = bbox.ixmin + ix, bbox.iymin + iy
+        x2, y2 = bbox.ixmax + ix, bbox.iymax + iy
+        inside = (x1 >= 0) & (y1 >= 0) & (x2 <= nx) & (y2 <= ny)
+        candidates = np.nonzero(inside)[0]
+        if small_aperture:
+            rows, cols = iy[candidates, None] + offset_y, ix[candidates, None] + offset_x
+            good = candidates[~bad[rows, cols].any(axis=1)][:needed]
+        else:
+            # large apertures: number of bad pixels in each footprint, from the row runs (in blocks of
+            # positions, for memory)
+            good = []
+            step = max(1, 2_000_000 // len(run_rows))
+            for start in range(0, len(candidates), step):
+                sel = candidates[start:start + step]
+                rows = iy[sel, None] + run_rows
+                n_bad = (
+                    row_cumsum[rows, ix[sel, None] + run_end] - row_cumsum[rows, ix[sel, None] + run_start]
+                ).sum(axis=1)
+                good.extend(sel[n_bad == 0][: needed - len(good)])
+                if len(good) == needed:
+                    break
+            good = np.asarray(good, dtype=int)
+        if small_aperture and len(good) > 0:
+            rows, cols = iy[good, None] + offset_y, ix[good, None] + offset_x
+            fluxes = np.sum(residuals[rows, cols] * template_values, axis=1)
+        else:
+            fluxes = np.array([aperture_flux(ix[i], iy[i]) for i in good])
+        return good, fluxes
+
+    def draw_blank(region: str, needed: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Draws random positions in the region (as many as ``max_trials``) until ``needed`` blank apertures
+        are found. The random numbers are drawn in blocks, but the generator is left in the same state as if
+        they were drawn one position at a time, stopping at the last blank aperture needed."""
+        xs, ys, fluxes = [], [], []
+        trials = found = 0
+        while trials < max_trials and found < needed:
+            block = min(_BLANK_BLOCK, max_trials - trials)
+            state = rng.bit_generator.state
+            u = rng.random((block, 2))
             if region == "annulus":
-                phi = rng.uniform(0, 2 * np.pi)
-                rho = rng.uniform(rmin, rmax)
+                phi, rho = 2 * np.pi * u[:, 0], rmin + (rmax - rmin) * u[:, 1]
                 x, y = x0 + rho * np.cos(phi), y0 + rho * np.sin(phi)
             else:
-                x, y = rng.uniform(0, nx), rng.uniform(0, ny)
-            flux = blank_flux(x, y)
-            if flux is not None:
-                blank_fluxes.append(flux)
+                x, y = nx * u[:, 0], ny * u[:, 1]
+            ok, flux = find_blank(x, y, needed - found)
+            if len(ok) == needed - found:
+                used = ok[-1] + 1
+                rng.bit_generator.state = state
+                rng.random(2 * used)  # positions after the last blank aperture needed are not used
+            else:
+                used = block
+            trials += used
+            found += len(ok)
+            xs.append(x[ok]), ys.append(y[ok]), fluxes.append(flux)
+        if not xs:
+            return np.array([]), np.array([]), np.array([])
+        return np.concatenate(xs), np.concatenate(ys), np.concatenate(fluxes)
+
+    blank_fluxes = np.array([])
+    for region in ["annulus", "image"]:
+        _, _, flux = draw_blank(region, n_apertures - len(blank_fluxes))
+        blank_fluxes = np.concatenate([blank_fluxes, flux])
         if len(blank_fluxes) >= 10:
             break
 
@@ -984,16 +1052,9 @@ def _blank_rms(
     rms = _robust_rms(blank_fluxes)
 
     # comparison with the blank apertures in the half of the image farther from the source
-    distant = []  # (distance, flux)
-    for _ in range(max_trials):
-        if len(distant) >= n_apertures:
-            break
-        x, y = rng.uniform(0, nx), rng.uniform(0, ny)
-        flux = blank_flux(x, y)
-        if flux is not None:
-            distant.append((np.hypot(x - x0, y - y0), flux))
-    if len(distant) >= 20:
-        distance, flux = np.asarray(distant).T
+    x, y, flux = draw_blank("image", n_apertures)
+    if len(flux) >= 20:
+        distance = np.hypot(x - x0, y - y0)
         far = flux[distance > np.median(distance)]
         if len(far) >= 10:
             far_rms = _robust_rms(far)
@@ -1001,6 +1062,11 @@ def _blank_rms(
                 return far_rms, True
     return rms, False
 
+
+# number of random positions evaluated at once for the blank apertures
+_BLANK_BLOCK = 256
+# apertures with up to this number of pixels are checked with array operations (larger ones, one by one)
+_VECTORISED_MAX_PIXELS = 1000
 
 # maximum ratio between the scatter of the blank apertures near the source and far from it (for galaxies
 # without contamination, the ratio scatters by ~50% due to spatial variations of the noise: it is above 3
