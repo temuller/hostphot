@@ -66,7 +66,9 @@ Many magnitudes and uncertainties of v3 were wrong. The main changes are (see th
        apertures and Kron magnitudes). Apertures partially without data are handled consistently (NaN, with a
        warning, if more than 5% of a local aperture, or 10% of the estimated flux of a global aperture, is missing;
        below this, the missing flux of global apertures is added). Non-detections give NaN magnitudes (the fluxes are kept).
-       Transferred apertures (common apertures and masks) are now correctly oriented
+       Transferred apertures (common apertures and masks) are now correctly oriented. The uncertainties of the
+       global photometry include the uncertainty of the sky level within the aperture (and, for the CoG aperture,
+       of the flux beyond it), so those of large galaxies are larger (e.g. ~0.06-0.09 mag instead of ~0.02 mag)
    * - PanSTARRS, DES, SkyMapper, S-PLUS
      - New error model (errors underestimated by up to ~2x for PanSTARRS and overestimated by ~2-3x for DES and
        S-PLUS)
@@ -76,12 +78,15 @@ Many magnitudes and uncertainties of v3 were wrong. The main changes are (see th
      - Errors were overestimated by ~2-2.5x (local photometry) and underestimated for the global photometry
    * - WISE / unWISE
      - Errors were overestimated (e.g. 0.05-1.9 mag, now ~0.01-0.03 mag for a bright host). unWISE uses the
-       inverse-variance maps
+       inverse-variance maps. WISE W1/W2 errors of large apertures include the blank-aperture floor and the sky
+       level (they were underestimated by ~3-8x for the CoG aperture)
    * - Spitzer
      - Errors were overestimated by ~10-1000x. Background subtracted by default (previously, e.g. fluxes
        ~2-80x too large for stars in IRAC 2-4). IRAC extended-source correction (galaxies ~0.05-0.3 mag fainter)
    * - GALEX
-     - Background-subtracted images (previously, up to several magnitudes too bright in NUV)
+     - Background-subtracted images (previously, up to several magnitudes too bright in NUV); blank-aperture
+       floor; shallow images (e.g. AIS) no longer give apertures and errors broken by the collapse of the
+       background noise (relevant if the masks and apertures are obtained from the GALEX images themselves)
    * - UKIDSS
      - Pixel scale of micro-stepped images (apertures were half the requested radius); stacks with ``NEXP > 1``
        were 2.5 log10(NEXP) mag too faint; deep stacks are now used; calibration uncertainty
