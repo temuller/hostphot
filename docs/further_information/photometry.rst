@@ -71,6 +71,27 @@ Large apertures can include residual sky and faint neighbours not masked, which 
 apertures are affected by the sky subtraction of the survey pipelines (e.g. PanSTARRS fluxes of large galaxies are
 :math:`\sim0.1-0.3` mag fainter than those of the Legacy Survey).
 
+**Uncertainties of the global apertures.** Besides the noise in the aperture (with the blank-aperture noise floor,
+see the surveys below), two terms are added in quadrature, which dominate for extended galaxies:
+
+* the uncertainty of the sky level within the aperture, from blank apertures of the same size (the same ones as for
+  the noise floor) measured on the image itself, i.e. without removing the smooth background used for the floor:
+  the variations of the sky level on the scale of the aperture (the excess of their scatter over the floor) and the
+  offset of the sky level (their median, from the apertures in the half of the image farther from the galaxy), which
+  the flux includes if the sky is not (well) subtracted. A residual sky of a few counts per pixel, much smaller than
+  the pixel noise, can change the flux of a large galaxy by several per cent;
+* for the CoG aperture, the uncertainty of the flux beyond the aperture: that of the Sérsic tail (from the fit, and
+  at least :math:`80\%` of the tail, as galaxies are not exactly Sérsic profiles) or, if no tail is added, the flux
+  in the two outermost annuli of the aperture.
+
+Without these terms, the uncertainties of the injected galaxies were underestimated by factors of :math:`\sim2-5`
+(CoG aperture; :math:`\sim3-12` for the optimised Kron aperture), while with them, the scatter of the magnitude
+differences divided by the uncertainties is :math:`\sim1` for the CoG aperture (:math:`0.96` and :math:`1.08` for
+effective radii :math:`\le3` and :math:`\ge6` arcsec). For the real galaxies, the CoG magnitudes of the same galaxy
+in different surveys agree within their uncertainties (normalised scatter of :math:`\sim0.9-1.7`, instead of
+:math:`\sim3-5`). The uncertainties of the Kron apertures do not include the flux missed by the aperture (see the
+biases above).
+
 For Herschel PACS, the CoG fluxes of 8 KINGFISH galaxies agree with those of Dale et al. (2012) within a median
 ratio of 0.98 (:math:`100 \mu \text{m}`) and 0.95 (:math:`70 \mu \text{m}`), as those of the optimised Kron aperture
 (0.97 and 0.95; 0.77 and 0.83 for the Kron aperture).

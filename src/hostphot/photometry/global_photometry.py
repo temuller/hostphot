@@ -319,6 +319,12 @@ COG_CONTAMINATION_SNR = 10.0
 # without a Sérsic tail, the aperture is flagged only if smaller than this number of half-light radii (of the
 # curve of growth): larger apertures include most of the flux (e.g. ~95% within 4 effective radii for n = 2.5)
 COG_NO_TAIL_RADIUS = 4.0
+# minimum uncertainty of the Sérsic tail, as a fraction of the tail (the profiles of galaxies are not exactly
+# Sérsic profiles; from galaxies injected in PanSTARRS images, the error of the tail is ~80% of the tail)
+COG_TAIL_MIN_ERR = 0.8
+# without a Sérsic tail, the uncertainty of the flux beyond the aperture is the flux in this number of outermost
+# annuli of the aperture (~1.2 times the scatter of the missing flux, from galaxies injected in PanSTARRS images)
+COG_NO_TAIL_ANNULI = 2
 
 
 def _profile(
@@ -390,10 +396,12 @@ def cog_aperture(
     The flux beyond the aperture is estimated by fitting a Sérsic profile to the annuli between
     ``COG_MIN_RADIUS_FWHM`` times the PSF FWHM and the aperture radius, and integrating it from the aperture
     radius out to ``COG_TAIL_RADIUS`` effective radii. The tail is given as a fraction of the flux within the
-    aperture, with its uncertainty (from the covariance of the fit). No tail is added if the fit fails, the Sérsic
-    index reaches its limits (0.3 or 8), the tail is not constrained (uncertainty larger than the tail) or is
-    larger than the flux within the aperture; then, the aperture is flagged (with a warning) only if its radius is
-    smaller than ``COG_NO_TAIL_RADIUS`` half-light radii (from the curve of growth within the aperture).
+    aperture, with its uncertainty (from the covariance of the fit, and at least ``COG_TAIL_MIN_ERR`` times the
+    tail). No tail is added if the fit fails, the Sérsic index reaches its limits (0.3 or 8), the tail is not
+    constrained (uncertainty larger than the tail) or is larger than the flux within the aperture; then, the
+    uncertainty of the flux beyond the aperture is the flux in the ``COG_NO_TAIL_ANNULI`` outermost annuli of the
+    aperture (``tail_frac_err``, with ``tail_frac`` = 0), and the aperture is flagged (with a warning) only if its
+    radius is smaller than ``COG_NO_TAIL_RADIUS`` half-light radii (from the curve of growth within the aperture).
 
     Parameters
     ----------
@@ -407,7 +415,7 @@ def cog_aperture(
     Returns
     -------
     cog: Dictionary with the aperture radius (semi-major axis, in pixels; ``r_meas``), the fraction of the flux
-        added by the tail and its uncertainty (``tail_frac`` and ``tail_frac_err``; 0 if no tail is added), the
+        added by the tail and its uncertainty (``tail_frac`` and ``tail_frac_err``; see above), the
         parameters of the Sérsic fit (``sersic_n`` and ``sersic_re``, in pixels; NaN if not used), and whether the
         aperture might not include all the flux of the galaxy (``flag``, with a warning).
     """
@@ -501,12 +509,19 @@ def cog_aperture(
                 reason = "the Sérsic tail is larger than the flux within the aperture"
             else:
                 reason = None
+                # (at least COG_TAIL_MIN_ERR of the tail: the covariance of the fit does not include the mismatch
+                # between the profile of the galaxy and the Sérsic profile)
+                tail_err = max(tail_err, COG_TAIL_MIN_ERR * tail_flux)
                 cog.update(
                     tail_frac=float(tail_flux / f_meas), tail_frac_err=float(tail_err / f_meas),
                     sersic_n=float(params[2]), sersic_re=float(params[1]),
                 )
     elif f_meas <= 0:
         reason = "the flux within the aperture is not positive"
+    if reason is not None and f_meas > 0:
+        # uncertainty of the (unknown) flux beyond the aperture: the flux in the outermost annuli
+        outer = abs(float(cum[i_meas] - cum[max(i_meas - COG_NO_TAIL_ANNULI, 0)]))
+        cog["tail_frac_err"] = outer / f_meas
     if reason is not None:
         # half-light radius of the curve of growth within the aperture
         # (first radius enclosing half the flux; the curve of growth is not always monotonic)

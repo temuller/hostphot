@@ -179,6 +179,57 @@ class TestCoverageAndFloors(unittest.TestCase):
         self.assertFalse(pu.floor_residual_background("HST", "NICMOS_F160W"))
         self.assertTrue(pu.floor_residual_background("HST", "WFC3_IR_F160W"))
 
+    @staticmethod
+    def kron_object(x=300.0, y=300.0, a=5.0, b=4.0, theta=0.3) -> np.ndarray:
+        dtype = [("x", "f8"), ("y", "f8"), ("a", "f8"), ("b", "f8"), ("theta", "f8")]
+        return np.array([(x, y, a, b, theta)], dtype=dtype)
+
+    def test_sky_level_error(self):
+        self.assertEqual(pu._sky_level_error({}, 1.0), 0.0)
+        self.assertEqual(pu._sky_level_error({"raw_rms": 5.0, "offset": 1.0, "offset_err": 1.0}, None), 0.0)
+        stats = {"raw_rms": 5.0, "offset": 10.0, "offset_err": 6.0}
+        self.assertAlmostEqual(pu._sky_level_error(stats, 3.0), np.sqrt(4.0**2 + 8.0**2))
+        # residual sky offset (much smaller than the pixel noise): included in the uncertainty of large apertures
+        rng = np.random.default_rng(2)
+        noise = rng.normal(0, 1, (600, 600))
+        objects = self.kron_object()
+        area = np.pi * 10 * 8  # (Kron radius 1, scale 2)
+        clean = pu.blank_kron_floor(noise, 0.0, objects, 1.0, 2.0)
+        self.assertLess(clean, 1.3 * np.sqrt(area))  # (white noise, no sky offset: ~ the floor)
+        offset = 0.5
+        err = pu.blank_kron_floor(noise + offset, 0.0, objects, 1.0, 2.0)
+        self.assertAlmostEqual(err / np.hypot(clean, offset * area), 1.0, delta=0.15)
+        # same statistics with the row-run check of large apertures
+        stats = []
+        for max_pixels in [1000, 0]:
+            stats.append({})
+            with mock.patch.object(pu, "_VECTORISED_MAX_PIXELS", max_pixels):
+                pu._blank_elliptical_rms(noise + offset, 300, 300, 10, 8, 0.3, sky_stats=stats[-1],
+                                         source_mask=np.zeros(noise.shape, dtype=bool))
+        self.assertEqual(stats[0], stats[1])
+        # aperture larger than the image allows: the offset is scaled from smaller apertures
+        yy, xx = np.indices((160, 160))
+        small = noise[:160, :160] + offset + 50 * np.exp(-np.hypot(xx - 80, yy - 80) / 4)  # (host masked)
+        with self.assertWarnsRegex(ErrorFloorWarning, "do not fit"):
+            err = pu.blank_kron_floor(small, 0.0, self.kron_object(80, 80, 20, 16), 1.0, 2.0)
+        self.assertAlmostEqual(err / (offset * np.pi * 40 * 32), 1.0, delta=0.3)
+
+    def test_cog_tail_uncertainty(self):
+        from hostphot.photometry import global_photometry as gp
+
+        rng = np.random.default_rng(3)
+        yy, xx = np.indices((400, 400))
+        r = np.hypot(xx - 200, (yy - 200) / 0.8)
+        objects = self.kron_object(200, 200, 8, 6.4, 0.0)
+        for profile, noise in [(np.exp(-((r / 12) ** 0.25)), 0.02), (np.exp(-r / 6), 0.01)]:
+            data = 100 * profile / profile.max() + rng.normal(0, noise, r.shape)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                cog = gp.cog_aperture(data, objects, 2.5, noise, 3.0, label="test")
+            self.assertGreater(cog["tail_frac_err"], 0)
+            if cog["tail_frac"] > 0:
+                self.assertGreaterEqual(cog["tail_frac_err"], gp.COG_TAIL_MIN_ERR * cog["tail_frac"] * (1 - 1e-9))
+
 
 class TestNetworkHelpers(unittest.TestCase):
     def tearDown(self):

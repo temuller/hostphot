@@ -903,6 +903,7 @@ def _blank_rms(
     n_apertures: int = 80,
     source_mask: Optional[np.ndarray] = None,
     residual_background: bool = True,
+    sky_stats: Optional[dict] = None,
 ) -> tuple[float | None, bool]:
     """Estimate an empirical noise floor from the scatter of blank (source-free) apertures.
 
@@ -927,6 +928,10 @@ def _blank_rms(
     rmin, rmax: Inner and outer radii of the annulus where apertures are drawn first.
     n_apertures: Number of blank apertures.
     source_mask: Mask of the detected sources (see :func:`get_source_mask`). It is calculated if not given.
+    sky_stats: If given, filled with the statistics of the fluxes of the same blank apertures measured on the image
+        itself (without removing the smooth background), for the uncertainty of the sky level (see
+        :func:`_sky_level_error`): their robust RMS (``raw_rms``), median (``offset``; from the apertures in the
+        half of the image farther from the source, if available) and the uncertainty of the median (``offset_err``).
 
     Returns
     -------
@@ -974,13 +979,19 @@ def _blank_rms(
         row_cumsum = np.zeros((ny, nx + 1), dtype=np.int32)
         np.cumsum(bad, axis=1, dtype=np.int32, out=row_cumsum[:, 1:])
 
-    def aperture_flux(ix: int, iy: int) -> float:
-        cutout = residuals[bbox.iymin + iy:bbox.iymax + iy, bbox.ixmin + ix:bbox.ixmax + ix]
-        return float(np.sum(cutout[footprint] * template[footprint]))
+    # the fluxes are measured on the residuals and, for the uncertainty of the sky level, on the image itself
+    images = [residuals] if (sky_stats is None or residuals is data) else [residuals, data]
+
+    def aperture_flux(ix: int, iy: int) -> list[float]:
+        return [
+            float(np.sum(im[bbox.iymin + iy:bbox.iymax + iy, bbox.ixmin + ix:bbox.ixmax + ix][footprint]
+                         * template[footprint]))
+            for im in images
+        ]
 
     def find_blank(x: np.ndarray, y: np.ndarray, needed: int) -> tuple[np.ndarray, np.ndarray]:
         """Returns the indices of the first ``needed`` positions with blank apertures (fully inside the
-        image, not overlapping sources or pixels without data), and their fluxes."""
+        image, not overlapping sources or pixels without data), and their fluxes (one column per image)."""
         ix, iy = np.round(x).astype(int), np.round(y).astype(int)
         x1, y1 = bbox.ixmin + ix, bbox.iymin + iy
         x2, y2 = bbox.ixmax + ix, bbox.iymax + iy
@@ -1006,9 +1017,9 @@ def _blank_rms(
             good = np.asarray(good, dtype=int)
         if small_aperture and len(good) > 0:
             rows, cols = iy[good, None] + offset_y, ix[good, None] + offset_x
-            fluxes = np.sum(residuals[rows, cols] * template_values, axis=1)
+            fluxes = np.stack([np.sum(im[rows, cols] * template_values, axis=1) for im in images], axis=1)
         else:
-            fluxes = np.array([aperture_flux(ix[i], iy[i]) for i in good])
+            fluxes = np.array([aperture_flux(ix[i], iy[i]) for i in good]).reshape(-1, len(images))
         return good, fluxes
 
     def draw_blank(region: str, needed: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -1037,10 +1048,10 @@ def _blank_rms(
             found += len(ok)
             xs.append(x[ok]), ys.append(y[ok]), fluxes.append(flux)
         if not xs:
-            return np.array([]), np.array([]), np.array([])
+            return np.array([]), np.array([]), np.empty((0, len(images)))
         return np.concatenate(xs), np.concatenate(ys), np.concatenate(fluxes)
 
-    blank_fluxes = np.array([])
+    blank_fluxes = np.empty((0, len(images)))
     for region in ["annulus", "image"]:
         _, _, flux = draw_blank(region, n_apertures - len(blank_fluxes))
         blank_fluxes = np.concatenate([blank_fluxes, flux])
@@ -1049,18 +1060,29 @@ def _blank_rms(
 
     if len(blank_fluxes) < 10:
         return None, False
-    rms = _robust_rms(blank_fluxes)
+    rms = _robust_rms(blank_fluxes[:, 0])
+    raw_local = blank_fluxes[:, -1]
 
     # comparison with the blank apertures in the half of the image farther from the source
+    replaced, raw_far = False, None
     x, y, flux = draw_blank("image", n_apertures)
     if len(flux) >= 20:
         distance = np.hypot(x - x0, y - y0)
         far = flux[distance > np.median(distance)]
         if len(far) >= 10:
-            far_rms = _robust_rms(far)
+            far_rms = _robust_rms(far[:, 0])
+            raw_far = far[:, -1]
             if far_rms > 0 and rms > COMPARISON_RATIO * far_rms:
-                return far_rms, True
-    return rms, False
+                rms, replaced = far_rms, True
+    if sky_stats is not None:
+        # (the offset from the distant apertures, less affected by faint wings of the source)
+        raw_offset = raw_far if raw_far is not None else raw_local
+        sky_stats.update(
+            raw_rms=_robust_rms(raw_far if replaced else raw_local),
+            offset=float(np.median(raw_offset)),
+            offset_err=float(1.2533 * _robust_rms(raw_offset) / np.sqrt(len(raw_offset))),
+        )
+    return rms, replaced
 
 
 # number of random positions evaluated at once for the blank apertures
@@ -1090,6 +1112,7 @@ def _blank_aperture_rms(
     rmax_factor: float = 6.0,
     source_mask: Optional[np.ndarray] = None,
     residual_background: bool = True,
+    sky_stats: Optional[dict] = None,
 ) -> tuple[float | None, bool]:
     """Estimate an empirical noise floor from blank circular apertures (see :func:`_blank_rms`)."""
     return _blank_rms(
@@ -1103,6 +1126,7 @@ def _blank_aperture_rms(
         n_apertures,
         source_mask,
         residual_background,
+        sky_stats,
     )
 
 
@@ -1118,6 +1142,7 @@ def _blank_elliptical_rms(
     rmax_factor: float = 6.0,
     source_mask: Optional[np.ndarray] = None,
     residual_background: bool = True,
+    sky_stats: Optional[dict] = None,
 ) -> tuple[float | None, bool]:
     """Estimate an empirical noise floor from blank elliptical apertures (see :func:`_blank_rms`)."""
     step_scale = max(a, b)
@@ -1132,6 +1157,7 @@ def _blank_elliptical_rms(
         n_apertures,
         source_mask,
         residual_background,
+        sky_stats,
     )
 
 
@@ -1143,6 +1169,7 @@ def _extrapolated_blank_rms(
     source_mask: np.ndarray,
     residual_background: bool = True,
     fractions: tuple = (1 / 64, 1 / 32, 1 / 16, 1 / 8, 1 / 4, 1 / 2),
+    sky_stats: Optional[dict] = None,
 ) -> tuple[float | None, bool]:
     """Estimate the blank-aperture noise of apertures too large to fit in the image.
 
@@ -1157,6 +1184,9 @@ def _extrapolated_blank_rms(
     area: Area of the source aperture in pixels.
     source_mask: Mask of the detected sources (see :func:`get_source_mask`).
     fractions: Areas of the smaller apertures, as fractions of ``area``.
+    sky_stats: If given, filled as in :func:`_blank_rms`, for the given area: the RMS of the blank apertures on the
+        image itself is extrapolated in the same way, and the median (sky offset) and its uncertainty are scaled
+        from the largest aperture measured (proportionally to the area).
 
     Returns
     -------
@@ -1164,24 +1194,39 @@ def _extrapolated_blank_rms(
     replaced: Whether the distant blank apertures were used for any of the smaller apertures (see :func:`_blank_rms`).
     """
     target_radius = np.sqrt(area / np.pi)
-    points = []
+    points, raw_points, largest = [], [], None
     replaced = False
     for fraction in fractions:
         radius = target_radius * np.sqrt(fraction)
         if radius < 1.5:
             continue
+        stats = {} if sky_stats is not None else None
         rms, rep = _blank_aperture_rms(
-            data, x0, y0, radius, source_mask=source_mask, residual_background=residual_background
+            data, x0, y0, radius, source_mask=source_mask, residual_background=residual_background, sky_stats=stats
         )
         if rms is not None and rms > 0:
             points.append((np.pi * radius**2, rms))
             replaced |= rep
+            if stats and stats["raw_rms"] > 0:
+                raw_points.append((np.pi * radius**2, stats["raw_rms"]))
+                largest = (np.pi * radius**2, stats)
     if len(points) < 3:
         return None, False
-    log_area, log_rms = np.log(np.array(points)).T
-    beta = float(np.clip(np.polyfit(log_area, log_rms, 1)[0], 0.5, 1.0))
-    intercept = np.median(log_rms - beta * log_area)
-    return float(np.exp(intercept + beta * np.log(area))), replaced
+
+    def extrapolate(pts):
+        log_area, log_rms = np.log(np.array(pts)).T
+        beta = float(np.clip(np.polyfit(log_area, log_rms, 1)[0], 0.5, 1.0))
+        intercept = np.median(log_rms - beta * log_area)
+        return float(np.exp(intercept + beta * np.log(area)))
+
+    if sky_stats is not None and len(raw_points) >= 3:
+        factor = area / largest[0]
+        sky_stats.update(
+            raw_rms=extrapolate(raw_points),
+            offset=largest[1]["offset"] * factor,
+            offset_err=largest[1]["offset_err"] * factor,
+        )
+    return extrapolate(points), replaced
 
 
 def _warn_distant_floor(label: str) -> None:
@@ -1504,12 +1549,15 @@ def blank_kron_floor(
     """
     x, y, a, b, theta = _kron_ellipse(objects, kronrad, scale)
     source_mask = _source_mask(data, pixel_scale, host_xy=(x, y))
+    sky_stats = {}
     rms, replaced = _blank_elliptical_rms(
-        data, x, y, a, b, theta, source_mask=source_mask, residual_background=residual_background
+        data, x, y, a, b, theta, source_mask=source_mask, residual_background=residual_background,
+        sky_stats=sky_stats,
     )
     if rms is None:
+        sky_stats = {}
         rms, replaced = _extrapolated_blank_rms(
-            data, x, y, np.pi * a * b, source_mask, residual_background=residual_background
+            data, x, y, np.pi * a * b, source_mask, residual_background=residual_background, sky_stats=sky_stats
         )
         if rms is None:
             warnings.warn(
@@ -1525,7 +1573,38 @@ def blank_kron_floor(
             )
     if replaced:
         _warn_distant_floor(label)
-    return _apply_floor(flux_err, rms)
+    flux_err = _apply_floor(flux_err, rms)
+    sky_err = _sky_level_error(sky_stats, rms)
+    return float(np.sqrt(flux_err**2 + sky_err**2)) if np.isfinite(flux_err) else flux_err
+
+
+def _sky_level_error(sky_stats: dict, rms: float | None) -> float:
+    """Uncertainty of the sky level within an aperture, from blank apertures of the same size measured on the image
+    itself (without removing the smooth background used for the noise floor; see :func:`_blank_rms`).
+
+    It has two terms, added in quadrature: the variations of the sky level on the scale of the aperture (the excess
+    of the scatter of the blank apertures on the image over that on the residuals, i.e. the noise floor) and the
+    offset of the sky level (the median of the blank apertures, minus its own uncertainty in quadrature), which
+    the flux includes if the sky is not (well) subtracted. For large apertures, the sky level dominates the
+    uncertainty (e.g. a residual sky of ~5 counts per pixel, much smaller than the pixel noise, can change the flux
+    of a galaxy by several per cent), so the errors of extended galaxies would otherwise be underestimated by
+    factors of ~2-5 (from galaxies injected in PanSTARRS images).
+
+    Parameters
+    ----------
+    sky_stats: Statistics of the blank apertures on the image (``raw_rms``, ``offset`` and ``offset_err``).
+    rms: Noise floor (scatter of the blank apertures on the residuals).
+
+    Returns
+    -------
+    sky_err: Uncertainty of the sky level within the aperture (0 if it could not be estimated).
+    """
+    if not sky_stats or rms is None:
+        return 0.0
+    variation2 = max(sky_stats["raw_rms"] ** 2 - rms**2, 0.0)
+    offset2 = max(sky_stats["offset"] ** 2 - sky_stats["offset_err"] ** 2, 0.0)
+    sky_err = float(np.sqrt(variation2 + offset2))
+    return sky_err if np.isfinite(sky_err) else 0.0
 
 
 def extract_invvar_aperture_flux(
