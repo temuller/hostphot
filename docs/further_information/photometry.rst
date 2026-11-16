@@ -280,14 +280,11 @@ GALEX
   
 * **Error Propagation**
 
-  The formulas from the GALEX website are used (in magnitude space):
-  
-  :math:`\sigma_{\text{rep}} (FUV) = -2.5*\Big(log_{10}(\text{CPS}) - log_{10}\big(\text{CPS} + sqrt(\text{CPS} * t_{\text{exp}} + (0.050 * \text{CPS} * t_{\text{exp}} )^2) / t_{\text{exp}} \big) \Big)`
-  :math:`\sigma_{\text{rep}} (NUV) = -2.5*\Big(log_{10}(\text{CPS}) - log_{10}\big(\text{CPS} + sqrt(\text{CPS} * t_{\text{exp}} + (0.027 * \text{CPS} * t_{\text{exp}} )^2) / t_{\text{exp}} \big) \Big)`
-    
-  where CPS is counts per second and :math:`t_{\text{exp}}` is the exposure time. The later is obtained from the images obtained with `astroquery.mast.Observations <https://astroquery.readthedocs.io/en/latest/mast/mast.html>`_ and saved in the ``EXPTIME`` keyword.
-  
-  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{rep}}^2)`.
+  The aperture uncertainty (:math:`\sigma_{\text{ap}}`) includes the background noise and the Poisson noise of the source (from the exposure time, ``EXPTIME``, obtained with `astroquery.mast.Observations <https://astroquery.readthedocs.io/en/latest/mast/mast.html>`_), with the blank-aperture noise floor, as for PS1. The calibration uncertainty (:math:`\sigma_{\text{cal}}`) is :math:`5\%` in :math:`FUV` and :math:`2.7\%` in :math:`NUV` (see `https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html <https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html>`_).
+
+  Shallow GALEX images (e.g. AIS, with exposure times of :math:`\sim100-200` s) have only :math:`\sim0.01-0.1` sky photons per pixel, so most pixels have nearly the same value, and the robust (MAD-based) estimate of the background noise collapses to :math:`\sim0` (:math:`\sim1000-8000` times below the actual noise). For these images, the noise is estimated from the variance of the pixels in boxes of :math:`16\times16` pixels (rejecting those with sources), which is used for the detection of the galaxy, the apertures and the uncertainties (see :func:`hostphot.processing.background.sep_background`). Otherwise, every photon is a significant detection, and the apertures were too large (fluxes :math:`\sim1-2` mag too bright for galaxies injected in :math:`155-203` s :math:`FUV` images, :math:`\sim0.1-0.2` mag with the Kron apertures now), with uncertainties of :math:`\sim0` (only the calibration term). The photometry of faint galaxies (a few tens of photons) measured on shallow images alone is still less reliable (e.g. CoG fluxes :math:`\sim0.2` mag too faint, with uncertainties :math:`\sim3` times too small). With the masks and aperture from PanSTARRS or the Legacy Survey (``ref_survey`` and ``common_aperture=True``, recommended), the CoG photometry of galaxies injected in deep and shallow GALEX images is unbiased and its uncertainties are consistent with the errors (normalised scatter of :math:`\sim0.5-1.0`).
+
+  Thus, :math:`\sigma = sqrt(\sigma_{\text{ap}}^2 + \sigma_{\text{cal}}^2)`.
 
 
 2MASS
@@ -329,7 +326,9 @@ WISE
   
   where :math:`F_{\text{corr}} = N_p (s_{\text{in}}/s_{\text{out}})^2` is the correlated noise correction factor for flux variance, with :math:`N_p` the effective number of noise-pixels of the PRF (:math:`13.772`, :math:`17.636`, :math:`35.476` and :math:`24.462` for *W1*-*W4*, from `Section IV.6.c.i <https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_6ci.html>`_) and :math:`s_{\text{in}}/s_{\text{out}}` the ratio of the native to Atlas Image pixel scales (:math:`2` for *W1*-*W3* and :math:`4` for *W4*), limited to :math:`N_A` for small apertures; :math:`N_A` is the number of pixels in the source aperture and :math:`N_B` the number of pixels used for the background (the whole image); :math:`\sigma_i` is the flux uncertainty for pixel :math:`i` (assumed to be the global RMS of the image's background, i.e. background-dominated noise), so that :math:`\Sigma\sigma_i^2 = N_A \sigma_i^2`; :math:`\sigma^2_{\bar{B}/pix}` is the variance of the background (the global RMS of the image's background squared) and :math:`k = \pi/2`; the confusion noise (:math:`\sigma_{\text{conf}}`) is not included.
   
-  Thus, :math:`\sigma = sqrt\big(\sigma_{ZP}^2 + 1.179*(\sigma_{\text{src}}^2 / F_{\text{src}}^2) \big)`, as described in the link above, were :math:`F_{\text{src}}` is the integrated aperture flux of the source (e.g. galaxy).
+  The uncertainty from this formula, :math:`\sigma_{\text{WISE}} = sqrt\big(1.179*(\sigma_{\text{src}}^2 / F_{\text{src}}^2) \big)`, as described in the link above, where :math:`F_{\text{src}}` is the integrated aperture flux of the source (e.g. galaxy), does not include the residual sky and its variations, which dominate in large apertures. Therefore, the aperture uncertainty with the blank-aperture noise floor and, for the global apertures, the uncertainty of the sky level (:math:`\sigma_{\text{ap}}`, as for PS1) is used if it is larger: :math:`\sigma_{\text{src, tot}} = max(\sigma_{\text{WISE}}, \sigma_{\text{ap}})`. For galaxies injected in WISE images (masks and CoG aperture from PanSTARRS), the uncertainties of the formula were underestimated by :math:`\sim3-8` times in *W1* and *W2* (:math:`\sim1.6-3.7` times now, from neighbours whose wings extend beyond their masks, as the masks of PanSTARRS are smaller than the WISE PSF), while in *W3* and *W4* they are consistent with the errors.
+
+  Thus, :math:`\sigma = sqrt\big(\sigma_{ZP}^2 + \sigma_{\text{src, tot}}^2 \big)`.
 
 
 unWISE

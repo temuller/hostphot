@@ -38,10 +38,70 @@ def _safe_mesh(npix: int, mesh: int) -> int:
     return mesh
 
 
+# box size (pixels) for the noise of sparse images (several sky photons per box in shallow GALEX images)
+SPARSE_BOX = 16
+# the RMS of the background is replaced if it is below this fraction of the noise from the variance in boxes: for
+# shallow GALEX images, the ratio is ~1000-8000, while for other images it is <~3.5 (e.g. structure at the edges of
+# the coverage or galaxies filling small images; from 2,600 images of 18 surveys)
+SPARSE_COLLAPSE = 0.1
+
+
+def sparse_pixel_rms(data: np.ndarray, box: int = SPARSE_BOX) -> float:
+    """Per-pixel noise of an image from the variance of the pixels in boxes of ``box`` x ``box`` pixels.
+
+    In photon-counting images with few counts per pixel (e.g. shallow GALEX images, with ~0.01-0.1 sky photons per
+    pixel), most pixels have the same value, so robust (MAD-based) estimates of the noise collapse to ~0, and sigma
+    clipping rejects the pixels with photons. The variance of the pixels in boxes includes them; the boxes with
+    sources (variance above 5 times the median) are rejected. Pixels without data (NaN) are excluded.
+    """
+    ny, nx = (data.shape[0] // box) * box, (data.shape[1] // box) * box
+    if ny == 0 or nx == 0:
+        return float(np.nanstd(data))
+    blocks = data[:ny, :nx].reshape(ny // box, box, nx // box, box).swapaxes(1, 2).reshape(-1, box * box)
+    blocks = blocks[np.isfinite(blocks).all(axis=1)]
+    if len(blocks) == 0:
+        return float(np.nanstd(data))
+    var = blocks.var(axis=1)
+    median = np.median(var)
+    if median <= 0:
+        return float(np.sqrt(var.mean()))
+    return float(np.sqrt(var[var <= 5 * median].mean()))
+
+
+class SparseBackground:
+    """:class:`sep.Background` with the RMS replaced by a constant (see :func:`sep_background`)."""
+
+    def __init__(self, bkg: sep.Background, rms: float):
+        self._bkg = bkg
+        self.globalrms = float(rms)
+
+    def rms(self, dtype=None) -> np.ndarray:
+        shape = self._bkg.back().shape
+        return np.full(shape, self.globalrms, dtype=dtype or np.float64)
+
+    def __getattr__(self, name):
+        return getattr(self._bkg, name)
+
+
 def sep_background(data: np.ndarray, mask: Optional[np.ndarray] = None, bw: int = 64, bh: int = 64, **kwargs):
-    """:func:`sep.Background` with mesh sizes adjusted to the image size (see :func:`_safe_mesh`)."""
+    """:func:`sep.Background` with mesh sizes adjusted to the image size (see :func:`_safe_mesh`).
+
+    For sparse photon-counting images (e.g. shallow GALEX images), the RMS of :func:`sep.Background` (MAD-based)
+    collapses to ~0, so every photon would be a significant detection (huge apertures, with fluxes ~1-2 mag too
+    bright for GALEX galaxies injected in 155-203 s FUV images) and the uncertainties would be ~0. If it is below
+    ``SPARSE_COLLAPSE`` times the noise from the variance in boxes (:func:`sparse_pixel_rms`), the latter is used
+    as the RMS (constant). The same happens for images with large regions without data set to zero.
+    """
     ny, nx = data.shape
-    return sep.Background(data, mask=mask, bw=_safe_mesh(nx, bw), bh=_safe_mesh(ny, bh), **kwargs)
+    bkg = sep.Background(data, mask=mask, bw=_safe_mesh(nx, bw), bh=_safe_mesh(ny, bh), **kwargs)
+    # (relative to the smooth background, so that its structure, e.g. a large galaxy, is not taken as noise)
+    pixels = data - bkg.back()
+    if mask is not None:
+        pixels = np.where(mask, np.nan, pixels)
+    sparse = sparse_pixel_rms(pixels)
+    if np.isfinite(sparse) and sparse > 0 and bkg.globalrms < SPARSE_COLLAPSE * sparse:
+        return SparseBackground(bkg, sparse)
+    return bkg
 
 
 def _set_pixstack(size: int) -> None:

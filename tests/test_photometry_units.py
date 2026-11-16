@@ -38,8 +38,13 @@ class TestErrorPropagation(unittest.TestCase):
                 total = pu.uncertainty_calculation(flux, flux_err, survey, filt, ap_area=50.0, header=header,
                                                    bkg_rms=0.1)
                 self.assertTrue(np.isfinite(total))
-                if survey not in ["WISE"]:  # (WISE uses its own noise model)
-                    self.assertGreaterEqual(total, flux_err * 0.999)  # calibration terms only add uncertainty
+                # calibration terms only add uncertainty (WISE: the largest between its noise model and the
+                # aperture error, plus the zeropoint uncertainty)
+                self.assertGreaterEqual(total, flux_err * 0.999)
+        # WISE: the noise model is used if larger than the aperture error
+        small = pu.uncertainty_calculation(1000.0, 1e-3, "WISE", "W1", ap_area=50.0, header=header, bkg_rms=0.1)
+        formula = np.sqrt(min(13.772 * 4, 50.0) * 50.0 * (1 + np.pi / 2 * 50.0 / 1e4)) * 0.1  # (F_corr <= N_A)
+        self.assertAlmostEqual(small / np.hypot(formula, 1000.0 * 0.006 / 1.0857), 1.0, delta=0.01)
         with self.assertRaises(Exception):
             pu.uncertainty_calculation(1.0, 0.1, "Unknown", "x", header=header)
 
@@ -213,6 +218,29 @@ class TestCoverageAndFloors(unittest.TestCase):
         with self.assertWarnsRegex(ErrorFloorWarning, "do not fit"):
             err = pu.blank_kron_floor(small, 0.0, self.kron_object(80, 80, 20, 16), 1.0, 2.0)
         self.assertAlmostEqual(err / (offset * np.pi * 40 * 32), 1.0, delta=0.3)
+
+    def test_sparse_background(self):
+        from hostphot.processing.background import SparseBackground, sep_background, sparse_pixel_rms
+
+        rng = np.random.default_rng(4)
+        # shallow photon-counting image (~0.02 sky photons per pixel in 155 s, in counts per second, minus a smooth
+        # background map, as GALEX): the MAD-based RMS collapses, so the noise from the variance in boxes is used
+        lam, exptime = 0.02, 155.0
+        yy, xx = np.indices((400, 400))
+        sparse = rng.poisson(lam, (400, 400)) / exptime - lam / exptime * (1 + 0.05 * np.sin(xx / 50))
+        sparse[200:205, 200:205] += 0.5  # (a source)
+        bkg = sep_background(sparse)
+        self.assertIsInstance(bkg, SparseBackground)
+        self.assertAlmostEqual(bkg.globalrms / (np.sqrt(lam) / exptime), 1.0, delta=0.1)
+        self.assertEqual(bkg.rms().shape, sparse.shape)
+        self.assertTrue(np.all(bkg.rms() == bkg.globalrms))
+        self.assertEqual(bkg.back().shape, sparse.shape)  # (other attributes from sep.Background)
+        # Gaussian noise (and a gradient): unchanged
+        gauss = rng.normal(0, 1, (400, 400)) + np.linspace(0, 20, 400)[None, :]
+        bkg = sep_background(gauss)
+        self.assertNotIsInstance(bkg, SparseBackground)
+        flat = rng.normal(0, 1, (400, 400))
+        self.assertAlmostEqual(sparse_pixel_rms(flat) / sep_background(flat).globalrms, 1.0, delta=0.1)
 
     def test_cog_tail_uncertainty(self):
         from hostphot.photometry import global_photometry as gp

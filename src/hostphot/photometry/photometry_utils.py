@@ -36,7 +36,8 @@ hostphot_path = Path(hostphot.__path__[0])
 # to the aperture uncertainties (accounts for correlated noise in the coadds, e.g. drizzled HST and
 # JWST images: https://hst-docs.stsci.edu/drizzpac/chapter-3-description-of-the-drizzle-algorithm/3-3-weight-maps-and-correlated-noise)
 blank_floor_surveys = [
-    "PanSTARRS", "DES", "SDSS", "2MASS", "SkyMapper", "SPLUS", "VISTA", "UKIDSS", "UHS", "Spitzer", "HST", "JWST", "KiDS"
+    "PanSTARRS", "DES", "SDSS", "2MASS", "SkyMapper", "SPLUS", "VISTA", "UKIDSS", "UHS", "Spitzer", "HST", "JWST", "KiDS",
+    "GALEX", "WISE",
 ]
 
 
@@ -254,7 +255,12 @@ def uncertainty_calculation(
             f_apcor**2 * F_corr * (N_A * sigma_i**2 + k * N_A**2 / N_B * bkg_rms**2)
         )  # confusion noise (sigma_conf) not included
 
-        mag_err = np.sqrt(1.179 * sigma_src**2 / F_src**2)
+        formula_err = np.sqrt(1.179 * sigma_src**2 / F_src**2)
+        # the largest between the formula and the aperture error with the blank-aperture noise floor and the
+        # uncertainty of the sky level (global apertures), which the formula does not include (e.g. residual sky and
+        # its variations in large apertures: W1 and W2 errors underestimated by ~3-8x for galaxies injected in WISE
+        # images, ~1.6-3.7x now; in W3 and W4, the formula is usually the largest)
+        mag_err = max(formula_err, abs(mag_err))
 
         # add uncertainty from the ZP
         zp_unc = header["MAGZPUNC"]
