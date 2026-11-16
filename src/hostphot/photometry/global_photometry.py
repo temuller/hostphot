@@ -59,7 +59,13 @@ from hostphot.photometry.photometry_utils import (
     warn_non_detection,
     ab_photometry,
 )
-from hostphot.photometry.image_utils import adapt_aperture, wrap_theta
+from hostphot.photometry.image_utils import (
+    add_sky_ellipses,
+    adapt_aperture,
+    has_sky_ellipses,
+    objects_from_sky,
+    wrap_theta,
+)
 from hostphot.processing.background import background_flag, masked_background, sep_background
 from hostphot.processing.host_model import _bn, elliptical_radius, estimate_fwhm_pix
 from hostphot.surveys_utils import (
@@ -752,6 +758,8 @@ def _extract_aperture(
 
     if save_aperture_params is True:
         gal_df = pd.DataFrame(gal_obj)
+        # ellipse on the sky, to use the aperture in other images without this one
+        gal_df = add_sky_ellipses(gal_df, gal_obj, wcs)
         gal_df["kronrad"] = kronrad
         gal_df["scale"] = scale
         gal_df["aperture_flag"] = aperture_flag  # (see optimize_aperture() and cog_aperture())
@@ -821,7 +829,8 @@ def load_aperture_params(
     Returns
     -------
     gal_obj: Galaxy object.
-    wcs: WCS of the reference image.
+    wcs: WCS of the reference image (``None`` if it is not available; only needed for parameters saved without
+        the sky ellipse, i.e. before v4.0.0).
     kronrad: Kron radius.
     scale: Scale for the Kron radius.
     flip: Whether to flip the orientation of the aperture.
@@ -868,14 +877,21 @@ def _load_aperture_params(
     # DataFrame to structured/record array
     gal_obj = gal_df.to_records(index=False)  # (no extra "index" field, e.g. when saved again)
 
-    # load image WCS: the aperture parameters were measured on the image trimmed by remove_nan(),
-    # so the same trimming is applied to get the WCS of that frame
+    # WCS of the reference image (only needed for parameters saved without the sky ellipse, i.e. before v4.0.0):
+    # the aperture parameters were measured on the image trimmed by remove_nan(), so the same trimming is applied
     fits_file = obj_dir / survey / f"{survey}_{filt}.fits"
-    with fits.open(fits_file) as hdu:
-        hdu = remove_nan(hdu)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", AstropyWarning)
-            wcs = WCS(hdu[0].header, naxis=2)
+    wcs = None
+    if fits_file.is_file():
+        with fits.open(fits_file) as hdu:
+            hdu = remove_nan(hdu)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", AstropyWarning)
+                wcs = WCS(hdu[0].header, naxis=2)
+    elif not has_sky_ellipses(gal_obj):
+        raise FileNotFoundError(
+            f"The aperture parameters of {survey} {filt} of {name} were saved without the sky ellipse (before "
+            f"v4.0.0), so the reference image is needed ({fits_file})."
+        )
 
     return gal_obj, wcs, kronrad, scale, flip, aperture_info
 
@@ -1046,10 +1062,12 @@ def _photometry(
             flip_ = False
         else:
             flip_ = True
-        # factor used for scaling the Kron radius between different pixel-scales / surveys
-        gal_obj, conv_factor = adapt_aperture(
-            gal_obj, master_wcs, wcs, flip_
-        )
+        if has_sky_ellipses(gal_obj):
+            # (exact for any orientation of the images, without the reference image)
+            gal_obj, conv_factor = objects_from_sky(gal_obj, wcs)
+        else:
+            # parameters saved before v4.0.0: through the reference image
+            gal_obj, conv_factor = adapt_aperture(gal_obj, master_wcs, wcs, flip_)
 
     aperture_name = "CoG" if aperture_method == "cog" else "Kron"
     # reliability of the subtracted background in the aperture (with a warning if unreliable)

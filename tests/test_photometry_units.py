@@ -7,6 +7,7 @@ import warnings
 from unittest import mock
 
 import numpy as np
+import numpy.lib.recfunctions  # noqa: F401
 from astropy.io import fits
 from photutils.aperture import CircularAperture, EllipticalAperture
 
@@ -218,6 +219,47 @@ class TestCoverageAndFloors(unittest.TestCase):
         with self.assertWarnsRegex(ErrorFloorWarning, "do not fit"):
             err = pu.blank_kron_floor(small, 0.0, self.kron_object(80, 80, 20, 16), 1.0, 2.0)
         self.assertAlmostEqual(err / (offset * np.pi * 40 * 32), 1.0, delta=0.3)
+
+    def test_sky_ellipses(self):
+        from hostphot.photometry.image_utils import objects_from_sky, objects_to_sky, wrap_theta
+
+        dtype = [("x", "f8"), ("y", "f8"), ("a", "f8"), ("b", "f8"), ("theta", "f8")]
+        objects = np.array([(100.0, 120.0, 12.0, 5.0, 0.4), (60.0, 80.0, 6.0, 4.0, -1.2)], dtype=dtype)
+
+        def make_wcs(scale, rot_deg, east_left=True):
+            w = WCS(naxis=2)
+            w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+            w.wcs.crval = [RA, DEC]
+            w.wcs.crpix = [100.0, 100.0]
+            rot = np.radians(rot_deg)
+            parity = -1.0 if east_left else 1.0
+            w.wcs.cd = scale / 3600 * np.array([[parity * np.cos(rot), -np.sin(rot)],
+                                                [parity * np.sin(rot), np.cos(rot)]])
+            return w
+
+        ref = make_wcs(0.25, 0.0)
+        sky = objects_to_sky(objects, ref)
+        self.assertTrue(np.allclose(sky["a_arcsec"], objects["a"] * 0.25, rtol=1e-4))
+        with_sky = np.lib.recfunctions.append_fields(objects, list(sky), [sky[k] for k in sky], usemask=False)
+        # round trip
+        back, factor = objects_from_sky(with_sky, ref)
+        for key in ["x", "y", "a", "b"]:
+            self.assertTrue(np.allclose(back[key], objects[key], atol=1e-6))
+        self.assertTrue(np.allclose([wrap_theta(t) for t in back["theta"] - objects["theta"]], 0, atol=1e-6))
+        self.assertAlmostEqual(factor, 1.0, places=6)
+        # image with a different pixel scale, rotated and mirrored (east to the right): the ends of the axes land on
+        # the same sky positions
+        target = make_wcs(1.0, 30.0, east_left=False)
+        new, factor = objects_from_sky(with_sky, target)
+        self.assertAlmostEqual(factor, 4.0, places=3)
+        for o, n in zip(objects, new):
+            for (dx, dy), (nx, ny) in [((o["a"] * np.cos(o["theta"]), o["a"] * np.sin(o["theta"])),
+                                        (n["a"] * np.cos(n["theta"]), n["a"] * np.sin(n["theta"]))),
+                                       ((-o["b"] * np.sin(o["theta"]), o["b"] * np.cos(o["theta"])),
+                                        (-n["b"] * np.sin(n["theta"]), n["b"] * np.cos(n["theta"])))]:
+                p_ref = ref.pixel_to_world(o["x"] + dx, o["y"] + dy)
+                p_new = [target.pixel_to_world(n["x"] + s * nx, n["y"] + s * ny) for s in (1, -1)]
+                self.assertLess(min(p_ref.separation(p).arcsec for p in p_new), 1e-3)
 
     def test_sparse_background(self):
         from hostphot.processing.background import SparseBackground, sep_background, sparse_pixel_rms

@@ -241,3 +241,86 @@ def adapt_aperture(
     conv_factor = np.mean(np.copy(objects["a"] / objects_["a"]))
 
     return objects_, conv_factor
+
+
+# columns with the ellipses of the objects on the sky (saved with the aperture and mask parameters)
+SKY_ELLIPSE_COLUMNS = ["ra", "dec", "a_arcsec", "b_arcsec", "pa_deg"]
+
+
+def objects_to_sky(objects: np.ndarray, img_wcs: wcs.WCS) -> dict:
+    """Ellipses of the objects (``sep`` parameters in pixels: ``x``, ``y``, ``a``, ``b``, ``theta``) on the sky.
+
+    The axes and the position angle (east of north) are measured from the sky positions of the ends of the
+    semi-major and semi-minor axes, so they are exact whatever the orientation and handedness of the image (e.g.
+    images with east to the right).
+
+    Parameters
+    ----------
+    objects: Objects (structured array).
+    img_wcs: WCS of the image where the objects were measured.
+
+    Returns
+    -------
+    sky: Arrays of the centres (``ra``, ``dec``, in degrees), semi-axes (``a_arcsec``, ``b_arcsec``) and position
+        angle of the semi-major axis (``pa_deg``, east of north).
+    """
+    x, y = np.asarray(objects["x"], float), np.asarray(objects["y"], float)
+    a, b, theta = np.asarray(objects["a"], float), np.asarray(objects["b"], float), np.asarray(objects["theta"], float)
+    centre = img_wcs.pixel_to_world(x, y)
+    major = img_wcs.pixel_to_world(x + a * np.cos(theta), y + a * np.sin(theta))
+    minor = img_wcs.pixel_to_world(x - b * np.sin(theta), y + b * np.cos(theta))
+    return {
+        "ra": centre.icrs.ra.deg,
+        "dec": centre.icrs.dec.deg,
+        "a_arcsec": centre.separation(major).arcsec,
+        "b_arcsec": centre.separation(minor).arcsec,
+        "pa_deg": centre.position_angle(major).deg % 180.0,
+    }
+
+
+def add_sky_ellipses(objects_df: pd.DataFrame, objects: np.ndarray, img_wcs: wcs.WCS) -> pd.DataFrame:
+    """Adds (or updates) the sky ellipses of the objects (see :func:`objects_to_sky`) to their DataFrame."""
+    for key, values in objects_to_sky(objects, img_wcs).items():
+        objects_df[key] = values
+    return objects_df
+
+
+def has_sky_ellipses(objects) -> bool:
+    """Whether the objects (structured array or DataFrame) include their sky ellipses."""
+    names = objects.dtype.names if hasattr(objects, "dtype") and objects.dtype.names else list(objects)
+    return all(col in names for col in SKY_ELLIPSE_COLUMNS)
+
+
+def objects_from_sky(objects: np.ndarray, img_wcs: wcs.WCS) -> tuple[np.ndarray, float]:
+    """Ellipses of the objects in the pixels of an image, from their sky ellipses (see :func:`objects_to_sky`).
+
+    This is used to transfer apertures and masks between images (filters or surveys) without the reference image.
+    The ends of the semi-major and semi-minor axes are placed on the sky and converted into pixels, which is exact
+    whatever the orientation and handedness of the images.
+
+    Parameters
+    ----------
+    objects: Objects with their sky ellipses (and pixel ellipses in the reference image).
+    img_wcs: WCS of the image where the ellipses are needed.
+
+    Returns
+    -------
+    objects_: Objects with the ellipses in the pixels of the image (``x``, ``y``, ``a``, ``b``, ``theta``).
+    conv_factor: Mean ratio between the semi-major axes in the reference image and in this image (pixel scales).
+    """
+    from astropy.coordinates import SkyCoord
+
+    objects_ = objects.copy()
+    centre = SkyCoord(np.asarray(objects["ra"], float), np.asarray(objects["dec"], float), unit="deg", frame="icrs")
+    pa = np.asarray(objects["pa_deg"], float) * u.deg
+    major = centre.directional_offset_by(pa, np.asarray(objects["a_arcsec"], float) * u.arcsec)
+    minor = centre.directional_offset_by(pa + 90 * u.deg, np.asarray(objects["b_arcsec"], float) * u.arcsec)
+    x, y = img_wcs.world_to_pixel(centre)
+    xa, ya = img_wcs.world_to_pixel(major)
+    xb, yb = img_wcs.world_to_pixel(minor)
+    objects_["x"], objects_["y"] = x, y
+    objects_["a"] = np.hypot(xa - x, ya - y)
+    objects_["b"] = np.hypot(xb - x, yb - y)
+    objects_["theta"] = [wrap_theta(t) for t in np.arctan2(ya - y, xa - x)]
+    conv_factor = float(np.mean(np.asarray(objects["a"], float) / np.asarray(objects_["a"], float)))
+    return objects_, conv_factor

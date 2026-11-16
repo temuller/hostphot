@@ -25,7 +25,7 @@ from .objects_detection import (
 from .host_model import FILL_SEED, estimate_fwhm_pix, fit_host_model, host_model_mask
 from hostphot.utils import suppress_stdout, store_input
 from astropy.wcs.utils import proj_plane_pixel_scales
-from hostphot.photometry.image_utils import adapt_aperture
+from hostphot.photometry.image_utils import add_sky_ellipses, adapt_aperture, has_sky_ellipses, objects_from_sky
 from hostphot.processing.background import masked_background, sep_background
 from hostphot.surveys_utils import (
     check_survey_validity,
@@ -250,10 +250,18 @@ def create_mask(
         else:
             flip_ = True
         # adapt sizes
-        gal_obj, _ = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
-        nongal_objs, conv_factor = adapt_aperture(
-            nongal_objs, master_img_wcs, img_wcs, flip_
-        )
+        if has_sky_ellipses(gal_obj):
+            # (exact for any orientation of the images, without the reference image)
+            gal_obj, gal_factor = objects_from_sky(gal_obj, img_wcs)
+            nongal_objs, conv_factor = (
+                objects_from_sky(nongal_objs, img_wcs) if len(nongal_objs) > 0 else (nongal_objs, gal_factor)
+            )
+        else:
+            # parameters saved before v4.0.0: through the reference image
+            gal_obj, _ = adapt_aperture(gal_obj, master_img_wcs, img_wcs, flip_)
+            nongal_objs, conv_factor = adapt_aperture(
+                nongal_objs, master_img_wcs, img_wcs, flip_
+            )
         sigma /= conv_factor
 
     host_mask, footprint = None, None
@@ -318,7 +326,9 @@ def create_mask(
 
     if save_mask_params is True:
         # save detected objects and masking parameters
-        objects_df = pd.concat([pd.DataFrame(gal_obj), pd.DataFrame(nongal_objs)])
+        objects_df = pd.concat([pd.DataFrame(gal_obj), pd.DataFrame(nongal_objs)], ignore_index=True)
+        # ellipses on the sky, to use the mask in other images without this one
+        objects_df = add_sky_ellipses(objects_df, objects_df, img_wcs)
         objects_df["sigma"] = sigma
         if np.ndim(r) > 0:
             # one value per masked object (e.g. from reference parameters): placeholder for the
@@ -418,7 +428,8 @@ def load_mask_params(
 
     Returns
     -------
-    gal_obj, nongal_objs, img_wcs, sigma, r, flip: Mask parameters.
+    gal_obj, nongal_objs, img_wcs, sigma, r, flip: Mask parameters (``img_wcs`` is the WCS of the reference image,
+        ``None`` if it is not available; only needed for parameters saved without the sky ellipses, i.e. before v4.0.0).
     """
     if isinstance(filt, list):
         filt = ''.join(f for f in filt)
@@ -438,14 +449,21 @@ def load_mask_params(
     gal_obj = objects[:1]
     nongal_objs = objects[1:]
     
-    # load image WCS: the mask parameters were measured on the image trimmed by remove_nan(),
-    # so the same trimming is applied to get the WCS of that frame
+    # WCS of the reference image (only needed for parameters saved without the sky ellipses, i.e. before v4.0.0):
+    # the mask parameters were measured on the image trimmed by remove_nan(), so the same trimming is applied
     fits_file = obj_dir / survey / f"{survey}_{filt}.fits"
-    with fits.open(fits_file) as hdu:
-        hdu = remove_nan(hdu)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", AstropyWarning)
-            img_wcs = wcs.WCS(hdu[0].header, naxis=2)
+    img_wcs = None
+    if fits_file.is_file():
+        with fits.open(fits_file) as hdu:
+            hdu = remove_nan(hdu)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", AstropyWarning)
+                img_wcs = wcs.WCS(hdu[0].header, naxis=2)
+    elif not has_sky_ellipses(gal_obj):
+        raise FileNotFoundError(
+            f"The mask parameters of {survey} {filt} of {name} were saved without the sky ellipses (before "
+            f"v4.0.0), so the reference image is needed ({fits_file})."
+        )
 
     return gal_obj, nongal_objs, img_wcs, sigma, r, flip
 

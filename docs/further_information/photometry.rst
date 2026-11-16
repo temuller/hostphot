@@ -223,6 +223,15 @@ The masks of one image can be used for other filters or surveys (``save_mask_par
 ``ref_survey``). With ``method="host_model"``, the mask of the reference image is reprojected onto the other images,
 and the host model of each image is used to fill the masked pixels.
 
+The saved mask and aperture parameters (``mask_parameters_{filt}.csv`` and ``aperture_parameters_{filt}.csv``)
+include the ellipses of the objects on the sky: centre (``ra``, ``dec``, in degrees), semi-axes (``a_arcsec``,
+``b_arcsec``) and position angle of the semi-major axis (``pa_deg``, east of north), besides those in the pixels of
+the reference image (``x``, ``y``, ``a``, ``b``, ``theta``). The ellipses are transferred to other images from the sky
+ellipses, which is exact for any orientation of the images (e.g. surveys with east to the right) and does not need the
+reference image. The aperture scales (``kronrad``, ``scale``) are relative to the semi-axes, so they do not depend on
+the image. Parameters saved by previous versions (without the sky ellipses) are transferred through the reference
+image, as before.
+
 
 PS1
 ~~~

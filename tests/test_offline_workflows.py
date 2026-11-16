@@ -102,6 +102,24 @@ class TestOfflineWorkflows(unittest.TestCase):
         with self.assertRaises(Exception):
             gp.multi_band_phot(name, HOST_RA, HOST_DEC, filters="g", common_aperture=True, ref_filt="r",
                                ref_survey=SURVEY, aperture_method="kron", **kwargs)
+        # the aperture is transferred from its sky ellipse: the reference image is not needed, and parameters saved
+        # without the sky ellipse (before v4.0.0) use the reference image, with the same result
+        for col in ["ra", "dec", "a_arcsec", "b_arcsec", "pa_deg"]:
+            self.assertIn(col, params)
+        ref_file = Path(workdir, name, SURVEY, f"{SURVEY}_r.fits")
+        ref_copy = ref_file.with_suffix(".bak")
+        ref_file.rename(ref_copy)
+        try:
+            no_ref = gp.multi_band_phot(name, HOST_RA, HOST_DEC, filters="g", common_aperture=True, ref_filt="r",
+                                        ref_survey=SURVEY, aperture_method="cog", **kwargs)
+        finally:
+            ref_copy.rename(ref_file)
+        self.assertAlmostEqual(no_ref["g"][0], common["g"][0], places=6)
+        params_file = Path(workdir, name, SURVEY, "aperture_parameters_r.csv")
+        params.drop(columns=["a_arcsec", "b_arcsec", "pa_deg"]).to_csv(params_file, index=False)
+        old = gp.multi_band_phot(name, HOST_RA, HOST_DEC, filters="g", common_aperture=True, ref_filt="r",
+                                 ref_survey=SURVEY, aperture_method="cog", **kwargs)
+        self.assertAlmostEqual(old["g"][0], common["g"][0], places=3)
 
     def test_global_partial_coverage(self):
         # part of the galaxy without data: the missing flux is added (within the tolerance), with the coverage flag
