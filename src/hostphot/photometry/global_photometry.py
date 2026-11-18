@@ -558,7 +558,7 @@ def extract_aperture(
     survey: str,
     ra: float = None,
     dec: float = None,
-    bkg_sub: bool = False,
+    bkg_sub: Optional[bool] = None,
     threshold: float = 10,
     use_mask: bool = True,
     optimize_kronrad: bool = False,
@@ -581,9 +581,10 @@ def extract_aperture(
     survey: Survey to use for the zero-points and pixel scale.
     ra: Right ascension of an object, in degrees. Used for plotting the position of the object.
     dec: Declination of an object, in degrees. Used for plotting the position of the object.
-    bkg_sub: If `True`, the image gets background subtracted. By default, only
-        the images that need it get background subtracted (WISE, 2MASS and
-        VISTA).
+    bkg_sub: If `True`, the image gets background subtracted. By default (``None``), only
+        the images of the surveys that need it get background subtracted
+        (``hostphot.surveys_utils.bkg_surveys``: 2MASS, WISE, VISTA, SkyMapper, UKIDSS, UHS,
+        Spitzer, JWST and Herschel).
     threshold: Threshold used by `sep.extract()` to extract objects.
     use_mask: If `True`, the masked fits files are used. These must have
         been created beforehand.
@@ -636,7 +637,7 @@ def _extract_aperture(
     survey: str,
     ra: float = None,
     dec: float = None,
-    bkg_sub: bool = False,
+    bkg_sub: Optional[bool] = None,
     threshold: float = 10,
     use_mask: bool = True,
     optimize_kronrad: bool = False,
@@ -934,9 +935,10 @@ def _photometry(
     survey: Survey to use for the zero-points and pixel scale.
     ra: Right ascension of an object, in degrees. Used for plotting the position of the object.
     dec: Declination of an object, in degrees. Used for plotting the position of the object.
-    bkg_sub: If ``True``, the image gets background subtracted. By default, only
-        the images that need it get background subtracted (WISE, 2MASS and
-        VISTA).
+    bkg_sub: If ``True``, the image gets background subtracted. By default (``None``), only
+        the images of the surveys that need it get background subtracted
+        (``hostphot.surveys_utils.bkg_surveys``: 2MASS, WISE, VISTA, SkyMapper, UKIDSS, UHS,
+        Spitzer, JWST and Herschel).
     threshold: Threshold used by `sep.extract()` to extract objects.
     use_mask: If `True`, the masked fits files are used. These must have
         been created beforehand.
@@ -1266,9 +1268,10 @@ def multi_band_phot(
     survey: Survey to use for the zero-points and pixel scale.
     ra: Right ascension of an object, in degrees. Used for plotting the position of the object.
     dec: Declination of an object, in degrees. Used for plotting the position of the object.
-    bkg_sub: If ``True``, the image gets background subtracted. By default, only
-        the images that need it get background subtracted (WISE, 2MASS and
-        VISTA).
+    bkg_sub: If ``True``, the image gets background subtracted. By default (``None``), only
+        the images of the surveys that need it get background subtracted
+        (``hostphot.surveys_utils.bkg_surveys``: 2MASS, WISE, VISTA, SkyMapper, UKIDSS, UHS,
+        Spitzer, JWST and Herschel).
     threshold: Threshold used by :func:`sep.extract()` to extract objects.
     use_mask: If ``True``, the masked fits files are used. These must have
         been created beforehand.

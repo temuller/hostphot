@@ -327,11 +327,12 @@ def _masked_background(
         )
         if np.isfinite(info["host_a_pix"]):
             # cutout of at least ~4-5 times the Kron semi-major axis of the galaxy
-            host_kron_arcmin = info["host_a_pix"] / 2 * pixel_scale / 60
-            msg += (
-                f" Consider downloading a larger image (currently {size_arcmin:.1f} arcmin; "
-                f"at least ~{max(4.5 * host_kron_arcmin, size_arcmin):.0f} arcmin is recommended)."
-            )
+            recommended_arcmin = 4.5 * info["host_a_pix"] / 2 * pixel_scale / 60
+            if recommended_arcmin > size_arcmin:
+                msg += (
+                    f" Consider downloading a larger image (currently {size_arcmin:.1f} arcmin; "
+                    f"at least ~{np.ceil(recommended_arcmin):.0f} arcmin is recommended)."
+                )
         else:
             msg += f" Consider downloading a larger image (currently {size_arcmin:.1f} arcmin)."
         if constant:

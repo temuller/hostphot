@@ -47,6 +47,9 @@ HostPhot is being actively developed in `a public repository on GitHub
    examples/work_dir.rst
    examples/hostphot_basic_example.ipynb
    examples/hostphot_complete_demo.ipynb
+   examples/global_photometry_example.ipynb
+   examples/local_photometry_example.ipynb
+   examples/new_surveys_example.ipynb
    examples/hst_and_jwst_example.ipynb
    examples/sed_plotting.ipynb
    

@@ -236,9 +236,10 @@ def photometry(
     survey: Survey to use for the zero-points and pixel scale.
     ap_radii: Aperture size.
     ap_units: Aperture size units. Either ``kpc`` or ``arcsec``.
-    bkg_sub: If ``True``, the image gets background subtracted. By default, only
-        the images that need it get background subtracted (WISE, 2MASS and
-        VISTA).
+    bkg_sub: If ``True``, the image gets background subtracted. By default (``None``), only
+        the images of the surveys that need it get background subtracted
+        (``hostphot.surveys_utils.bkg_surveys``: 2MASS, WISE, VISTA, SkyMapper, UKIDSS, UHS,
+        Spitzer, JWST and Herschel).
     use_mask: If ``True``, the masked fits files are used. These must have
         been created beforehand.
     correct_extinction: If `True`, corrects for Milky-Way extinction using the recalibrated dust maps
@@ -461,9 +462,10 @@ def multi_band_phot(
     survey: Survey to use for the zero-points and pixel scale.
     ap_radii: Aperture size.
     ap_units: Aperture size units. Either ``kpc`` or ``arcsec``.
-    bkg_sub: If ``True``, the image gets background subtracted. By default, only
-        the images that need it get background subtracted (WISE, 2MASS and
-        VISTA).
+    bkg_sub: If ``True``, the image gets background subtracted. By default (``None``), only
+        the images of the surveys that need it get background subtracted
+        (``hostphot.surveys_utils.bkg_surveys``: 2MASS, WISE, VISTA, SkyMapper, UKIDSS, UHS,
+        Spitzer, JWST and Herschel).
     use_mask: If ``True``, the masked fits files are used. These must have
         been created beforehand.
     correct_extinction: If `True`, corrects for Milky-Way extinction using the recalibrated dust maps

@@ -17,7 +17,8 @@ spiral arms, bars) is not masked, while the sources on top of it (stars and over
    PSF), brighter than the host model over their area (``contrast``), and above ``structure_sigma`` times the
    scatter of the residuals at their elliptical radius (the structure of the host itself), e.g. an overlapping
    galaxy. Star-forming clumps are point-like, and spiral arms and bars are typical of the residuals at their
-   radius, so they are not masked.
+   radius, so they are not masked. Sources reaching the centre of the host (within 2 PSF FWHM; its nucleus, bulge
+   or bar, which a single Sersic profile can underestimate) are only masked if they are Gaia stars.
 6. The masked pixels are replaced with the host model (plus the fitted constant) and random noise with the
    background RMS (with a fixed seed, so the results are reproducible).
 
@@ -261,6 +262,10 @@ def host_model_mask(
     inner_mask = np.zeros(data.shape, dtype=bool)
     star_mask = np.zeros(data.shape, dtype=bool)
     n_inside, n_masked, n_stars = 0, 0, 0
+    # centre of the host (where the model is the measured profile, see fit_host_model()): a residual source reaching
+    # it is the host's own nucleus, bulge or bar, which the single Sersic profile can underestimate in bulge-plus-disc
+    # or barred galaxies (its residual is split around the centre, where the model follows the measured profile)
+    centre = rr < max(2 * fwhm_pix, 1.0)
     if len(robjs):
         xi = np.clip(np.round(robjs["x"]).astype(int), 0, data.shape[1] - 1)
         yi = np.clip(np.round(robjs["y"]).astype(int), 0, data.shape[0] - 1)
@@ -279,7 +284,7 @@ def host_model_mask(
                 sep.mask_ellipse(star_mask, [robjs["x"][i]], [robjs["y"][i]], [radius], [radius], [0.0], r=1)
                 n_masked += 1
                 n_stars += 1
-            elif extended and significant and ratio > contrast:
+            elif extended and significant and ratio > contrast and not (segment & centre).any():
                 inner_mask |= segment
                 n_masked += 1
     if inner_mask.any():

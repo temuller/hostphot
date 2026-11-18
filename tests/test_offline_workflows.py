@@ -144,6 +144,22 @@ class TestOfflineWorkflows(unittest.TestCase):
         else:
             self.assertTrue(any("tolerance" in m for m in messages), messages)
 
+    def test_extract_aperture_background_default(self):
+        # extract_aperture() subtracts the background by default for the surveys that need it (bkg_surveys), as
+        # the photometry and the masking do
+        name = "offline_aperture_bkg"
+        install_test_images(name, SURVEY, "r")
+        image_file = Path(workdir, name, SURVEY, f"{SURVEY}_r.fits")
+        with fits.open(image_file, mode="update") as hdul:
+            hdul[0].data += 300.0  # sky level left in the image
+        kwargs = dict(filt="r", survey=SURVEY, use_mask=False, save_plots=False, save_aperture_params=False,
+                      save_input=False)
+        with mock.patch.object(gp, "bkg_surveys", [SURVEY]):
+            default = gp.extract_aperture(name, HOST_RA, HOST_DEC, **kwargs)
+            subtracted = gp.extract_aperture(name, HOST_RA, HOST_DEC, bkg_sub=True, **kwargs)
+        self.assertEqual(default[0]["a"][0], subtracted[0]["a"][0])
+        self.assertEqual(default[2], subtracted[2])  # Kron radius
+
     def test_local_photometry_plots_and_sed(self):
         name = "offline_sed"
         install_test_images(name, SURVEY)

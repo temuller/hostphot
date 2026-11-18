@@ -81,5 +81,26 @@ def test_save_tight_figure(tmp_path):
     plt.close(figure)
 
 
+def test_host_model_keeps_central_bar():
+    """The host's own bar (underestimated by the single Sersic profile) is not masked, while an extended galaxy
+    on top of the host is."""
+    import numpy as np
+    from hostphot.processing.host_model import host_model_mask
+
+    rng = np.random.default_rng(1)
+    n = 601
+    y, x = np.indices((n, n))
+    x0 = y0 = 300.0
+    disc = 40 * np.exp(-np.hypot(x - x0, y - y0) / 40)
+    bar = 200 * np.exp(-0.5 * (((x - x0) / 60) ** 2 + ((y - y0) / 4) ** 2))
+    neighbour = 300 * np.exp(-0.5 * ((x - 380) ** 2 + (y - 300) ** 2) / 6**2)
+    data = disc + bar + neighbour + rng.normal(0, 1, (n, n))
+    no_objects = np.zeros(0, dtype=[("x", float), ("y", float), ("a", float), ("b", float), ("theta", float),
+                                    ("peak", float), ("flag", int)])
+    mask, filled, info = host_model_mask(data, 1.0, x0, y0, 4.0, no_objects, (np.array([]), np.array([])), 10)
+    assert not mask[300, 300] and not mask[300, 330]  # centre and bar
+    assert mask[300, 380]  # neighbour
+
+
 if __name__ == "__main__":
     unittest.main()

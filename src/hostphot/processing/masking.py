@@ -121,9 +121,10 @@ def create_mask(
     survey: Survey to use for the zero-points and correct filter path.
     ra: Right ascension of an object, in degrees. Used for plotting.
     dec: Declination of an object, in degrees. Used for plotting.
-    bkg_sub: If ``True``, the image gets background subtracted. By default, only
-        the images that need it get background subtracted (WISE, 2MASS and
-        VISTA).
+    bkg_sub: If ``True``, the image gets background subtracted. By default (``None``), only
+        the images of the surveys that need it get background subtracted
+        (``hostphot.surveys_utils.bkg_surveys``: 2MASS, WISE, VISTA, SkyMapper, UKIDSS, UHS,
+        Spitzer, JWST and Herschel).
     threshold: Threshold used by :func:`sep.extract()` to extract objects (in units of the background RMS).
         Default is 10.
     sigma: Standard deviation in pixel units of the 2D Gaussian kernel

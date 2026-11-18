@@ -149,13 +149,14 @@ _gaia_cache: dict = {}  # in-memory cache: (ra, dec) -> Gaia DR3 table (with the
 
 def _query_gaia_esa(ra: float, dec: float, rad: float):
     """Queries the Gaia DR3 sources within a radius from the ESA Gaia archive."""
-    from astroquery.gaia import Gaia
-
     query = (
         f"SELECT {', '.join(GAIA_COLUMNS)} FROM gaiadr3.gaia_source "
         f"WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra}, {dec}, {rad})) = 1"
     )
     with suppress_stdout():
+        # (astroquery prints the status messages of the archive when imported, e.g. a maintenance web page)
+        from astroquery.gaia import Gaia
+
         return call_with_timeout(
             lambda: Gaia.launch_job_async(query).get_results(), label="Gaia DR3 query (ESA)"
         )  # (no row limit)
