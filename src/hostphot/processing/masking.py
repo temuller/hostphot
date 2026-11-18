@@ -23,7 +23,7 @@ from .objects_detection import (
     cross_match,
 )
 from .host_model import FILL_SEED, estimate_fwhm_pix, fit_host_model, host_model_mask
-from hostphot.utils import suppress_stdout, store_input
+from hostphot.utils import suppress_stdout, store_input, save_tight_figure
 from astropy.wcs.utils import proj_plane_pixel_scales
 from hostphot.photometry.image_utils import add_sky_ellipses, adapt_aperture, has_sky_ellipses, objects_from_sky
 from hostphot.processing.background import masked_background, sep_background
@@ -619,7 +619,7 @@ def plot_masked_image(
             dict(facecolor="white", edgecolor="white", alpha=0.9, boxstyle="round")
         )
     if outfile:
-        plt.savefig(outfile, bbox_inches="tight")
+        save_tight_figure(figure, outfile)
         plt.close(figure)
     else:
         plt.show()

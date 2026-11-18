@@ -1038,7 +1038,7 @@ def _photometry(
             eps=eps,
             gal_dist_thresh=gal_dist_thresh,
             deblend_cont=deblend_cont,
-            save_plots=save_plots,
+            save_plots=False,  # (the figure is saved at the end, with the photometry)
             save_aperture_params=save_aperture_params,
             save_input=False,  # (the inputs of the photometry are saved by multi_band_phot())
             aperture_method=aperture_method,

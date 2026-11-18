@@ -440,6 +440,32 @@ _stdout_lock = threading.Lock()
 _stdout_state = {"depth": 0, "saved": None, "devnull": None}
 
 
+def save_tight_figure(figure: plt.Figure, outfile: str | Path) -> None:
+    """Saves a figure as ``figure.savefig(outfile, bbox_inches="tight")`` does (identical output),
+    with a cheaper layout pass: the images, clipped to their axes, are not resampled to find the
+    bounding box.
+
+    Parameters
+    ----------
+    figure: Figure to save.
+    outfile: Path of the output file.
+    """
+    if plt.rcParams["savefig.dpi"] != "figure":
+        # the bounding box below is found at the figure's dpi
+        figure.savefig(outfile, bbox_inches="tight")
+        return
+    images = [image for ax in figure.axes for image in ax.images if image.get_visible()]
+    for image in images:
+        image.set_visible(False)
+    try:
+        figure.draw_without_rendering()
+        bbox = figure.get_tightbbox()
+    finally:
+        for image in images:
+            image.set_visible(True)
+    figure.savefig(outfile, bbox_inches=bbox.padded(plt.rcParams["savefig.pad_inches"]))
+
+
 @contextmanager
 def suppress_stdout():
     """Suppresses annoying outputs.

@@ -280,5 +280,5 @@ def plot_sed(
             basename = f"sed_{phot_type}.jpg"
             outfile = obj_dir / basename
         plt.tight_layout()
-        plt.savefig(outfile)
+        fig.savefig(outfile)
     plt.show()

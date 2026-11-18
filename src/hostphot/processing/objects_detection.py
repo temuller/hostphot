@@ -12,7 +12,7 @@ from astropy.wcs.utils import proj_plane_pixel_scales
 import sep
 from hostphot.utils import call_with_timeout
 from hostphot._constants import font_family
-from hostphot.utils import suppress_stdout, add_fields
+from hostphot.utils import suppress_stdout, add_fields, save_tight_figure
 
 import warnings
 
@@ -450,7 +450,7 @@ def plot_detected_objects(
     fig.set_theme("publication")
     fig.ax.legend(fancybox=True, framealpha=1, prop={"size": 20, "family": font_family})
     if outfile:
-        plt.savefig(outfile, bbox_inches="tight")
+        save_tight_figure(figure, outfile)
         plt.close(figure)
     else:
         plt.show()

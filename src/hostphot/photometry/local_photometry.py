@@ -33,7 +33,7 @@ from astropy.cosmology import FlatLambdaCDM, Cosmology
 from hostphot._constants import workdir, font_family
 from hostphot.processing.cleaning import remove_nan, saturated_mask
 from hostphot.photometry.dust import calc_extinction
-from hostphot.utils import check_work_dir, suppress_stdout, store_input, image_provenance
+from hostphot.utils import check_work_dir, suppress_stdout, store_input, image_provenance, save_tight_figure
 from hostphot._version import __version__
 from hostphot.flags import APERTURE_FLAGS, IMAGE_FLAGS, LOCAL_FLAGS, PSFWarning, collect_flags, header_flags
 from hostphot.processing.background import background_flag, masked_background, sep_background
@@ -202,7 +202,7 @@ def plot_aperture(
     fig.ax.legend(fancybox=True, framealpha=1, prop={"size": 20, "family": font_family})
     # output
     if outfile:
-        plt.savefig(outfile, bbox_inches="tight")
+        save_tight_figure(figure, outfile)
         plt.close(figure)
     else:
         plt.show()

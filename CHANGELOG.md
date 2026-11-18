@@ -86,7 +86,7 @@ A major validation release: most surveys were checked against catalogues, other 
 
 ### Maintenance
 
-* Speed-ups with unchanged results: e.g. for five PanSTARRS images, local photometry ~12 s -> ~1.5 s and global photometry ~26 s -> ~3 s (configuration and dust maps read once, `sep` elliptical sums, vectorised blank apertures); Spitzer SHA fallback reads the mosaic headers to download fewer files
+* Speed-ups with unchanged results: e.g. for five PanSTARRS images, local photometry ~12 s -> ~1.5 s and global photometry ~26 s -> ~3 s (configuration and dust maps read once, `sep` elliptical sums, vectorised blank apertures); plotting ~2x faster for the masking and local photometry and ~4x for the global photometry (identical figures: cheaper layout pass for the tight bounding box, no extra redraw after saving, global figure no longer drawn twice); Spitzer SHA fallback reads the mosaic headers to download fewer files
 * Packaging: `requests`, `scipy` and `pyyaml` declared as dependencies, test dependencies in the `test` extra, photutils 4 and Python 3.13 supported, release checklist in `RELEASING.md`
 * Tests: the archive tests are marked `network` and run weekly in a separate workflow; the tests run on every push use local data and mocked archives (offline coverage ~84%); the NIR comparison tests now check the agreement with the 2MASS Point Source Catalogue (within ~0.01-0.04 mag)
 * Documentation: *Migrating from v3 to v4* page, notes on the K (WFCAM) and Ks (VISTA, 2MASS) filters and on MIPS 24 micron (no extended-source correction; apertures of at least ~13 arcsec)
