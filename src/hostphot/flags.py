@@ -32,6 +32,10 @@ Flags:
   were masked with their ellipses.
 - ``mask_nogaia``: the Gaia DR3 query failed when masking (``crossmatch=True``), so the stars could not be
   identified.
+- ``psf_match``: the PSF matching of the image (local photometry with ``psf_match``) is less reliable: the PSF of
+  the image is already broader than the target, so it was not matched; the FWHM of the image or of the target could
+  not be measured from stars (typical value of the filter used); or the image has a PSF with strong wings (Spitzer,
+  WISE, unWISE, GALEX), not modelled by the matching kernel.
 """
 
 import warnings
@@ -83,11 +87,17 @@ class GaiaWarning(FlagWarning):
     flag = "mask_nogaia"
 
 
+class PSFMatchWarning(FlagWarning):
+    flag = "psf_match"
+
+
 # flags of the measurement in each aperture (local photometry)
 APERTURE_FLAGS = ("bkg", "coverage", "psf", "err")
 # flags of the image (the same for all the apertures)
 IMAGE_FLAGS = ("calib", "fallback_image", "mask_fallback", "mask_nogaia")
-LOCAL_FLAGS = APERTURE_FLAGS + IMAGE_FLAGS
+# image flags of the local photometry only
+LOCAL_IMAGE_FLAGS = IMAGE_FLAGS + ("psf_match",)
+LOCAL_FLAGS = APERTURE_FLAGS + LOCAL_IMAGE_FLAGS
 GLOBAL_FLAGS = ("bkg", "coverage", "err", "aperture") + IMAGE_FLAGS
 
 # header keywords of the flags set when downloading or masking the images

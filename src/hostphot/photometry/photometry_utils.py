@@ -910,6 +910,8 @@ def _blank_rms(
     source_mask: Optional[np.ndarray] = None,
     residual_background: bool = True,
     sky_stats: Optional[dict] = None,
+    min_mesh: int = 0,
+    whole_image: bool = False,
 ) -> tuple[float | None, bool]:
     """Estimate an empirical noise floor from the scatter of blank (source-free) apertures.
 
@@ -938,6 +940,10 @@ def _blank_rms(
         itself (without removing the smooth background), for the uncertainty of the sky level (see
         :func:`_sky_level_error`): their robust RMS (``raw_rms``), median (``offset``; from the apertures in the
         half of the image farther from the source, if available) and the uncertainty of the median (``offset_err``).
+    min_mesh: Minimum size (in pixels) of the mesh of the smooth background (e.g. several times the PSF FWHM of
+        images with noise correlated on large scales, such as PSF-matched images).
+    whole_image: If ``True``, the apertures are drawn from the whole image, beyond ``rmin`` from the source
+        (instead of the annulus first).
 
     Returns
     -------
@@ -949,7 +955,7 @@ def _blank_rms(
     if source_mask is None:
         source_mask = _source_mask(data, host_xy=(x0, y0))
     # background mesh of at least 4 times the aperture size
-    mesh_size = int(max(16, 4 * half_size))
+    mesh_size = int(max(16, 4 * half_size, min_mesh))
     # (without the residual background, structure on intermediate scales, e.g. the pedestal/quadrant
     # residuals of NICMOS mosaics, is included in the floor)
     residuals = _background_residuals(data, source_mask, mesh_size) if residual_background else data
@@ -1002,6 +1008,8 @@ def _blank_rms(
         x1, y1 = bbox.ixmin + ix, bbox.iymin + iy
         x2, y2 = bbox.ixmax + ix, bbox.iymax + iy
         inside = (x1 >= 0) & (y1 >= 0) & (x2 <= nx) & (y2 <= ny)
+        if whole_image:
+            inside &= np.hypot(x - x0, y - y0) >= rmin
         candidates = np.nonzero(inside)[0]
         if small_aperture:
             rows, cols = iy[candidates, None] + offset_y, ix[candidates, None] + offset_x
@@ -1058,7 +1066,7 @@ def _blank_rms(
         return np.concatenate(xs), np.concatenate(ys), np.concatenate(fluxes)
 
     blank_fluxes = np.empty((0, len(images)))
-    for region in ["annulus", "image"]:
+    for region in (["image"] if whole_image else ["annulus", "image"]):
         _, _, flux = draw_blank(region, n_apertures - len(blank_fluxes))
         blank_fluxes = np.concatenate([blank_fluxes, flux])
         if len(blank_fluxes) >= 10:
@@ -1119,6 +1127,8 @@ def _blank_aperture_rms(
     source_mask: Optional[np.ndarray] = None,
     residual_background: bool = True,
     sky_stats: Optional[dict] = None,
+    min_mesh: int = 0,
+    whole_image: bool = False,
 ) -> tuple[float | None, bool]:
     """Estimate an empirical noise floor from blank circular apertures (see :func:`_blank_rms`)."""
     return _blank_rms(
@@ -1133,6 +1143,8 @@ def _blank_aperture_rms(
         source_mask,
         residual_background,
         sky_stats,
+        min_mesh,
+        whole_image,
     )
 
 
@@ -1523,6 +1535,83 @@ def blank_aperture_floor(
     return _apply_floor(flux_err, blank_rms)
 
 
+# local photometry floor: the blank apertures are kept at least LOCAL_FLOOR_RMIN times the largest between the
+# aperture radius and the PSF FWHM from the source (so that they are independent of each other when the noise is
+# correlated on the scale of the PSF, e.g. in PSF-matched images), and the mesh of the smooth background is at
+# least LOCAL_FLOOR_MESH_FWHM times the FWHM (so that it does not absorb the correlated noise)
+LOCAL_FLOOR_RMIN = 2.5
+LOCAL_FLOOR_RMAX = 15.0
+LOCAL_FLOOR_MESH_FWHM = 5.0
+
+
+def local_blank_floor(
+    data: np.ndarray,
+    flux_err: float,
+    px: float,
+    py: float,
+    radius: float,
+    fwhm: float = np.nan,
+    source_mask: Optional[np.ndarray] = None,
+    background_subtracted: bool = False,
+    residual_background: bool = True,
+    label: Optional[str] = None,
+) -> float:
+    """Applies a blank-aperture noise floor to the error of a local (circular) aperture flux.
+
+    The floor is the scatter of the fluxes in blank apertures (not overlapping detected sources), which includes
+    the correlated noise (e.g. of resampled or PSF-matched images), and depends on how the background was treated:
+
+    - images whose background was not subtracted by HostPhot (e.g. PanSTARRS or the Legacy Survey): the blank
+      apertures are drawn from the whole image and measured on the image itself, so that the structure of the sky on
+      intermediate scales left by the survey pipeline (and the light of faint, undetected sources) is included, as it
+      affects the flux of the aperture;
+    - background-subtracted images: the blank apertures are drawn from an annulus around the source and measured on
+      the residuals from a smooth background (with a mesh of at least ``LOCAL_FLOOR_MESH_FWHM`` times the FWHM).
+
+    In both cases, they are kept at least ``LOCAL_FLOOR_RMIN`` times the largest between the aperture radius and
+    the PSF FWHM from the source.
+
+    Parameters
+    ----------
+    data: Image data.
+    flux_err: Flux uncertainty.
+    px, py: Aperture centre in pixels.
+    radius: Aperture radius in pixels.
+    fwhm: PSF FWHM in pixels (ignored if not finite).
+    source_mask: Mask of the detected sources (see :func:`get_source_mask`).
+    background_subtracted: Whether the background of the image was subtracted.
+    residual_background: For background-subtracted images, whether to measure the blank apertures on the residuals
+        from a smooth background (see :func:`floor_residual_background`).
+    label: Description of the measurement, used in the warnings (e.g. survey, filter and aperture).
+
+    Returns
+    -------
+    flux_err: Flux uncertainty including the floor.
+    """
+    fwhm = float(fwhm) if np.isfinite(fwhm) and fwhm > 0 else 0.0
+    scale = max(radius, fwhm)
+    if background_subtracted:
+        blank_rms, replaced = _blank_aperture_rms(
+            data, px, py, radius, rmin_factor=LOCAL_FLOOR_RMIN * scale / radius,
+            rmax_factor=max(6.0, LOCAL_FLOOR_RMAX * scale / radius), source_mask=source_mask,
+            residual_background=residual_background, min_mesh=int(np.ceil(LOCAL_FLOOR_MESH_FWHM * fwhm)),
+        )
+    else:
+        blank_rms, replaced = _blank_aperture_rms(
+            data, px, py, radius, rmin_factor=LOCAL_FLOOR_RMIN * scale / radius, source_mask=source_mask,
+            residual_background=False, whole_image=True,
+        )
+    if replaced:
+        _warn_distant_floor(label or f"{radius:.1f}-pixel aperture")
+    if blank_rms is None:
+        warnings.warn(
+            f"The blank-aperture noise floor could not be estimated for a {radius:.1f}-pixel aperture (not enough "
+            "blank sky in the image), so the uncertainty might be underestimated. Consider downloading a larger image.",
+            ErrorFloorWarning,
+        )
+    return _apply_floor(flux_err, blank_rms)
+
+
 def blank_kron_floor(
     data: np.ndarray,
     flux_err: float,
@@ -1621,11 +1710,16 @@ def extract_invvar_aperture_flux(
     radius: float,
     source_mask: Optional[np.ndarray] = None,
     label: Optional[str] = None,
+    floor_kwargs: Optional[dict] = None,
 ) -> tuple[float, float]:
-    """Aperture flux with inverse-variance propagation and a blank-aperture floor."""
+    """Aperture flux with inverse-variance propagation and a blank-aperture floor (that of the local photometry,
+    :func:`local_blank_floor`, with the given keyword arguments, if ``floor_kwargs`` is given)."""
     flux, weights, mask = _aperture_weighted_sum(data, px, py, radius)
     invvar_var = _aperture_invvar_variance(invvar, weights, mask)
     invvar_err = np.sqrt(invvar_var) if invvar_var > 0 else np.nan
+    if floor_kwargs is not None:
+        return flux, local_blank_floor(data, invvar_err, px, py, radius, source_mask=source_mask, label=label,
+                                       **floor_kwargs)
     return flux, blank_aperture_floor(data, invvar_err, px, py, radius, source_mask=source_mask, label=label)
 
 

@@ -35,7 +35,8 @@ from hostphot.processing.cleaning import remove_nan, saturated_mask
 from hostphot.photometry.dust import calc_extinction
 from hostphot.utils import check_work_dir, suppress_stdout, store_input, image_provenance, save_tight_figure, orient_axis_labels
 from hostphot._version import __version__
-from hostphot.flags import APERTURE_FLAGS, IMAGE_FLAGS, LOCAL_FLAGS, PSFWarning, collect_flags, header_flags
+from hostphot.flags import APERTURE_FLAGS, LOCAL_IMAGE_FLAGS, LOCAL_FLAGS, PSFWarning, collect_flags, header_flags
+from hostphot.photometry.psf_matching import PSFTarget, image_fwhm, match_psf, resolve_target
 from hostphot.processing.background import background_flag, masked_background, sep_background
 from hostphot.photometry.photometry_utils import (
     HERSCHEL_CALIBRATION_FRACTION,
@@ -44,7 +45,7 @@ from hostphot.photometry.photometry_utils import (
     magnitude_calculation,
     extract_invvar_aperture_flux,
     get_invvar_map,
-    blank_aperture_floor,
+    local_blank_floor,
     floor_residual_background,
     blank_floor_surveys,
     check_aperture_coverage,
@@ -223,6 +224,8 @@ def photometry(
     correct_extinction: bool = False,
     save_plots: bool = True,
     return_flags: bool = False,
+    psf_match: Optional[float | tuple | PSFTarget] = None,
+    return_psf_fwhm: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
     """Calculates the local aperture photometry in a given radius.
 
@@ -247,6 +250,11 @@ def photometry(
         by Schlafly & Finkbeiner (2011) and the extinction law from Fitzpatrick (1999). Not applied by default.
     save_plots: If ``True``, the figure with the aperture is saved.
     return_flags: If ``True``, the quality flags of the apertures are also returned.
+    psf_match: If given, the image is convolved to a common PSF before the photometry (see
+        :mod:`hostphot.photometry.psf_matching`): the target FWHM in arcsec, or the ``(survey, filter)`` of an
+        image of the object (e.g. ``("unWISE", "W1")``). Not applied by default.
+    return_psf_fwhm: If ``True``, the PSF FWHM of the image used (in arcsec; the target FWHM if it was matched) is
+        also returned (last).
 
     Returns
     -------
@@ -282,6 +290,19 @@ def photometry(
         wcs = WCS(header, naxis=2)
 
     data = data.astype(np.float64)
+    psf_fwhm = image_psf_fwhm(header, survey, filt)
+    # PSF matching (before the background subtraction): the source mask of the noise floor is calculated on the
+    # image before the convolution (on the convolved one, positive noise fluctuations would be detected as sources)
+    unmatched_data, matched, match_flags = None, False, set()
+    if psf_match is not None:
+        target = resolve_target(psf_match, name, [filt], survey, workdir)
+        with collect_flags() as match_flags:
+            fwhm_image, _ = image_fwhm(obj_dir / survey / f"{survey}_{filt}.fits", survey, filt)
+            unmatched_data = data
+            data, matched = match_psf(data, header, fwhm_image, target, survey, label=f"{survey} {filt}")
+        psf_fwhm = target.fwhm if matched else fwhm_image
+        if matched:
+            hdu[0].data = data.astype(np.float32)  # (for the plots)
     #box_size = int(0.1 * np.sqrt(data.size))
     #bkg = SExtractorBackground(sigma_clip=None)
     #bkg = Background2D(data, box_size=box_size, bkg_estimator=bkg)
@@ -318,7 +339,8 @@ def photometry(
     px, py = wcs.wcs_world2pix(ra, dec, 0)  # object's coordinates
 
     source_mask = None  # for the blank-aperture noise floor (calculated once, if needed)
-    psf_fwhm = image_psf_fwhm(header, survey, filt)
+    mask_input = data_sub if unmatched_data is None else unmatched_data
+    background_subtracted = back_info is not None
     for ap_radius in ap_radii:
         with collect_flags() as flags:  # (from the warnings, e.g. partial coverage)
             # aperture photometry
@@ -337,6 +359,8 @@ def photometry(
 
             invvar = get_invvar_map(hdu, survey)
             label = f"{survey} {filt} ({radius_arcsec:.3g} arcsec aperture)"
+            # blank-aperture noise floor of the local photometry (see local_blank_floor)
+            floor_kwargs = dict(fwhm=psf_fwhm / pixel_scale, background_subtracted=background_subtracted)
             aperture = CircularAperture((px, py), r=radius_pix)
             if back_info is not None:
                 # (a warning is given if the subtracted background is unreliable)
@@ -349,16 +373,25 @@ def photometry(
                 # and their noise is correlated), plus the absolute calibration uncertainty
                 flux = _aperture_weighted_sum(data_sub, px, py, radius_pix)[0]
                 if source_mask is None:
-                    source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
+                    source_mask = get_source_mask(mask_input, pixel_scale, (px, py))  # same for all the apertures
                 # (a warning is given if the blank-aperture uncertainty cannot be estimated)
-                blank_err = blank_aperture_floor(
-                    data_sub, 0.0, px, py, radius_pix, source_mask=source_mask, label=label
+                blank_err = local_blank_floor(
+                    data_sub, 0.0, px, py, radius_pix, source_mask=source_mask, label=label, **floor_kwargs
                 )
                 cal_err = abs(flux) * HERSCHEL_CALIBRATION_FRACTION.get(filt, 0.0)
                 flux_err = float(np.sqrt(blank_err**2 + cal_err**2))
+            elif invvar is not None and matched:
+                # the inverse-variance maps do not describe the (correlated) noise of the matched image, and the
+                # gain of these images is not known (no Poisson term): the uncertainty is the blank-aperture floor
+                flux = _aperture_weighted_sum(data_sub, px, py, radius_pix)[0]
+                if source_mask is None:
+                    source_mask = get_source_mask(mask_input, pixel_scale, (px, py))
+                flux_err = local_blank_floor(
+                    data_sub, 0.0, px, py, radius_pix, source_mask=source_mask, label=label, **floor_kwargs
+                )
             elif invvar is not None:
                 if source_mask is None:
-                    source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
+                    source_mask = get_source_mask(mask_input, pixel_scale, (px, py))  # same for all the apertures
                 flux, flux_err = extract_invvar_aperture_flux(
                     data_sub,
                     invvar,
@@ -367,17 +400,19 @@ def photometry(
                     radius_pix,
                     source_mask=source_mask,
                     label=label,
+                    floor_kwargs=floor_kwargs,
                 )
             else:
                 flux, flux_err = extract_aperture_flux(
                     data_sub, bkg.rms(), _exptime, px, py, radius_pix
                 )
-                if survey in blank_floor_surveys:
+                if survey in blank_floor_surveys or matched:
+                    # (the pixel errors of matched images do not include the correlated noise)
                     if source_mask is None:
-                        source_mask = get_source_mask(data_sub, pixel_scale, (px, py))  # same for all the apertures
-                    flux_err = blank_aperture_floor(
+                        source_mask = get_source_mask(mask_input, pixel_scale, (px, py))  # same for all the apertures
+                    flux_err = local_blank_floor(
                         data_sub, flux_err, px, py, radius_pix, source_mask=source_mask,
-                        residual_background=floor_residual_background(survey, filt), label=label,
+                        residual_background=floor_residual_background(survey, filt), label=label, **floor_kwargs,
                     )
             #flux, flux_err = extract_aperture_flux(data_sub, bkg.background_rms, _exptime, px, py, radius_pix)
 
@@ -423,13 +458,16 @@ def photometry(
                 else:
                     title = rf"{name}: {survey}-${filt_}$|r$={ap_radius}$ {ap_units}"
                 plot_aperture(hdu, px, py, radius_pix, title, outfile)
-        flags |= image_flags
+        flags |= image_flags | match_flags
         aperture_flags.append({flag: flag in flags for flag in LOCAL_FLAGS})
     hdu.close()
 
+    outputs = [mags, mags_err, fluxes, fluxes_err, zp]
     if return_flags:
-        return mags, mags_err, fluxes, fluxes_err, zp, aperture_flags
-    return mags, mags_err, fluxes, fluxes_err, zp
+        outputs.append(aperture_flags)
+    if return_psf_fwhm:
+        outputs.append(psf_fwhm)
+    return tuple(outputs)
 
 
 def multi_band_phot(
@@ -448,6 +486,7 @@ def multi_band_phot(
     save_results: bool = True,
     raise_exception: bool = True,
     save_input: bool = True,
+    psf_match: Optional[float | tuple | str] = None,
 ) -> pd.DataFrame:
     """Calculates the local aperture photometry for multiple filters.
 
@@ -475,6 +514,12 @@ def multi_band_phot(
     save_results: If ``True``, the magnitudes are saved into a csv file.
     raise_exception: If ``True``, an exception is raised if the photometry fails for any filter.
     save_input: Whether to save the input parameters.
+    psf_match: If given, the images are convolved to a common PSF before the photometry (see
+        :mod:`hostphot.photometry.psf_matching`), so that the fluxes of images with different resolution can be
+        compared: the target FWHM in arcsec (Gaussian kernel), the ``(survey, filter)`` of an image of the object
+        (its FWHM; e.g. ``("unWISE", "W1")``, with the unWISE PSF model for W1 and W2), or ``"broadest"``, the
+        broadest PSF among the filters. To match images of several surveys, use the same target for all of them.
+        The target FWHM is saved in ``psf_match_fwhm``. Not applied by default.
 
     Returns
     -------
@@ -517,6 +562,12 @@ def multi_band_phot(
     if isinstance(ap_radii, (float, int)):
         ap_radii = [ap_radii]
 
+    # target of the PSF matching (the same for all the filters)
+    target, target_flags = None, set()
+    if psf_match is not None:
+        with collect_flags() as target_flags:
+            target = resolve_target(psf_match, name, filters, survey, workdir)
+
     results_dict = {
         "name": name,
         "ra": ra,
@@ -525,11 +576,12 @@ def multi_band_phot(
         "survey": survey,
         "ap_units": ap_units,
         "hostphot_version": __version__,
+        "psf_match_fwhm": np.nan if target is None else target.fwhm,
     }
     # calculate photometry
     for filt in filters:
         try:
-            mags, mags_err, fluxes, fluxes_err, zp, aperture_flags = photometry(
+            mags, mags_err, fluxes, fluxes_err, zp, aperture_flags, used_fwhm = photometry(
                 name,
                 ra,
                 dec,
@@ -543,6 +595,8 @@ def multi_band_phot(
                 correct_extinction,
                 save_plots,
                 return_flags=True,
+                psf_match=target,
+                return_psf_fwhm=True,
             )
             for radius, mag, mag_err, flux, flux_err, flags in zip(
                 ap_radii, mags, mags_err, fluxes, fluxes_err, aperture_flags
@@ -559,11 +613,12 @@ def multi_band_phot(
                     results_dict[f"{filt}_{radius}_{flag}_flag"] = flags[flag]
             results_dict[f"{filt}_zeropoint"] = zp
             # quality flags of the image (e.g. calibration, masking), the same for all the apertures
-            for flag in IMAGE_FLAGS:
-                results_dict[f"{filt}_{flag}_flag"] = any(flags[flag] for flags in aperture_flags)
-            # PSF FWHM of the image (in arcsec), e.g. to compare the aperture sizes with the resolution
+            for flag in LOCAL_IMAGE_FLAGS:
+                results_dict[f"{filt}_{flag}_flag"] = any(flags[flag] for flags in aperture_flags) or flag in target_flags
+            # PSF FWHM of the image used (in arcsec; the target FWHM if it was PSF-matched), e.g. to compare the
+            # aperture sizes with the resolution
             image_header = fits.getheader(Path(workdir, name, survey, f"{survey}_{filt}.fits"))
-            results_dict[f"{filt}_psf_fwhm"] = image_psf_fwhm(image_header, survey, filt)
+            results_dict[f"{filt}_psf_fwhm"] = used_fwhm
             # provenance of the image
             image_id, download_date = image_provenance(image_header, survey)
             results_dict[f"{filt}_image_id"] = image_id
@@ -586,7 +641,7 @@ def multi_band_phot(
                 for flag in APERTURE_FLAGS:
                     results_dict[f"{filt}_{radius}_{flag}_flag"] = np.nan
             results_dict[f"{filt}_zeropoint"] = np.nan
-            for flag in IMAGE_FLAGS:
+            for flag in LOCAL_IMAGE_FLAGS:
                 results_dict[f"{filt}_{flag}_flag"] = np.nan
             results_dict[f"{filt}_psf_fwhm"] = np.nan
             results_dict[f"{filt}_image_id"] = ""

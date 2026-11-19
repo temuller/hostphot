@@ -122,7 +122,9 @@ results of :func:`multi_band_phot` include:
 The AB magnitudes and flux densities are the most convenient to combine the photometry of different surveys
 (e.g. for SED fitting). If the Milky-Way extinction correction is applied, all the columns are corrected.
 
-The local photometry also includes ``{filt}_psf_fwhm``: the PSF FWHM of the image in arcsec (see below).
+The local photometry also includes ``{filt}_psf_fwhm``: the PSF FWHM of the image in arcsec (the target FWHM if
+the image was PSF-matched; see below), and ``psf_match_fwhm``: the target FWHM of the PSF matching (NaN if not
+used).
 
 Provenance columns (local and global photometry):
 
@@ -142,8 +144,8 @@ Some issues do not prevent the photometry from being measured, but make it less 
 warning and with boolean columns (``True`` if the issue was found), so that the users can decide whether to use each
 survey, image or filter (see :mod:`hostphot.flags`). Columns of the global photometry: ``{filt}_{flag}_flag``.
 Local photometry: ``{filt}_{radius}_{flag}_flag`` for the flags of each aperture (``bkg``, ``coverage``, ``psf`` and
-``err``), and ``{filt}_{flag}_flag`` for the flags of the image (``calib``, ``fallback_image``, ``mask_fallback`` and
-``mask_nogaia``). The flags are NaN if the photometry fails.
+``err``), and ``{filt}_{flag}_flag`` for the flags of the image (``calib``, ``fallback_image``, ``mask_fallback``,
+``mask_nogaia`` and ``psf_match``). The flags are NaN if the photometry fails.
 
 * ``bkg``: the background subtracted by HostPhot (``bkg_sub``) is unreliable for the aperture: the background inside
   the aperture differs from the sky level around it by more than :math:`20\%` of the flux, i.e. it probably follows
@@ -177,6 +179,10 @@ Local photometry: ``{filt}_{radius}_{flag}_flag`` for the flags of each aperture
   masked with their ellipses.
 * ``mask_nogaia``: the Gaia DR3 query failed when masking (the ESA Gaia archive and its partner data centres), so the
   stars could not be identified.
+* ``psf_match``: the PSF matching of the image (local photometry with ``psf_match``) is less reliable: the PSF of the
+  image is already broader than the target, so it was not matched; the FWHM of the image or of the target could not
+  be measured from stars (typical value of the filter used); or the image has a PSF with strong wings (Spitzer, WISE,
+  unWISE, GALEX), which the matching kernel does not model.
 
 The ``calib`` (VISTA and KiDS), ``fallback_image``, ``mask_fallback`` and ``mask_nogaia`` flags are set when
 downloading or masking the images, and stored in their headers (``HPF*`` keywords), so they are only available for
@@ -200,6 +206,71 @@ arcsec for PanSTARRS, DES, SDSS and Legacy Survey, 2.5 arcsec for 2MASS, 4.2 and
 NUV, 6.1-12 arcsec for WISE, 1.7-2.0 and 5.9 arcsec for IRAC and MIPS 24 microns, and 6.8-36.6 arcsec for
 Herschel. They are not given for HST and JWST, whose PSFs (:math:`\lesssim0.2` arcsec) are much smaller than the
 usual apertures.
+
+PSF matching
+~~~~~~~~~~~~
+
+To compare (or combine in an SED) local fluxes from images of different resolution, the images can be convolved to a
+common PSF before the photometry, with ``psf_match`` in :func:`hostphot.photometry.local_photometry.multi_band_phot`
+(see :mod:`hostphot.photometry.psf_matching`). The target can be a FWHM in arcsec, the ``(survey, filter)`` of an
+image of the object (e.g. ``("2MASS", "J")`` or ``("unWISE", "W1")``), or ``"broadest"``, the broadest PSF among the
+filters of the call. To match several surveys, the same target must be used for all of them, e.g.:
+
+.. code:: python
+
+    for survey in ["PanSTARRS", "2MASS", "unWISE"]:
+        lp.multi_band_phot(name, ra, dec, z, survey=survey, ap_radii=[1, 2], psf_match=("unWISE", "W1"))
+
+* The PSF FWHM of each image is taken from its header, if available, or measured from Gaussian fits to its isolated,
+  unsaturated Gaia DR3 stars (at least 5). The seeing of ground-based surveys varies by tens of per cent between
+  images (e.g. :math:`1.62` arcsec for a PanSTARRS :math:`g` image, whose typical value is :math:`1.31` arcsec), so
+  the typical values of the filters are only used if the FWHM cannot be measured (with the ``psf_match`` flag).
+* The images are convolved with a Gaussian kernel. For an unWISE W1 or W2 target, whose PSF has strong wings, the
+  kernel is computed from the unWISE PSF model (`Meisner & Schlafly
+  <https://github.com/legacysurvey/unwise_psf>`_; azimuthally averaged and stretched to the FWHM measured in the
+  unWISE image), as a Gaussian kernel leaves the matched fluxes :math:`\sim6-7\%` too bright.
+* Images with a PSF already broader than the target are not convolved (``psf_match`` flag).
+
+Tests: with synthetic galaxies (Moffat PSFs, a supernova on a star-forming clump), the fluxes in apertures of
+:math:`1.5-11` arcsec differ from the truth by up to :math:`21\%` without matching, and by :math:`\lesssim1.5\%`
+after matching to a 2MASS-like PSF (:math:`\le0.7\%` for an unWISE W1 target with the unWISE kernel). With real
+images of similar bands but different resolution (VISTA/UHS/2MASS :math:`K_s` vs unWISE W1, VISTA/UHS :math:`J` vs
+2MASS :math:`J`), the variation with the aperture radius (:math:`2-20` arcsec) of their magnitude difference at the
+centres of two hosts goes from :math:`0.2-0.9` mag to :math:`0.03-0.10` mag. Caveats:
+
+* Spitzer IRAC (and other images with strong PSF wings) matched to unWISE are less accurate (the wings of the image
+  are not modelled; a Gaussian kernel is used for them).
+* After matching to a broad PSF (e.g. unWISE), the light of faint and neighbouring sources spread by the PSF
+  contributes to the apertures (confusion), especially in deep (e.g. Legacy Survey) or crowded images: it adds
+  scatter and a positive bias, which are only partly included in the uncertainties (by :math:`\sim1.2-2` times for
+  the Legacy Survey and a crowded field, with an unWISE target).
+* Images taken after the explosion of a transient include its light (e.g. VISTA and UHS images of SN 2009ig and
+  SN 2013dy), which no matching can correct.
+
+Uncertainties of the local apertures
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The noise of coadded (resampled) and PSF-matched images is correlated between pixels, which the pixel-wise
+uncertainties do not capture, so a noise floor is applied (for the surveys listed below, and for all the matched
+images): the scatter of the fluxes in blank apertures of the same size, which do not overlap detected sources (the
+sources are detected before the PSF matching), and are at least 2.5 times the largest between the aperture radius
+and the PSF FWHM from the aperture (so that they are independent when the noise is correlated on the scale of the
+PSF):
+
+* for the images whose background is not subtracted by HostPhot (e.g. PanSTARRS and the Legacy Survey), the blank
+  apertures are drawn from the whole image and measured on the image itself, so that the structure of the sky left
+  by the survey pipelines (and the light of faint, undetected sources), which also affects the aperture, is
+  included;
+* for the background-subtracted images, they are drawn from an annulus around the aperture (up to 15 times the
+  largest between the radius and the FWHM) and measured relative to a smooth background (with a mesh of at least 5
+  times the FWHM).
+
+Tested with the local photometry at :math:`25-60` blank positions in three fields (PanSTARRS :math:`r`, Legacy
+Survey :math:`r`, VISTA :math:`K_s` and UHS :math:`J`; apertures of 2, 4 and 7 arcsec): the uncertainties divided by
+the scatter of the fluxes are :math:`\sim0.8-1.4` (:math:`\sim0.7-1.1` for the Legacy Survey), for the original and
+the matched images. Before v4.0.0, the floor was measured from apertures near the source relative to a smooth local
+background, which underestimated the uncertainties of PanSTARRS and the Legacy Survey by :math:`\sim2` times (sky
+structure), and those of matched images by up to :math:`\sim10` times.
 
 Masking
 ~~~~~~~

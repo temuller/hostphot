@@ -37,6 +37,6 @@ setuptools.setup(
     ],
     install_requires=requirements,
     extras_require={"test": ["pytest", "pytest-xdist", "pytest-rerunfailures"]},
-    package_data={"hostphot": ["filters/*"]},
+    package_data={"hostphot": ["filters/*", "psf_models/*"]},
     include_package_data=True,
 )
