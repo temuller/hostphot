@@ -440,6 +440,35 @@ _stdout_lock = threading.Lock()
 _stdout_state = {"depth": 0, "saved": None, "devnull": None}
 
 
+def orient_axis_labels(fig: aplpy.FITSFigure) -> bool:
+    """Labels the axes of an aplpy figure with the coordinate that runs along each of them, for images rotated by
+    more than 45 degrees (e.g. UHS), where RA runs along the y axis and Dec along the x axis. Afterwards, the
+    ``x``/``y`` methods of ``fig.tick_labels`` and ``fig.axis_labels`` (e.g. ``hide_y()``) refer to the
+    coordinate along each axis. The figures of other images are unchanged.
+
+    Parameters
+    ----------
+    fig: Figure (before setting the labels).
+
+    Returns
+    -------
+    swapped: Whether the axes of the image are rotated (labels swapped).
+    """
+    matrix = fig.ax.wcs.pixel_scale_matrix  # rows: world coordinates; columns: pixel axes
+    if abs(matrix[0, 1]) <= abs(matrix[0, 0]):
+        return False
+    x_text, y_text = fig.axis_labels._x_text, fig.axis_labels._y_text
+    for labels in (fig.tick_labels, fig.axis_labels):
+        labels.x, labels.y = labels.y, labels.x
+    fig.axis_labels.set_xtext(y_text)
+    fig.axis_labels.set_ytext(x_text)
+    fig.axis_labels.set_xposition("bottom")
+    fig.axis_labels.set_yposition("left")
+    fig.tick_labels.set_xposition("bottom")
+    fig.tick_labels.set_yposition("left")
+    return True
+
+
 def save_tight_figure(figure: plt.Figure, outfile: str | Path) -> None:
     """Saves a figure as ``figure.savefig(outfile, bbox_inches="tight")`` does (identical output),
     with a cheaper layout pass: the images, clipped to their axes, are not resampled to find the
@@ -497,7 +526,8 @@ def add_provenance(
 ) -> None:
     """Adds provenance keywords to the header of an image saved by HostPhot: the HostPhot version (``HPVERS``),
     the time it was saved (``HPDATE``, UTC), the survey (``HPSURVEY``) and, if given, the version of the survey
-    (``HPDATAV``, e.g. a data release), the requested size (``HPSIZE``, in arcmin) and the source file
+    (``HPDATAV``, e.g. a data release; the version written by the download function, i.e. the one actually used,
+    is kept), the requested size (``HPSIZE``, in arcmin) and the source file
     (``HPSOURCE``, e.g. for images given by the user).
 
     Parameters
@@ -513,12 +543,25 @@ def add_provenance(
     header["HPVERS"] = (__version__, "HostPhot version")
     header["HPDATE"] = (datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"), "Date saved by HostPhot (UTC)")
     header["HPSURVEY"] = (survey, "Survey (HostPhot)")
-    if version is not None:
-        header["HPDATAV"] = (str(version), "Survey version/data release (HostPhot)")
+    if version is not None and "HPDATAV" not in header:
+        # the version actually used, if written by the download function (e.g. the default data release,
+        # or the VISTA survey or GALEX project chosen for the position), is kept
+        set_data_version(header, version)
     if size is not None:
         header["HPSIZE"] = (round(float(size), 4), "Requested image size in arcmin (HostPhot)")
     if source is not None:
         header["HPSOURCE"] = (str(source)[-68:], "Source of the image (HostPhot)")
+
+
+def set_data_version(header: fits.Header, version: str) -> None:
+    """Writes the version of the survey used for an image (``HPDATAV``, e.g. a data release) in its header.
+
+    Parameters
+    ----------
+    header: Header of the image (updated in place).
+    version: Version of the survey.
+    """
+    header["HPDATAV"] = (str(version), "Survey version/data release (HostPhot)")
 
 
 # header keywords identifying the source image of each survey (see :func:`image_provenance`)
@@ -641,6 +684,7 @@ def plot_fits(fits_file: str | Path | list[fits.ImageHDU], ext: int = 0) -> None
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         fig = aplpy.FITSFigure(fits_file, hdu=ext, figure=figure)
+    orient_axis_labels(fig)  # rotated images
     with suppress_stdout():
         fig.show_grayscale(stretch="arcsinh")
 

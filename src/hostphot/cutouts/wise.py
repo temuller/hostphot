@@ -15,7 +15,7 @@ from astropy.coordinates import SkyCoord
 
 import numpy as np
 
-from hostphot.utils import network_timeout, open_fits_from_url, open_fits_from_urls, select_image
+from hostphot.utils import network_timeout, open_fits_from_url, open_fits_from_urls, select_image, set_data_version
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -196,6 +196,7 @@ def get_unWISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
             if index is not None:
                 # coadd tile used
                 hdu_dict[filt][0].header["HPSOURCE"] = (names[index][-68:], "Source of the image (HostPhot)")
+                set_data_version(hdu_dict[filt][0].header, version)
     return [hdu_dict.get(filt) for filt in requested_filters]
 
 def get_used_image(header: fits.header.Header) -> str:

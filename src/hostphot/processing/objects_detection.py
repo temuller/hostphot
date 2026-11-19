@@ -12,7 +12,7 @@ from astropy.wcs.utils import proj_plane_pixel_scales
 import sep
 from hostphot.utils import call_with_timeout
 from hostphot._constants import font_family
-from hostphot.utils import suppress_stdout, add_fields, save_tight_figure
+from hostphot.utils import suppress_stdout, add_fields, save_tight_figure, orient_axis_labels
 
 import warnings
 
@@ -389,6 +389,7 @@ def plot_detected_objects(
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         fig = aplpy.FITSFigure(hdu, figure=figure)
+    orient_axis_labels(fig)  # rotated images
 
     with suppress_stdout():
         fig.show_grayscale(stretch="arcsinh")

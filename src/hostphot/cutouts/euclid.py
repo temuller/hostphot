@@ -10,7 +10,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.io.votable import parse_single_table
 
-from hostphot.utils import network_timeout, open_fits_from_urls, select_image
+from hostphot.utils import network_timeout, open_fits_from_urls, select_image, set_data_version
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 
 # IRSA Simple Image Access (SIA) service, with the Euclid MER mosaics
@@ -167,6 +167,7 @@ def get_Euclid_images(
         header = mosaic["science_hdu"][0].header.copy()
         header["MAGZP"] = (header["MAGZERO"], "AB zeropoint (MAGZERO)")
         header["TILEID"] = (mosaic["tile"], "Euclid MER tile")
+        set_data_version(header, (version or _DEFAULT_VERSION).lower())
         rms = mosaic["rms_hdu"][0].data.astype(float)
         # pixels without valid data (masked, with zeros in the image and RMS = 1e16, or with zero or
         # non-finite RMS) are set to NaN

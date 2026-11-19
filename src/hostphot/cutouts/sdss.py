@@ -9,7 +9,7 @@ from astropy.coordinates import SkyCoord
 from astropy.nddata import Cutout2D
 from astroquery.sdss import SDSS
 
-from hostphot.utils import call_with_timeout
+from hostphot.utils import call_with_timeout, set_data_version
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 from hostphot.utils import image_coverage, FULL_COVERAGE
 
@@ -184,4 +184,5 @@ def get_SDSS_images(ra: float, dec: float, size: float | u.Quantity = 3,
             )
         hdu[0].data = trimmed_data.data
         hdu[0].header.update(trimmed_data.wcs.to_header())
+        set_data_version(hdu[0].header, version)
     return hdu_list

@@ -102,5 +102,37 @@ def test_host_model_keeps_central_bar():
     assert mask[300, 380]  # neighbour
 
 
+
+def test_orient_axis_labels():
+    """Images rotated by 90 degrees (RA along the y axis) get their axis labels swapped; others are unchanged."""
+    import aplpy
+    import numpy as np
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from astropy.io import fits
+    from astropy.wcs import WCS
+    from hostphot.utils import orient_axis_labels
+
+    for rotated in [False, True]:
+        wcs = WCS(naxis=2)
+        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+        wcs.wcs.crval = [334.57, 40.56]
+        wcs.wcs.crpix = [50.5, 50.5]
+        scale = 0.4 / 3600
+        wcs.wcs.cd = [[0, -scale], [scale, 0]] if rotated else [[-scale, 0], [0, scale]]
+        hdu = fits.PrimaryHDU(np.zeros((100, 100)), header=wcs.to_header())
+        figure = plt.figure()
+        fig = aplpy.FITSFigure(hdu, figure=figure)
+        assert orient_axis_labels(fig) is rotated
+        ra, dec = fig.ax.coords[0], fig.ax.coords[1]
+        x_coord, y_coord = (dec, ra) if rotated else (ra, dec)
+        assert x_coord.get_axislabel_position() == ["b"] and y_coord.get_axislabel_position() == ["l"]
+        assert "RA" in ra.get_axislabel() and "Dec" in dec.get_axislabel()
+        fig.tick_labels.hide_y()  # refers to the coordinate along the y axis
+        assert not y_coord.ticklabels.get_visible() and x_coord.ticklabels.get_visible()
+        plt.close(figure)
+
+
 if __name__ == "__main__":
     unittest.main()

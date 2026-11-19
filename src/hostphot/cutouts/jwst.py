@@ -8,11 +8,13 @@ from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 
-from astroquery.esa.jwst import Jwst
 
 from hostphot.utils import call_with_timeout, network_timeout
 from hostphot._constants import workdir
 from hostphot.utils import check_work_dir, suppress_stdout, add_provenance
+# imported without the status pages printed by astroquery when the ESA archives are down (e.g. maintenance)
+with suppress_stdout():
+    from astroquery.esa.jwst import Jwst
 from hostphot.surveys_utils import check_JWST_filters, survey_pixel_scale
 
 import warnings

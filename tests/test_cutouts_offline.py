@@ -73,6 +73,7 @@ class TestSDSS(unittest.TestCase):
             hdu_list = sdss.get_SDSS_images(RA, DEC, size=2, filters="r")
         self.assertIs(hdu_list[0], near)
         self.assertEqual(hdu_list[0][0].data.shape, (303, 303))  # 2 arcmin
+        self.assertEqual(hdu_list[0][0].header["HPDATAV"], "dr17")  # default data release
         # no frame contains the position
         with mock.patch.object(sdss, "_best_frame", return_value=frames[:1]), mock.patch.object(
             sdss, "SDSS"
@@ -180,6 +181,7 @@ class TestGALEX(unittest.TestCase):
             hdu_list = galex.get_GALEX_images(RA, DEC, size=3, filters="NUV")
         self.assertIs(hdu_list[0], near)
         self.assertEqual(hdu_list[0][0].data.shape, (120, 120))
+        self.assertEqual(hdu_list[0][0].header["HPDATAV"], "AIS")  # survey of the image used
         self.assertTrue(opener.call_args_list[0].args[0][0].endswith("MIS_1-nd-intbgsub.fits.gz"))
 
 
@@ -245,6 +247,7 @@ class TestEuclid(unittest.TestCase):
         ):
             hdu_list = euclid.get_Euclid_images(RA, DEC, size=0.1, filters=["VIS", "H"])
         self.assertEqual(hdu_list[0][0].header["TILEID"], "T2")
+        self.assertEqual(hdu_list[0][0].header["HPDATAV"], "dr1")  # default data release
         self.assertEqual(hdu_list[0][0].header["MAGZP"], 24.5)
         self.assertTrue(np.isnan(hdu_list[0][0].data[0, 0]))
         self.assertEqual(hdu_list[0][1].name, "VARIANCE")
@@ -465,6 +468,9 @@ class TestVISTA(unittest.TestCase):
             self.assertAlmostEqual(header["MAGZP"], 23.8 - 0.05 * 0.2)
             self.assertAlmostEqual(header["PSF_FWHM"], 2.5 * 0.34)
             self.assertEqual(header["TEXPTIME"], 50.0)
+            self.assertEqual(header["HPDATAV"], "VHS")
+            # survey covering the position (the deepest one), if not given
+            self.assertEqual(vista.get_VISTA_images(RA, DEC, size=1, filters="J")[0][0].header["HPDATAV"], "VIDEO")
             # only badly calibrated tiles: used with a warning (calib flag)
             tiles["t3"] = self.tile(RA, 0.3)
             with self.assertWarns(CalibrationWarning):
@@ -510,6 +516,7 @@ class TestWISE(unittest.TestCase):
             with self.assertWarnsRegex(UserWarning, "only has W1 and W2"):
                 hdu_list = wise.get_unWISE_images(RA, DEC, size=3, filters=["W1", "W3"], version="neo7")
         self.assertIn("1500p015", hdu_list[0][0].header["HPSOURCE"])
+        self.assertEqual(hdu_list[0][0].header["HPDATAV"], "neo7")
         self.assertEqual(hdu_list[0][1].name, "INVVAR")
         self.assertIsNone(hdu_list[1])
         with self.assertRaises(AssertionError):
@@ -531,6 +538,7 @@ class TestHSC(unittest.TestCase):
             hdu_list = hsc.get_HSC_images(RA, DEC, size=0.1, filters=["r", "i"])
         self.assertAlmostEqual(hdu_list[0][0].header["MAGZP"], 29.5)
         self.assertEqual([h.name for h in hdu_list[0][1:]], ["VARIANCE", "MASK"])
+        self.assertEqual(hdu_list[0][0].header["HPDATAV"], "pdr3_wide")  # default version
         self.assertIsNone(hdu_list[1])
         with mock.patch.dict(os.environ, {"HSC_SSP_USERNAME": "", "HSC_SSP_PASSWORD": ""}):
             with self.assertRaisesRegex(ValueError, "credentials"):
@@ -564,6 +572,7 @@ class TestPanSTARRSAndDownloads(unittest.TestCase):
         survey_dir = Path(workdir, name, "PanSTARRS")
         header = fits.getheader(survey_dir / "PanSTARRS_g.fits")
         self.assertEqual(header["HPSURVEY"], "PanSTARRS")
+        self.assertNotIn("HPDATAV", header)  # PanSTARRS has no versions
         self.assertFalse((survey_dir / "PanSTARRS_i.fits").exists())
         # existing images are not downloaded again
         with mock.patch.object(panstarrs, "get_PanSTARRS_images") as getter:
@@ -575,6 +584,20 @@ class TestPanSTARRSAndDownloads(unittest.TestCase):
                 downloads.download_images(name, RA, DEC, survey="PanSTARRS", filters="y")
         with self.assertRaises(ValueError):
             downloads.download_images(name, RA, DEC, survey="HST")
+
+
+def test_add_provenance_keeps_used_version():
+    """The survey version written by the download function (the one actually used) is kept."""
+    from hostphot.utils import add_provenance, set_data_version
+
+    header = fits.Header()
+    add_provenance(header, "VISTA", size=3)
+    assert "HPDATAV" not in header
+    add_provenance(header, "VISTA", version="vhs")
+    assert header["HPDATAV"] == "vhs"
+    set_data_version(header, "VHS")
+    add_provenance(header, "VISTA", version="vhs")
+    assert header["HPDATAV"] == "VHS"
 
 
 if __name__ == "__main__":

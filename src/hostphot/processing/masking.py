@@ -23,7 +23,7 @@ from .objects_detection import (
     cross_match,
 )
 from .host_model import FILL_SEED, estimate_fwhm_pix, fit_host_model, host_model_mask
-from hostphot.utils import suppress_stdout, store_input, save_tight_figure
+from hostphot.utils import suppress_stdout, store_input, save_tight_figure, orient_axis_labels
 from astropy.wcs.utils import proj_plane_pixel_scales
 from hostphot.photometry.image_utils import add_sky_ellipses, adapt_aperture, has_sky_ellipses, objects_from_sky
 from hostphot.processing.background import masked_background, sep_background
@@ -510,6 +510,8 @@ def plot_masked_image(
         fig1 = aplpy.FITSFigure(hdu, figure=figure, subplot=(1, 3, 1))
         fig2 = aplpy.FITSFigure(hdu, figure=figure, subplot=(1, 3, 2))
         fig3 = aplpy.FITSFigure(masked_hdu, figure=figure, subplot=(1, 3, 3))
+    for fig in [fig1, fig2, fig3]:
+        orient_axis_labels(fig)  # rotated images
     fig2.tick_labels.hide_y()
     fig2.axis_labels.hide_y()
     fig3.tick_labels.set_yposition("right")

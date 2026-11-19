@@ -8,7 +8,7 @@ from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 from astroquery.mast import Observations
 
-from hostphot.utils import call_with_timeout, open_fits_from_url, open_fits_from_urls
+from hostphot.utils import call_with_timeout, open_fits_from_url, open_fits_from_urls, set_data_version
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity, survey_pixel_scale
 
 import warnings
@@ -150,6 +150,8 @@ def get_GALEX_images(ra: float, dec: float, size: float | u.Quantity = 3,
                     break
 
             hdu_dict[filt] = hdu
+            if hdu is not None:
+                set_data_version(hdu[0].header, project)  # survey of the image (e.g. DIS, MIS or AIS)
 
     hdu_list = []
     for filt in filters:

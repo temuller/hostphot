@@ -33,7 +33,7 @@ from astropy.cosmology import FlatLambdaCDM, Cosmology
 from hostphot._constants import workdir, font_family
 from hostphot.processing.cleaning import remove_nan, saturated_mask
 from hostphot.photometry.dust import calc_extinction
-from hostphot.utils import check_work_dir, suppress_stdout, store_input, image_provenance, save_tight_figure
+from hostphot.utils import check_work_dir, suppress_stdout, store_input, image_provenance, save_tight_figure, orient_axis_labels
 from hostphot._version import __version__
 from hostphot.flags import APERTURE_FLAGS, IMAGE_FLAGS, LOCAL_FLAGS, PSFWarning, collect_flags, header_flags
 from hostphot.processing.background import background_flag, masked_background, sep_background
@@ -168,6 +168,7 @@ def plot_aperture(
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", AstropyWarning)
         fig = aplpy.FITSFigure(hdu, figure=figure)
+    orient_axis_labels(fig)  # rotated images
     with suppress_stdout():
         fig.show_grayscale(stretch="arcsinh")
 

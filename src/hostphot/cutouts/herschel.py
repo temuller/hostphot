@@ -25,11 +25,13 @@ import pandas as pd
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.nddata import Cutout2D
-from astroquery.esa.hsa import HSA
 
 from astropy.wcs import WCS
 
-from hostphot.utils import call_with_timeout, network_timeout
+from hostphot.utils import call_with_timeout, network_timeout, suppress_stdout
+# imported without the status pages printed by astroquery when the ESA archives are down (e.g. maintenance)
+with suppress_stdout():
+    from astroquery.esa.hsa import HSA
 from hostphot.surveys_utils import check_filters_validity, get_default_filters
 from hostphot.utils import image_coverage, select_image, FULL_COVERAGE
 

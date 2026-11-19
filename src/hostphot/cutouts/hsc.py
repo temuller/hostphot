@@ -8,7 +8,7 @@ from typing import Optional
 from astropy.io import fits
 from astropy import units as u
 
-from hostphot.utils import network_timeout
+from hostphot.utils import network_timeout, set_data_version
 from hostphot.surveys_utils import get_survey_filters, get_default_filters, check_filters_validity
 
 # HSC SSP cutout API endpoint (PDR3)
@@ -213,6 +213,7 @@ def get_HSC_images(
         else:
             sci_header["MAGZP"] = (27.0, "Nominal HSC PDR3 AB zeropoint [mag]")
 
+        set_data_version(sci_header, version)
         primary = fits.PrimaryHDU(data=sci_data, header=sci_header)
 
         combined = fits.HDUList([primary])

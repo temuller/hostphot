@@ -68,8 +68,12 @@ differences:
 
 Large apertures can include residual sky and faint neighbours not masked, which make the fluxes slightly too large
 (e.g. :math:`>0.15` mag for :math:`10\%` of the injections with the CoG aperture), and the fluxes of all the
-apertures are affected by the sky subtraction of the survey pipelines (e.g. PanSTARRS fluxes of large galaxies are
-:math:`\sim0.1-0.3` mag fainter than those of the Legacy Survey).
+apertures are affected by the sky subtraction of the survey pipelines, which can remove part of the outskirts of
+large galaxies: e.g. PanSTARRS fluxes of large galaxies are :math:`\sim0.1-0.3` mag fainter than those of the Legacy
+Survey, and up to :math:`\sim0.4` mag for NGC 5300 (:math:`\sim4` arcmin across), whose KiDS fluxes are another
+:math:`\sim0.2-0.4` mag fainter, while those of HSC (``coadd/bg``) agree with the Legacy Survey. The calibration of
+these surveys agrees for stars, so this only affects extended galaxies; HSC or the Legacy Survey are preferable for
+the fluxes of large galaxies, while the other surveys can still be used for the masks and apertures.
 
 **Uncertainties of the global apertures.** Besides the noise in the aperture (with the blank-aperture noise floor,
 see the surveys below), two terms are added in quadrature, which dominate for extended galaxies:

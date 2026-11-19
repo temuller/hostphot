@@ -9,7 +9,7 @@ from astropy.io import fits
 
 import numpy as np
 
-from hostphot.utils import network_timeout, open_fits_from_url, open_fits_from_urls, select_image, url_band, image_coverage, FULL_COVERAGE
+from hostphot.utils import network_timeout, open_fits_from_url, open_fits_from_urls, select_image, url_band, image_coverage, FULL_COVERAGE, set_data_version
 from hostphot.surveys_utils import get_survey_filters, check_filters_validity
 from hostphot.moc.maps import contains_coords
 from hostphot.flags import CalibrationWarning, set_header_flag
@@ -105,7 +105,10 @@ def get_VISTA_images(ra: float, dec: float, size: float | u.Quantity = 3,
             if tile_links is None:
                 tile_links = _query_links(database, ra, dec, size, "tilestack")
             hdu = _select_tile(_filter_urls(tile_links, filt), ra, dec, size_arcsec, f"{survey} {filt}")
-        hdu_list.append(None if hdu is None else _prepare_image(hdu))
+        if hdu is not None:
+            hdu = _prepare_image(hdu)
+            set_data_version(hdu[0].header, version)  # survey covering the position (e.g. VHS)
+        hdu_list.append(hdu)
     return hdu_list
 
 
