@@ -150,28 +150,28 @@ WISE:
     pixel_units: "counts/second"
     magnitude_system: "Vega"
     AB_offset: 2.699  # see https://wise2.ipac.caltech.edu/docs/release/allsky/expsup/sec4_4h.html
-    psf_fwhm: 6.1  # typical PSF FWHM in arcsec (see the documentation)
+    psf_fwhm: 8.9  # PSF FWHM in arcsec of the AllWISE Atlas images (smoothed with the PSF; measured from stars)
   W2:
     zeropoint: "header"
     pixel_scale: 1.375
     pixel_units: "counts/second"
     magnitude_system: "Vega"
     AB_offset: 3.339
-    psf_fwhm: 6.4  # typical PSF FWHM in arcsec (see the documentation)
+    psf_fwhm: 10.0  # PSF FWHM in arcsec of the AllWISE Atlas images (smoothed with the PSF; measured from stars)
   W3:
     zeropoint: "header"
     pixel_scale: 1.375
     pixel_units: "counts/second"
     magnitude_system: "Vega"
     AB_offset: 5.174
-    psf_fwhm: 6.5  # typical PSF FWHM in arcsec (see the documentation)
+    psf_fwhm: 13.3  # PSF FWHM in arcsec of the AllWISE Atlas images (smoothed with the PSF; measured from stars)
   W4:
     zeropoint: "header"
     pixel_scale: 1.375
     pixel_units: "counts/second"
     magnitude_system: "Vega"
     AB_offset: 6.620
-    psf_fwhm: 12.0  # typical PSF FWHM in arcsec (see the documentation)
+    psf_fwhm: 24.0  # PSF FWHM in arcsec of the AllWISE Atlas images (smoothed with the PSF; measured from stars)
 unWISE:
   W1:
     zeropoint: 22.5

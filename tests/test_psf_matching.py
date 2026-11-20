@@ -176,4 +176,6 @@ def test_local_photometry_psf_match():
     # broadest: the g band (typical FWHM 1.31") is the target; the g image is not convolved
     assert broad["psf_match_fwhm"][0] == pytest.approx(1.31)
     assert broad["g_1.0_flux_uJy"][0] == pytest.approx(plain["g_1.0_flux_uJy"][0])
+    assert not broad["g_psf_match_flag"][0]  # (the target image itself is not flagged)
+    assert broad["r_psf_match_flag"][0]  # (no Gaia stars: typical FWHM)
     assert broad["r_1.0_flux_uJy"][0] < plain["r_1.0_flux_uJy"][0]

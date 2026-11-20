@@ -79,7 +79,8 @@ def get_WISE_images(ra: float, dec: float, size: float | u.Quantity = 3,
             url_list.append(filt_df.access_url.values[0])
             exptimes.append(filt_df.t_exptime.values[0])
 
-    hdu_list = open_fits_from_urls(url_list)
+    # (full Atlas tiles, ~70 MB each: IRSA often refuses several parallel downloads, with 503 errors)
+    hdu_list = open_fits_from_urls(url_list, max_workers=2, attempts=4, wait=10.0)
     for i, hdu in enumerate(hdu_list):
         if hdu is not None:
             hdu[0].header["EXPTIME"] = exptimes[i]

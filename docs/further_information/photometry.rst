@@ -182,7 +182,8 @@ Local photometry: ``{filt}_{radius}_{flag}_flag`` for the flags of each aperture
 * ``psf_match``: the PSF matching of the image (local photometry with ``psf_match``) is less reliable: the PSF of the
   image is already broader than the target, so it was not matched; the FWHM of the image or of the target could not
   be measured from stars (typical value of the filter used); or the image has a PSF with strong wings (Spitzer, WISE,
-  unWISE, GALEX), which the matching kernel does not model.
+  unWISE, GALEX), which the matching kernel does not model. The target image itself (e.g. unWISE W1 with
+  ``psf_match=("unWISE", "W1")``) is not convolved nor flagged.
 
 The ``calib`` (VISTA and KiDS), ``fallback_image``, ``mask_fallback`` and ``mask_nogaia`` flags are set when
 downloading or masking the images, and stored in their headers (``HPF*`` keywords), so they are only available for
@@ -195,7 +196,7 @@ Resolution
 In apertures smaller than about the PSF, the measured flux depends strongly on the resolution (light is spread
 out of the aperture and into it from the surroundings), so the photometry of surveys with different resolutions
 is not directly comparable (e.g. IRAC 3.6 microns, with a FWHM of 1.7 arcsec, gives a ~30% larger flux than
-WISE W1, with a FWHM of 6.1 arcsec, in a 5 arcsec radius aperture, but they agree within a few percent in a
+WISE W1, with a FWHM of 8.9 arcsec, in a 5 arcsec radius aperture, but they agree within a few percent in a
 20 arcsec radius aperture). The local photometry gives a warning when the aperture radius is smaller than the
 PSF FWHM of the image (with the ``psf`` flag).
 
@@ -203,7 +204,7 @@ The PSF FWHM is taken from the image header when available (KiDS; the ``SEEING``
 VISTA tiles, converted into arcsec when downloading the images; SkyMapper; S-PLUS). Otherwise, typical (median)
 values of each filter are used (``psf_fwhm`` in the filters configuration file), e.g. :math:`\sim1.0`-:math:`1.3`
 arcsec for PanSTARRS, DES, SDSS and Legacy Survey, 2.5 arcsec for 2MASS, 4.2 and 5.3 arcsec for GALEX FUV and
-NUV, 6.1-12 arcsec for WISE, 1.7-2.0 and 5.9 arcsec for IRAC and MIPS 24 microns, and 6.8-36.6 arcsec for
+NUV, 8.9-24 arcsec for WISE (the AllWISE Atlas images are smoothed with the PSF), 6.1-12 arcsec for unWISE, 1.7-2.0 and 5.9 arcsec for IRAC and MIPS 24 microns, and 6.8-36.6 arcsec for
 Herschel. They are not given for HST and JWST, whose PSFs (:math:`\lesssim0.2` arcsec) are much smaller than the
 usual apertures.
 

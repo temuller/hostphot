@@ -296,11 +296,15 @@ def photometry(
     unmatched_data, matched, match_flags = None, False, set()
     if psf_match is not None:
         target = resolve_target(psf_match, name, [filt], survey, workdir)
-        with collect_flags() as match_flags:
-            fwhm_image, _ = image_fwhm(obj_dir / survey / f"{survey}_{filt}.fits", survey, filt)
-            unmatched_data = data
-            data, matched = match_psf(data, header, fwhm_image, target, survey, label=f"{survey} {filt}")
-        psf_fwhm = target.fwhm if matched else fwhm_image
+        if (target.survey, target.filt) == (survey, filt):
+            # the target image itself: not convolved, nor flagged
+            psf_fwhm = target.fwhm
+        else:
+            with collect_flags() as match_flags:
+                fwhm_image, _ = image_fwhm(obj_dir / survey / f"{survey}_{filt}.fits", survey, filt)
+                unmatched_data = data
+                data, matched = match_psf(data, header, fwhm_image, target, survey, label=f"{survey} {filt}")
+            psf_fwhm = target.fwhm if matched else fwhm_image
         if matched:
             hdu[0].data = data.astype(np.float32)  # (for the plots)
     #box_size = int(0.1 * np.sqrt(data.size))
@@ -613,8 +617,12 @@ def multi_band_phot(
                     results_dict[f"{filt}_{radius}_{flag}_flag"] = flags[flag]
             results_dict[f"{filt}_zeropoint"] = zp
             # quality flags of the image (e.g. calibration, masking), the same for all the apertures
+            # (the flags of the target, e.g. its FWHM not measured, do not affect the target image, not convolved)
+            is_target = target is not None and (target.survey, target.filt) == (survey, filt)
             for flag in LOCAL_IMAGE_FLAGS:
-                results_dict[f"{filt}_{flag}_flag"] = any(flags[flag] for flags in aperture_flags) or flag in target_flags
+                results_dict[f"{filt}_{flag}_flag"] = any(flags[flag] for flags in aperture_flags) or (
+                    flag in target_flags and not is_target
+                )
             # PSF FWHM of the image used (in arcsec; the target FWHM if it was PSF-matched), e.g. to compare the
             # aperture sizes with the resolution
             image_header = fits.getheader(Path(workdir, name, survey, f"{survey}_{filt}.fits"))

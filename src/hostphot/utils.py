@@ -377,7 +377,7 @@ def select_image(
 
 
 def open_fits_from_urls(
-    urls: list[str | None], max_workers: Optional[int] = None, attempts: int = 2
+    urls: list[str | None], max_workers: Optional[int] = None, attempts: int = 2, wait: float = 2.0
 ) -> list[fits.HDUList | None]:
     """Opens multiple FITS files from URLs in parallel.
 
@@ -386,6 +386,7 @@ def open_fits_from_urls(
     urls: List of links to the files.
     max_workers: Maximum number of parallel downloads (default of ``ThreadPoolExecutor`` if ``None``).
     attempts: Number of attempts for each download (with increasing waits between them).
+    wait: Wait before the second attempt in seconds (``wait * n`` before the ``n+1``-th attempt).
 
     Returns
     -------
@@ -403,7 +404,7 @@ def open_fits_from_urls(
             except Exception as exc:
                 error = exc
                 if attempt < attempts - 1:
-                    time.sleep(2 * (attempt + 1))
+                    time.sleep(wait * (attempt + 1))
         warnings.warn(f"The image could not be downloaded from {url}: {error!r}")
         return None
 
