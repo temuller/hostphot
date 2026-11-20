@@ -45,6 +45,6 @@ jobs:
       - name: Coverage badge and comment
         # only once (one job of the matrix); the badge is updated on pushes to the default branch
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
-        uses: py-cov-action/python-coverage-comment-action@v4
+        uses: py-cov-action/python-coverage-comment-action@v4.7  # (there is no floating v4 tag)
         with:
           GITHUB_TOKEN: ${{ github.token }}
