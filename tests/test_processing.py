@@ -103,6 +103,14 @@ def test_host_model_keeps_central_bar():
 
 
 
+def _axislabel_position(coord) -> list:
+    """Position of the axis label of a wcsaxes coordinate (``get_axislabel_position`` is not available in
+    astropy < 7, where ``axislabels`` is used; it is deprecated in later versions)."""
+    if hasattr(coord, "get_axislabel_position"):
+        return list(coord.get_axislabel_position())
+    return list(coord.axislabels.get_visible_axes())
+
+
 def test_orient_axis_labels():
     """Images rotated by 90 degrees (RA along the y axis) get their axis labels swapped; others are unchanged."""
     import aplpy
@@ -127,7 +135,7 @@ def test_orient_axis_labels():
         assert orient_axis_labels(fig) is rotated
         ra, dec = fig.ax.coords[0], fig.ax.coords[1]
         x_coord, y_coord = (dec, ra) if rotated else (ra, dec)
-        assert x_coord.get_axislabel_position() == ["b"] and y_coord.get_axislabel_position() == ["l"]
+        assert _axislabel_position(x_coord) == ["b"] and _axislabel_position(y_coord) == ["l"]
         assert "RA" in ra.get_axislabel() and "Dec" in dec.get_axislabel()
         fig.tick_labels.hide_y()  # refers to the coordinate along the y axis
         assert not y_coord.ticklabels.get_visible() and x_coord.ticklabels.get_visible()
