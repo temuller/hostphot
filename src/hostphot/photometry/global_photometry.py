@@ -776,8 +776,10 @@ def _extract_aperture(
         if ra is not None and dec is not None:
             gal_pixel_x = gal_obj["x"][0]
             gal_pixel_y = gal_obj["y"][0]
-            gal_world = wcs.wcs_pix2world(gal_pixel_x, gal_pixel_y, 0)
-            gal_coord = SkyCoord(ra=gal_world[0] * u.deg, dec=gal_world[1] * u.deg, frame="icrs")
+            # (full WCS, including distortions such as SIP; the "values" methods do not transform between frames,
+            # e.g. FK5 headers of surveys calibrated against ICRS catalogues, as in the rest of HostPhot)
+            gal_ra, gal_dec = wcs.pixel_to_world_values(gal_pixel_x, gal_pixel_y)
+            gal_coord = SkyCoord(ra=gal_ra * u.deg, dec=gal_dec * u.deg, frame="icrs")
             sn_coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame="icrs")
             separation = sn_coord.separation(gal_coord).arcsec  # transient-galaxy separation
 
@@ -785,7 +787,7 @@ def _extract_aperture(
             b_scaled = gal_obj["b"][0] * scale * kronrad
             theta = gal_obj["theta"][0]
 
-            sn_pixel = wcs.wcs_world2pix(ra, dec, 0)
+            sn_pixel = wcs.world_to_pixel_values(ra, dec)
             dx = sn_pixel[0] - gal_pixel_x
             dy = sn_pixel[1] - gal_pixel_y
             phi = np.arctan2(dy, dx)
