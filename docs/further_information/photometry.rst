@@ -58,9 +58,9 @@ differences:
      - :math:`+0.142 \, (0.156)`
      - :math:`+0.305 \, (0.179)`
    * - Kron (optimised)
-     - :math:`+0.002 \, (0.041)`
-     - :math:`-0.004 \, (0.115)`
-     - :math:`+0.059 \, (0.100)`
+     - :math:`+0.001 \, (0.033)`
+     - :math:`-0.063 \, (0.109)`
+     - :math:`+0.034 \, (0.161)`
    * - CoG
      - :math:`-0.019 \, (0.035)`
      - :math:`-0.038 \, (0.099)`
@@ -89,9 +89,9 @@ see the surveys below), two terms are added in quadrature, which dominate for ex
   in the two outermost annuli of the aperture.
 
 Without these terms, the uncertainties of the injected galaxies were underestimated by factors of :math:`\sim2-5`
-(CoG aperture; :math:`\sim3-12` for the optimised Kron aperture), while with them, the scatter of the magnitude
+(CoG aperture; :math:`\sim4-5` for the optimised Kron aperture), while with them, the scatter of the magnitude
 differences divided by the uncertainties is :math:`\sim1` for the CoG aperture (:math:`0.96` and :math:`1.08` for
-effective radii :math:`\le3` and :math:`\ge6` arcsec). For the real galaxies, the CoG magnitudes of the same galaxy
+effective radii :math:`\le3` and :math:`\ge6` arcsec; :math:`1.1-1.2` for the optimised Kron aperture). For the real galaxies, the CoG magnitudes of the same galaxy
 in different surveys agree within their uncertainties (normalised scatter of :math:`\sim0.9-1.7`, instead of
 :math:`\sim3-5`). The uncertainties of the Kron apertures do not include the flux missed by the aperture (see the
 biases above).
@@ -166,8 +166,8 @@ Local photometry: ``{filt}_{radius}_{flag}_flag`` for the flags of each aperture
   had a scatter more than 3 times larger than those far from it (faint galaxy light or a structured background, e.g.
   a galaxy filling the image), so the floor was estimated from the distant ones. A larger image can help.
 * ``aperture``: the global aperture might not include all the flux of the galaxy (global photometry only; also for
-  the common aperture of a reference filter): the optimised Kron aperture (``optimize_kronrad=True``) reached the
-  maximum scale without converging, or might not fit in the image; or the profile of the CoG aperture
+  the common aperture of a reference filter): the optimised Kron aperture (``optimize_kronrad=True``) might not
+  fit in the image; or the profile of the CoG aperture
   (``aperture_method="cog"``) is still significant at the edge of the image, or its Sérsic tail could not be
   estimated and the aperture is smaller than 4 half-light radii.
 * ``calib``: less reliable calibration: VISTA image with a zeropoint uncertainty (``MAGZRR``) above 0.05 mag, KiDS
@@ -630,7 +630,7 @@ Euclid
 
   Thus, :math:`\sigma = sqrt(\sigma_{\text{var}}^2 + \sigma_{\text{ZP}}^2)`.
 
-  HostPhot Kron photometry has been checked against the Euclid MER catalogues (``flux_detection_total``, Kron apertures) for bright galaxies with ``optimize_kronrad=True``: the :math:`VIS` magnitudes agree within :math:`\sim0.01` mag (median) with the Q1 catalogue in the Euclid Deep Field Fornax and within :math:`0.015` mag (scatter of :math:`0.02` mag) with the DR1 catalogue in a field of the wide survey.
+  HostPhot Kron photometry has been checked against the Euclid MER catalogues (``flux_detection_total``, Kron apertures) for bright galaxies with ``optimize_kronrad=True``: the :math:`VIS` magnitudes agree within :math:`0.02` mag (median; NMAD of :math:`0.04` mag) with the DR1 catalogue in a field of the wide survey (without masks, the optimised aperture can include neighbours, e.g. 2 of 9 galaxies were :math:`>0.1` mag brighter).
 
 Herschel
 ~~~~~~~~
